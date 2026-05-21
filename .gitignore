@@ -1,0 +1,4 @@
+# Generated artefacts from telaris-documentation. The PDFs land here when
+# the docs build script runs with TELARIS_WWW_DOCS_DIR set; the source for
+# them lives in github.com/theagitist/telaris-documentation, not here.
+/docs/*.pdf

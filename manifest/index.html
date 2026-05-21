@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manifest · Telaris</title>
+  <meta name="description" content="A decolonial knowledge archive project. Relational, P2P, non-hierarchical. Threaded by meaning.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="page-manifest">
+
+<nav class="navbar" aria-label="Site"><div class="nav-main"><a class="nav-link" href="/">Home</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/documentation/">Documentation</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/instances/">Instances</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link active" href="/manifest/">Manifest</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer">Source code</a></div><div class="nav-lang" aria-label="Language"><a class="nav-link active" href="/manifest/">EN</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/es/manifest/">ES</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/pt/manifest/">PT</a></div></nav>
+
+<main class="page">
+  <p class="page-eyebrow">Manifest</p>
+  <h1 class="page-title">Manifest</h1>
+  <p class="page-lead">A statement of position, kept short on purpose. What Telaris is, what it refuses, and the six principles that hold it together.</p>
+  <div class="prose">
+<div class="callout callout-warning"><div class="callout-title">Draft</div><div class="callout-body"><p>This Manifest is a draft, written 2026-05-21. Refinement will follow as the documentation matures.</p></div></div>
+<p>A statement of what Telaris is, what it refuses, and the principles that hold it together. Written for anyone reading the project from outside (a potential operator, a source community considering contributing, a student reading the documentation, a curator weighing whether to use the software). The rest of the documentation builds on the positions named here.</p>
+<h2>What Telaris is</h2>
+<p>A decolonial knowledge archive project. Relational, non-hierarchical, federated peer-to-peer, threaded by meaning. Content lives in <strong>galaxies</strong>: clusters of small content units (a passage, an image, a sound, a film clip, a document) that connect through shared <strong>keywords</strong>. There are no folders, no parents, no breadcrumbs, no algorithm; the structure is a rhizome maintained by editors and read by visitors as a three-dimensional scene.</p>
+<p>Telaris is a graduate research project at the University of British Columbia's Institute for Gender, Race, Sexuality and Social Justice. It is open-source software run by independent operators across countries and communities, not a platform run by a single owner.</p>
+<h2>Decolonial as method, not metaphor</h2>
+<p>&quot;Decolonial&quot; names a practice, not an aesthetic. The practice has concrete consequences in how Telaris is designed and operated:</p>
+<ul>
+<li>Refusal of imposed categorical reductions: there is no central vocabulary, no required ontology, no editor-in-chief.</li>
+<li>Data sovereignty for source communities: the people whose material is hosted on a Telaris instance retain authority over it; withdrawal of consent is final and acted on without negotiation.</li>
+<li>Editorial sovereignty for editors: editors decide what to publish in the galaxies they tend; there is no review queue, no approval flow.</li>
+<li>Operator sovereignty for instance operators: each operator runs their instance under their own rules; no central authority dictates content or access.</li>
+</ul>
+<p>These are method choices, not slogans. They show up in the code (no review-queue feature, no central-vocabulary table, no platform-administrator override) as readily as in the documentation.</p>
+<h2>What Telaris is not</h2>
+<p>A clear refusal is a clearer position than a long manifesto.</p>
+<ul>
+<li><strong>Not a platform.</strong> No single owner. No central catalogue. No advertising. No tracking. No data sold or shared for commercial purposes.</li>
+<li><strong>Not an AI training corpus.</strong> Telaris content is not used to train AI models, internally or externally. The corpus is not piped to language-model providers for moderation, classification, summarisation, or any other purpose.</li>
+<li><strong>Not a hierarchy.</strong> No tree structure on the content. No editorial review queue. No &quot;best content&quot; promoted by an algorithm.</li>
+<li><strong>Not extractive.</strong> Content contributed by source communities does not become Telaris's property. Editors do not lose authorship by publishing on Telaris. Operators do not have rights over editors' content beyond what each instance's contract makes explicit.</li>
+<li><strong>Not anonymous by default.</strong> Attribution travels with the work. The editor's authorship is recorded; the source community's name is recorded; the licence (when supplied) is recorded. Anonymity is available when an editor or community asks for it, not the default.</li>
+</ul>
+<h2>Principles, six</h2>
+<p><strong>1. Editorial sovereignty.</strong> Editors decide what to publish in the galaxies they tend. No review queue, no centrally-approved vocabulary, no &quot;wrong&quot; keyword. The cost is responsibility: an editor's choice is the editor's; the software does not police it.</p>
+<p><strong>2. Source-community consent.</strong> When a community contributes material, the community's consent governs the material. Withdrawal of consent is final. Removal is acted on by the operator without negotiation, regardless of any editorial position the operator may hold.</p>
+<p><strong>3. Operator sovereignty.</strong> Each Telaris instance is run by an independent operator under their own rules. There is no central authority over operators. Operators agree to a small set of cross-network commitments (cryptographic identity, honouring federation withdrawals, abiding by these principles) but otherwise govern their instances independently.</p>
+<p><strong>4. Federation, not true P2P.</strong> Galaxies have single authoritative origins; peers mirror them read-only; no merge conflicts, no edit-from-anywhere. Federation is bilateral and consent-based: two operators federate only when both agree, and either can withdraw at any time. The terminology refuses both the dishonest claim of &quot;true P2P&quot; (which Telaris is not) and the platform pattern of a central authority (which Telaris refuses).</p>
+<p><strong>5. Refusal of the platform pattern.</strong> Each design choice is asked against this question: <em>does this import the platform pattern Telaris is built to refuse?</em> Single sign-on, advertising telemetry, central moderation, behavioural algorithms, lock-in formats, captive vocabularies. The answer determines whether the choice is in.</p>
+<p><strong>6. Software open-source, content licensed by editors.</strong> The Telaris instance software is open-source under GPL v3; the central coordination layer (the Pluriverse, when it ships) is AGPL v3. Editorial content carries whatever licence the editor or source community supplies, attached to each piece of content. The software is given away; the content is not annexed to give-away.</p>
+<h2>Where Telaris comes from</h2>
+<p>The project is named <em>Telaris</em> (from the Latin <em>tela</em>, a woven web). It draws on:</p>
+<ul>
+<li><em>Designs for the Pluriverse</em> and <em>Pluriversal Politics</em> by Arturo Escobar.</li>
+<li><em>The Darker Side of Western Modernity</em> by Walter Mignolo.</li>
+<li><em>Constructing the Pluriverse</em> edited by Bernd Reiter.</li>
+<li><em>Discourse on Colonialism</em> by Aimé Césaire.</li>
+<li>The Mocambos / Baobáxia archives and the quilombola tradition of communal digital archiving.</li>
+<li><em>African Fractals</em> by Ron Eglash, for a fractal-as-structure understanding that is grounded outside the European mathematical canon.</li>
+<li>Indigenous Pacific Northwest forest knowledge and the mycorrhizal-network metaphor of Suzanne Simard and Robin Wall Kimmerer, for the mutual-exchange image of federation.</li>
+</ul>
+<p>These are references, not authorities. The project sits in a conversation with this body of work and contributes a small technical artefact to it. The artefact's correctness against the politics it claims is the test the documentation is structured around.</p>
+<h2>What this document is</h2>
+<p>A position statement, kept short on purpose. The full architecture, the editorial conventions, the operator runbooks, and the federation specification live in their own documents. Read this one to know where Telaris stands; read the others to know how it works.</p>
+
+  </div>
+  <a class="pdf-cta" href="/docs/manifest.pdf">Download as PDF &rarr;</a>
+</main>
+
+<footer class="site-footer"><span class="dot" aria-hidden="true"></span><span class="status">System: Online</span><span class="sep" aria-hidden="true">·</span><a href="/privacy/">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="/terms/">Terms</a></footer>
+
+</body>
+</html>

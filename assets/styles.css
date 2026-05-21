@@ -1,0 +1,593 @@
+/* Telaris Pluriverse-website shared stylesheet.
+   Used by every page (home, documentation, instances, manifest, privacy, terms)
+   in every locale (en, es, pt). The wordmark/landing-only styles live below
+   the page-shared chrome. */
+
+:root {
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --accent: #00ffcc;
+  --bg: #000;
+  --fg: #e8eef0;
+  --dim: rgba(232, 238, 240, 0.6);
+  --dimmer: rgba(232, 238, 240, 0.28);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+body { overflow-x: hidden; }
+
+a { color: inherit; }
+
+/* ---------------------------------------------------------------------------
+   Canvas background. Used only on the home page; other pages do not load
+   bg.js so the canvas stays empty / hidden.
+   --------------------------------------------------------------------------- */
+
+#bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bg { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Navbar. Fixed at top across all pages and locales. Contains the main
+   site nav (Home / Documentation / Instances / Manifest) on the left-of-
+   centre and the language toggle (EN / ES / PT) on the right.
+   --------------------------------------------------------------------------- */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.nav-main, .nav-lang {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.nav-main {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5em 0.9em;
+}
+
+.nav-link {
+  color: var(--fg);
+  opacity: 0.55;
+  text-decoration: none;
+  padding: 0 0.1em;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.nav-link:hover,
+.nav-link:focus {
+  opacity: 1;
+  color: var(--accent);
+  outline: none;
+}
+.nav-link.active {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.nav-sep {
+  opacity: 0.25;
+}
+
+.nav-lang {
+  margin-left: auto;
+  font-size: 0.65rem;
+  letter-spacing: 0.28em;
+}
+
+@media (max-width: 700px) {
+  .navbar {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1rem;
+  }
+  .nav-lang { margin-left: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   Home / landing page surface. Wordmark, tagline, hud line, description, CTA.
+   --------------------------------------------------------------------------- */
+
+main.home {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem 5rem;
+  text-align: center;
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.35em;
+  color: var(--accent);
+  opacity: 0.7;
+  text-transform: uppercase;
+  margin: 0 0 1.5rem;
+}
+
+h1.wordmark {
+  font-size: clamp(2.75rem, 11vw, 6.5rem);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  margin: 0;
+  text-transform: uppercase;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.18) 50%, rgba(0, 0, 0, 0) 50%);
+  background-size: 100% 4px;
+  text-shadow: 0 0 24px rgba(0, 255, 204, 0.18);
+}
+
+.tagline {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  letter-spacing: 0.32em;
+  color: var(--dim);
+  text-transform: lowercase;
+}
+
+.hud-line {
+  height: 1px;
+  width: min(560px, 80vw);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  margin: 2rem 0 1.75rem;
+}
+
+.desc {
+  max-width: 540px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--dim);
+  margin: 0 0 2.25rem;
+}
+
+a.cta {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.35);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+a.cta:hover,
+a.cta:focus {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.85);
+  outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Inner-page surface. Used by documentation, instances, manifest, privacy,
+   terms. Quieter than the home; reads as a HUD panel rather than a landing.
+   --------------------------------------------------------------------------- */
+
+main.page {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.page-eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.32em;
+  color: var(--accent);
+  opacity: 0.65;
+  text-transform: uppercase;
+  margin: 0 0 0.85rem;
+}
+
+h1.page-title {
+  font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.4rem;
+  text-transform: none;
+}
+
+.page-lead {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--dim);
+  margin: 0 0 2.5rem;
+  max-width: 60ch;
+}
+
+/* ---------------------------------------------------------------------------
+   Documentation list (replaces the old crowded inline toggles).
+   Each row has a doc title and a short caption, followed by a "Download"
+   link to the PDF in the page's current locale.
+   --------------------------------------------------------------------------- */
+
+.doc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.doc-list-item {
+  display: grid;
+  grid-template-columns: 0.5rem 1fr auto;
+  align-items: baseline;
+  gap: 0.8rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.doc-list-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c, var(--accent));
+  box-shadow: 0 0 8px var(--c, var(--accent));
+  margin-top: 0.45em;
+}
+
+.doc-list-item .doc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.doc-list-item .doc-name {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+}
+
+.doc-list-item .doc-caption {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.doc-list-item .doc-download {
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--fg);
+  opacity: 0.65;
+  text-decoration: none;
+  white-space: nowrap;
+  align-self: center;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.doc-list-item .doc-download:hover,
+.doc-list-item .doc-download:focus {
+  color: var(--accent);
+  opacity: 1;
+  outline: none;
+}
+
+@media (max-width: 540px) {
+  .doc-list-item {
+    grid-template-columns: 0.5rem 1fr;
+  }
+  .doc-list-item .doc-download {
+    grid-column: 2 / 3;
+    align-self: start;
+    margin-top: 0.3rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Instances list. Each instance is a small card with a coloured dot, a
+   URL/link, a short caption describing the operator / community / language,
+   and an optional language tag.
+   --------------------------------------------------------------------------- */
+
+.instance-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1.8rem;
+}
+
+.instance-list-item {
+  display: grid;
+  grid-template-columns: 0.5rem 1fr;
+  gap: 0.9rem;
+  padding-bottom: 1.3rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.instance-list-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c, var(--accent));
+  box-shadow: 0 0 8px var(--c, var(--accent));
+  margin-top: 0.5em;
+}
+
+.instance-list-item a.instance-url {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.instance-list-item a.instance-url:hover,
+.instance-list-item a.instance-url:focus {
+  color: var(--accent);
+  opacity: 1;
+  outline: none;
+}
+
+.instance-list-item .instance-caption {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--dim);
+  margin: 0.35rem 0 0;
+  max-width: 56ch;
+}
+
+.instance-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45em;
+  margin-top: 0.5rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.instance-tag {
+  color: var(--dim);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.18em 0.55em;
+  border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   Long-form prose surface (Manifest, Privacy, Terms). Reads like a quiet
+   spec page rather than a HUD readout. Generous line-height, soft palette.
+   --------------------------------------------------------------------------- */
+
+.prose {
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--fg);
+  opacity: 0.92;
+}
+
+.prose h2 {
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin: 2.4rem 0 0.6rem;
+  text-transform: none;
+}
+
+.prose h3 {
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--fg);
+  opacity: 0.85;
+  margin: 1.6rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.8rem 0;
+}
+
+.prose strong {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.prose em {
+  color: var(--dim);
+  font-style: italic;
+}
+
+.prose ul, .prose ol {
+  padding-left: 1.4rem;
+  margin: 0.8rem 0;
+}
+
+.prose li {
+  margin: 0.35rem 0;
+}
+
+.prose code, .prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0.05em 0.35em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--accent);
+  padding: 0.2rem 1rem;
+  margin: 1.2rem 0;
+  color: var(--dim);
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.prose a:hover,
+.prose a:focus {
+  border-bottom-color: rgba(0, 255, 204, 0.85);
+  outline: none;
+}
+
+/* Callout boxes carried over from the PDF documents (Obsidian-style). */
+.callout {
+  border-left: 2px solid var(--accent);
+  background: rgba(0, 255, 204, 0.05);
+  padding: 0.85rem 1.1rem;
+  margin: 1.2rem 0;
+  border-radius: 3px;
+}
+.callout.callout-warning { border-left-color: #fde047; background: rgba(253, 224, 71, 0.05); }
+.callout.callout-tip { border-left-color: #86efac; background: rgba(134, 239, 172, 0.05); }
+.callout.callout-danger { border-left-color: #fca5a5; background: rgba(252, 165, 165, 0.06); }
+.callout.callout-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+  font-weight: 700;
+}
+
+/* "Download PDF" link below the prose, for Manifest / Privacy / Terms. */
+.pdf-cta {
+  display: inline-block;
+  margin: 2rem 0 0;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+.pdf-cta:hover,
+.pdf-cta:focus {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.85);
+  outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Footer. Single line carrying the system-status indicator and the legal
+   links. Bumped up from the original micro register so Privacy / Terms read
+   as findable content; the status indicator shares the same line and weight.
+   --------------------------------------------------------------------------- */
+
+footer.site-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg);
+  padding: 2.1rem 1.5rem 1.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 3.5rem;
+}
+footer.site-footer .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+  margin-right: 0.7em;
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.85);
+}
+footer.site-footer .status {
+  color: var(--fg);
+  opacity: 0.72;
+}
+footer.site-footer .sep {
+  display: inline-block;
+  margin: 0 0.85em;
+  color: var(--fg);
+  opacity: 0.35;
+}
+footer.site-footer a {
+  color: var(--fg);
+  opacity: 0.88;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 1px;
+  transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+footer.site-footer a:hover,
+footer.site-footer a:focus {
+  color: var(--accent);
+  opacity: 1;
+  border-bottom-color: rgba(0, 255, 204, 0.85);
+  outline: none;
+}
+
+/* Home page anchors the footer at the viewport bottom over the canvas.
+   Stronger backdrop keeps the links readable against the animated nodes. */
+body.home footer.site-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-top: 0;
+  margin-top: 0;
+  padding: 1.25rem 1rem 1.15rem;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.55) 70%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  backdrop-filter: blur(5px);
+}

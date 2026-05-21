@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy · Telaris</title>
+  <meta name="description" content="A decolonial knowledge archive project. Relational, P2P, non-hierarchical. Threaded by meaning.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="page-privacy">
+
+<nav class="navbar" aria-label="Site"><div class="nav-main"><a class="nav-link" href="/">Home</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/documentation/">Documentation</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/instances/">Instances</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/manifest/">Manifest</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer">Source code</a></div><div class="nav-lang" aria-label="Language"><a class="nav-link active" href="/privacy/">EN</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/es/privacy/">ES</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/pt/privacy/">PT</a></div></nav>
+
+<main class="page">
+  <p class="page-eyebrow">Privacy</p>
+  <h1 class="page-title">Privacy</h1>
+  <p class="page-lead">How Telaris handles data, at www.telaris.ca and across the network of independent instances.</p>
+  <div class="prose">
+<div class="callout callout-warning"><div class="callout-title">Draft</div><div class="callout-body"><p>This document is a placeholder. A finalised privacy notice is in progress and will replace this draft. For questions in the interim, write to the maintainer of the instance you are using.</p></div></div>
+<p>Telaris is a research-grade decolonial knowledge archive. The privacy posture described here applies to <strong>www.telaris.ca</strong> (the website you are now reading) and to the <strong>Telaris software</strong> that runs on independent operator instances. Each operator instance is run by an independent operator and may carry additional privacy notices of its own; those notices govern the instance's content. This document covers the rest.</p>
+<h2>What www.telaris.ca collects</h2>
+<p>The site at <code>www.telaris.ca</code> is a single static page. It does not run an analytics tool, does not place advertising trackers, does not set cookies, and does not collect personal information from visitors. The page is served through Cloudflare; standard Cloudflare access logs (truncated IP, user agent, requested URL, response status, timestamp) are kept for short retention by Cloudflare per their own policy. Beyond those access logs, the site does not record visits.</p>
+<p>The site links to downloadable PDFs and to independent Telaris instances. Following one of those links takes you to a different page; this notice does not govern what happens there.</p>
+<h2>What Telaris instances may collect</h2>
+<p>Individual instances (any site running the Telaris software, including the three listed under <em>Active instances</em> on the landing page) may collect a small amount of information necessary for the software to function:</p>
+<ul>
+<li><strong>Editor accounts.</strong> Each instance maintains a list of editors authorised to add content. An editor's name, email, and a password hash are stored for as long as the account is active. Operators may delete editor accounts on request.</li>
+<li><strong>Editorial content.</strong> Wormholes, galaxies, keywords, descriptions, uploaded media, and the relationships between them are stored by each instance. This is the content the visitor sees. Editorial sovereignty is the principle: the editor decides what is published; nothing is reviewed before being shown.</li>
+<li><strong>Source-community consent.</strong> When a source community contributes material to an instance, the community's consent governs the material. Withdrawal of consent is final and is acted on by the operator without negotiation.</li>
+<li><strong>Server-level access logs.</strong> Instances may keep short-retention access logs for operational purposes (debugging, abuse mitigation). IP addresses, when stored, are hashed with a server-side key; clear-text IPs are not retained.</li>
+</ul>
+<h2>What Telaris does not do</h2>
+<ul>
+<li><strong>No advertising.</strong> No third-party trackers, no advertising network, no behavioural profiling.</li>
+<li><strong>No AI training on the corpus.</strong> Telaris content is not used to train AI models, internally or externally.</li>
+<li><strong>No third-party content scanning.</strong> Content is not sent to external services for moderation or classification.</li>
+<li><strong>No selling of data.</strong> Editor accounts, content, and access logs are not sold or shared with third parties for advertising or commercial purposes.</li>
+</ul>
+<h2>Federation and cross-instance content</h2>
+<p>When Telaris instances federate (a planned feature, not yet active at the time of this draft), content that an editor explicitly publishes to a federation partner travels to that partner's instance under cryptographic signatures. The receiving instance hosts a mirror of the content; the origin instance retains sovereignty.</p>
+<p>Editor accounts and operator email addresses <strong>do not</strong> cross federation boundaries. Operator-to-operator communication is mediated through a relay that hides email addresses on both sides.</p>
+<h2>Withdrawal of consent</h2>
+<p>A source community, an editor, or any individual whose material is hosted on a Telaris instance may withdraw consent at any time. The instance's operator is responsible for honouring the withdrawal. Withdrawal removes the material; it does not require negotiation; it is final.</p>
+<h2>Contact</h2>
+<p>Each Telaris instance lists the contact address of its operator on the instance's own site. Use that channel for instance-specific privacy questions. For questions about www.telaris.ca, the software itself, or this notice, contact the maintainer named on the <strong>/governance</strong> page (forthcoming).</p>
+<h2>Version</h2>
+<p>Draft, 2026-05-21. Replaces no prior version. To be revised before public-facing release.</p>
+
+  </div>
+  <a class="pdf-cta" href="/docs/privacy.pdf">Download as PDF &rarr;</a>
+</main>
+
+<footer class="site-footer"><span class="dot" aria-hidden="true"></span><span class="status">System: Online</span><span class="sep" aria-hidden="true">·</span><a href="/privacy/">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="/terms/">Terms</a></footer>
+
+</body>
+</html>

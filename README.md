@@ -4,18 +4,18 @@ Source for the Pluriverse website at <https://www.telaris.ca>. Static multi-page
 
 ## Pages
 
-Six pages × three locales = 18 HTML files.
+Six pages × four locales = 24 HTML files.
 
-| Page | EN | ES | PT |
-|---|---|---|---|
-| Home | `/` | `/es/` | `/pt/` |
-| Documentation | `/documentation/` | `/es/documentation/` | `/pt/documentation/` |
-| Instances | `/instances/` | `/es/instances/` | `/pt/instances/` |
-| Manifest | `/manifest/` | `/es/manifest/` | `/pt/manifest/` |
-| Privacy | `/privacy/` | `/es/privacy/` | `/pt/privacy/` |
-| Terms | `/terms/` | `/es/terms/` | `/pt/terms/` |
+| Page | EN | ES | PT | FR |
+|---|---|---|---|---|
+| Home | `/` | `/es/` | `/pt/` | `/fr/` |
+| Documentation | `/documentation/` | `/es/documentation/` | `/pt/documentation/` | `/fr/documentation/` |
+| Instances | `/instances/` | `/es/instances/` | `/pt/instances/` | `/fr/instances/` |
+| Manifest | `/manifest/` | `/es/manifest/` | `/pt/manifest/` | `/fr/manifest/` |
+| Privacy | `/privacy/` | `/es/privacy/` | `/pt/privacy/` | `/fr/privacy/` |
+| Terms | `/terms/` | `/es/terms/` | `/pt/terms/` | `/fr/terms/` |
 
-URL slugs stay English across all three locales; only the navbar labels and page content are localized. Each page has a language toggle in the navbar that preserves the page across locales (e.g. `/es/manifest/` ↔ `/manifest/` ↔ `/pt/manifest/`).
+URL slugs stay English across all four locales; only the navbar labels and page content are localized. Each page has a language toggle in the navbar that preserves the page across locales (e.g. `/es/manifest/` ↔ `/manifest/` ↔ `/pt/manifest/` ↔ `/fr/manifest/`).
 
 ## Build
 
@@ -23,12 +23,12 @@ URL slugs stay English across all three locales; only the navbar labels and page
 python3 build.py
 ```
 
-One script (`build.py`) generates all 18 HTML files. Edits go through the script:
+One script (`build.py`) generates all 24 HTML files. Edits go through the script:
 
 * **Small content change** (typo, doc caption tweak, new instance row): edit the `I18N` dict in `build.py`, re-run. Do not edit the generated HTML files directly, or your edits get blown away the next time the script runs.
 * **Chrome / structure change** (new page, new locale, navbar tweak): edit the page renderers or chrome helpers in `build.py`, re-run.
 
-Long-form pages (Manifest, Privacy, Terms) read their prose directly from the documentation repo at `~/apps/telaris/documentation/src/<slug>{,-es,-pt}/`; the website does not duplicate that content. The PDFs that are also offered for download are produced by the docs repo's build pipeline.
+Long-form pages (Manifest, Privacy, Terms) read their prose directly from the documentation repo at `~/apps/telaris/documentation/src/<slug>{,-es,-pt,-fr}/`; the website does not duplicate that content. The PDFs that are also offered for download are produced by the docs repo's build pipeline.
 
 Dependencies: `markdown-it-py` (the docs repo already installs it; the build script reuses the same renderer to keep callouts and prose consistent with the PDFs).
 
@@ -36,7 +36,7 @@ Dependencies: `markdown-it-py` (the docs repo already installs it; the build scr
 
 ```
 .
-├── build.py                # Generator for all 18 HTML files.
+├── build.py                # Generator for all 24 HTML files.
 ├── README.md
 ├── .gitignore
 ├── index.html              # Generated (EN home).
@@ -48,6 +48,7 @@ Dependencies: `markdown-it-py` (the docs repo already installs it; the build scr
 ├── terms/index.html        # Generated.
 ├── es/                     # Spanish locale, same six pages.
 ├── pt/                     # Portuguese locale, same six pages.
+├── fr/                     # French locale, same six pages.
 ├── assets/
 │   ├── styles.css          # Shared stylesheet.
 │   └── bg.js               # Home-only canvas animation.

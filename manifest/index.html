@@ -10,7 +10,7 @@
 </head>
 <body class="page-manifest">
 
-<nav class="navbar" aria-label="Site"><div class="nav-main"><a class="nav-link" href="/">Home</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/documentation/">Documentation</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/instances/">Instances</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link active" href="/manifest/">Manifest</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer">Source code</a></div><div class="nav-lang" aria-label="Language"><a class="nav-link active" href="/manifest/">EN</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/es/manifest/">ES</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/pt/manifest/">PT</a></div></nav>
+<nav class="navbar" aria-label="Site"><div class="nav-main"><a class="nav-link" href="/">Home</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/documentation/">Documentation</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/instances/">Instances</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link active" href="/manifest/">Manifest</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer">Source code</a></div><div class="nav-lang" aria-label="Language"><a class="nav-link active" href="/manifest/">EN</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/es/manifest/">ES</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/pt/manifest/">PT</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/fr/manifest/">FR</a></div></nav>
 
 <main class="page">
   <p class="page-eyebrow">Manifest</p>
@@ -31,6 +31,10 @@
 <li>Operator sovereignty for instance operators: each operator runs their instance under their own rules; no central authority dictates content or access.</li>
 </ul>
 <p>These are method choices, not slogans. They show up in the code (no review-queue feature, no central-vocabulary table, no platform-administrator override) as readily as in the documentation.</p>
+<h2>Localization, all the way down</h2>
+<p>A common pattern in software is to localize the visible strings and leave the identifiers, the error codes, the status keys, and other tokens in English. Telaris refuses this. The implicit logic of &quot;English identifiers are neutral; user-visible English is what gets translated&quot; presupposes that meaning lives in English; that the moment a system stops being English, it must become abstract or random. It is the same colonial pattern at a quieter layer.</p>
+<p>In practice: every token an end user or operator might encounter outside the source code is locale-invariant. API error codes use the form <code>&lt;http-status&gt;.&lt;3-digit-subcode&gt;</code> (RFC 9457 Problem Details), e.g., <code>404.001</code>. They carry meaning through positioning, not through English shorthand. The same principle extends to status keys, log categories, and any future identifier that crosses out of source code onto a user-visible surface. When a translation is missing for a given locale, the fallback is the code itself, not the English source string: the worst-case user-visible token is the documented identifier, not an unstated default-to-English.</p>
+<p>Source-code identifiers (variable names, function names, file paths, internal config keys) remain English: they live in the development context and the team reads them every day. The line is whether the token reaches a user or operator outside the source.</p>
 <h2>What Telaris is not</h2>
 <p>A clear refusal is a clearer position than a long manifesto.</p>
 <ul>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the multi-page Telaris Pluriverse website.
 
-Writes 18 HTML files (6 pages × 3 locales) into /var/www/www.telaris.ca/.
+Writes 24 HTML files (6 pages × 4 locales) into /var/www/www.telaris.ca/.
 Each file shares the same chrome (navbar + footer) localized to its
 language, with active-page and active-language indicators.
 
@@ -36,7 +36,7 @@ ROOT = Path("/var/www/www.telaris.ca")
 # of truth for each document's prose is the docs repo, not duplicated here.
 DOCS_REPO = Path.home() / "apps" / "telaris" / "documentation"
 
-LOCALES = ["en", "es", "pt"]
+LOCALES = ["en", "es", "pt", "fr"]
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ def _render_callouts(html: str) -> str:
 def render_doc_markdown(slug: str, lang: str) -> str:
     """Render the markdown source for a doc to HTML body content.
 
-    `slug` is the docs-repo slug (manifest, privacy, tos). `lang` is en/es/pt.
+    `slug` is the docs-repo slug (manifest, privacy, tos). `lang` is en/es/pt/fr.
     Returns the rendered HTML body, ready to be injected inside a `.prose` div.
     The leading H1 is stripped (the page's own H1 carries the title).
     """
@@ -336,6 +336,77 @@ I18N = {
             "download_pdf": "Baixar como PDF",
         },
     },
+    "fr": {
+        "html_lang": "fr",
+        "title_suffix": "Telaris",
+        "weaving": "tisser la mémoire",
+        "tagline_desc": "Un projet d'archive de connaissances décoloniale. Relationnelle, P2P, non hiérarchique. Filée par le sens.",
+        "nav": {
+            "home": "Accueil",
+            "documentation": "Documentation",
+            "instances": "Instances",
+            "manifest": "Manifeste",
+            "source_code": "Code source",
+        },
+        "footer": {
+            "status": "Système : En ligne",
+            "privacy": "Confidentialité",
+            "terms": "Conditions",
+        },
+        "doc_page": {
+            "title": "Documentation",
+            "lead": "Documentation Telaris, disponible en PDF téléchargeable. Chaque document existe aussi en anglais, espagnol et portugais ; utilise le sélecteur de langue dans la barre de navigation pour changer.",
+            "download": "Télécharger le PDF",
+        },
+        "docs": [
+            {"slug": "manifest", "name": "Manifeste", "color": "#00ffcc", "caption": "Déclaration de position. Ce que Telaris est, ce qu'il refuse, les six principes qui le tiennent ensemble. Environ cinq pages."},
+            {"slug": "editor-quick-start", "name": "Démarrage rapide d'édition", "color": "#fde047", "caption": "Cinq étapes jusqu'au premier trou de ver. Pour les comptes d'édition qui veulent le chemin le plus court possible. Six pages."},
+            {"slug": "editor-manual", "name": "Manuel d'édition", "color": "#86efac", "caption": "Référence complète pour qui crée galaxies, trous de ver, mots-clés, portails, visites et vues de visite. Quinze chapitres, soixante-douze pages."},
+            {"slug": "admin-manual", "name": "Manuel d'administration", "color": "#7dd3fc", "caption": "Pour qui exploite une instance Telaris : déploiement, configuration, fédération, gestion des clés, sauvegardes. Brouillon à venir.", "draft": True},
+        ],
+        "instance_page": {
+            "title": "Instances actives",
+            "lead": "Telaris est porté par des personnes indépendantes. Chaque instance est gouvernée par qui l'exploite et par les comptes d'édition et communautés sources qui y contribuent. Ci-dessous, les instances actuellement actives.",
+        },
+        "instances": [
+            {
+                "url": "https://telaris.polivoxia.ca",
+                "host": "telaris.polivoxia.ca",
+                "color": "#7dd3fc",
+                "caption": "Polivoxia production. La première instance Telaris en usage continu, hébergée par Adri M. (UBC GRSJ) chez Polivoxia.",
+                "tags": ["production", "anglais"],
+            },
+            {
+                "url": "https://starmaps.polivoxia.ca",
+                "host": "starmaps.polivoxia.ca",
+                "color": "#86efac",
+                "caption": "Polivoxia développement. L'instance de travail source-de-vérité où nouvelles fonctionnalités et travail éditorial sont validés avant d'atteindre la production.",
+                "tags": ["développement", "anglais"],
+            },
+            {
+                "url": "https://telaris.baobaxia.net",
+                "host": "telaris.baobaxia.net",
+                "color": "#fdba74",
+                "caption": "Baobáxia / Mocambos. Une instance Telaris hébergée aux côtés de l'archive communautaire quilombola Mocambos, en dialogue avec la tradition Baobáxia de l'archivage numérique communautaire.",
+                "tags": ["communauté", "portugais"],
+            },
+        ],
+        "manifest_page": {
+            "title": "Manifeste",
+            "lead": "Une déclaration de position, gardée courte à dessein. Ce que Telaris est, ce qu'il refuse, et les six principes qui le tiennent ensemble.",
+            "download_pdf": "Télécharger en PDF",
+        },
+        "privacy_page": {
+            "title": "Confidentialité",
+            "lead": "Comment Telaris traite les données, sur www.telaris.ca et à travers le réseau d'instances indépendantes.",
+            "download_pdf": "Télécharger en PDF",
+        },
+        "terms_page": {
+            "title": "Conditions d'utilisation",
+            "lead": "Comment le site www.telaris.ca et le logiciel Telaris sont offerts à qui visite, exploite et édite.",
+            "download_pdf": "Télécharger en PDF",
+        },
+    },
 }
 
 
@@ -396,7 +467,7 @@ def render_navbar(lang: str, active_slug: str) -> str:
     )
 
     lang_parts = []
-    other_langs = [("en", "EN"), ("es", "ES"), ("pt", "PT")]
+    other_langs = [("en", "EN"), ("es", "ES"), ("pt", "PT"), ("fr", "FR")]
     for i, (lcode, label) in enumerate(other_langs):
         if i > 0:
             lang_parts.append('<span class="nav-sep" aria-hidden="true">·</span>')

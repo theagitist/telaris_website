@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confidentialité · Telaris</title>
+  <meta name="description" content="Un projet d'archive de connaissances décoloniale. Relationnelle, P2P, non hiérarchique. Filée par le sens.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="page-privacy">
+
+<nav class="navbar" aria-label="Site"><div class="nav-main"><a class="nav-link" href="/fr/">Accueil</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/fr/documentation/">Documentation</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/fr/instances/">Instances</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/fr/manifest/">Manifeste</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer">Code source</a></div><div class="nav-lang" aria-label="Language"><a class="nav-link" href="/privacy/">EN</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/es/privacy/">ES</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="/pt/privacy/">PT</a><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link active" href="/fr/privacy/">FR</a></div></nav>
+
+<main class="page">
+  <p class="page-eyebrow">Confidentialité</p>
+  <h1 class="page-title">Confidentialité</h1>
+  <p class="page-lead">Comment Telaris traite les données, sur www.telaris.ca et à travers le réseau d'instances indépendantes.</p>
+  <div class="prose">
+<div class="callout callout-warning"><div class="callout-title">Brouillon</div><div class="callout-body"><p>Ce document est provisoire. Une version finalisée de l'avis de confidentialité est en cours et remplacera ce brouillon. Pour toute question entre-temps, écris à la personne qui maintient l'instance que tu utilises.</p></div></div>
+<p>Telaris est une archive de connaissance décoloniale de niveau recherche. La posture de confidentialité décrite ici s'applique à <strong>www.telaris.ca</strong> (le site que tu lis en ce moment) et au <strong>logiciel Telaris</strong> qui fonctionne sur des instances tenues de manière indépendante. Chaque instance est tenue par une personne indépendante et peut porter ses propres avis de confidentialité supplémentaires ; ces avis gouvernent le contenu de l'instance. Ce document couvre le reste.</p>
+<h2>Ce que www.telaris.ca collecte</h2>
+<p>Le site <code>www.telaris.ca</code> est une simple page statique. Il n'exécute pas d'outil d'analyse, ne place pas de traceurs publicitaires, n'installe pas de témoins (cookies), et ne collecte aucune information personnelle auprès de qui visite. La page est servie via Cloudflare ; les journaux d'accès standards de Cloudflare (adresse IP tronquée, agent utilisateur, URL demandée, statut de la réponse, horodatage) sont conservés pour une courte durée par Cloudflare selon sa propre politique. Au-delà de ces journaux d'accès, le site n'enregistre pas les visites.</p>
+<p>Le site renvoie à des documents PDF téléchargeables et à des instances indépendantes de Telaris. Suivre un de ces liens mène à une autre page ; cet avis ne gouverne pas ce qui s'y passe.</p>
+<h2>Ce que les instances de Telaris peuvent collecter</h2>
+<p>Les instances individuelles (tout site qui exécute le logiciel Telaris, y compris les trois listées sous <em>Instances actives</em> sur la page d'accueil) peuvent collecter une petite quantité d'information nécessaire au fonctionnement du logiciel :</p>
+<ul>
+<li><strong>Comptes d'édition.</strong> Chaque instance maintient une liste de personnes autorisées à ajouter du contenu. Le nom du compte d'édition, son courriel et un hachage de mot de passe sont stockés tant que le compte reste actif. Qui exploite l'instance peut supprimer des comptes d'édition sur demande.</li>
+<li><strong>Contenu éditorial.</strong> Les trous de ver, les galaxies, les mots-clés, les descriptions, les médias téléversés, et les relations entre eux sont stockés par chaque instance. C'est le contenu que voit qui visite. La souveraineté éditoriale est le principe : qui édite décide ce qui se publie ; rien n'est révisé avant d'être montré.</li>
+<li><strong>Consentement de la communauté source.</strong> Quand une communauté source contribue du matériel à une instance, le consentement de cette communauté gouverne le matériel. Le retrait du consentement est définitif et est exécuté par qui exploite l'instance sans négociation.</li>
+<li><strong>Journaux d'accès au niveau serveur.</strong> Les instances peuvent conserver des journaux d'accès à courte rétention à des fins opérationnelles (débogage, atténuation des abus). Les adresses IP, lorsqu'elles sont stockées, sont hachées avec une clé côté serveur ; les IP en clair ne sont pas conservées.</li>
+</ul>
+<h2>Ce que Telaris ne fait pas</h2>
+<ul>
+<li><strong>Pas de publicité.</strong> Pas de traceurs tiers, pas de réseau publicitaire, pas de profilage comportemental.</li>
+<li><strong>Pas d'entraînement d'IA sur le corpus.</strong> Le contenu de Telaris n'est pas utilisé pour entraîner des modèles d'IA, ni à l'interne ni à l'externe.</li>
+<li><strong>Pas d'analyse de contenu par des tiers.</strong> Le contenu n'est pas envoyé à des services externes pour modération ou classification.</li>
+<li><strong>Pas de vente de données.</strong> Les comptes d'édition, le contenu et les journaux d'accès ne sont pas vendus ni partagés avec des tiers à des fins publicitaires ou commerciales.</li>
+</ul>
+<h2>Fédération et contenu entre instances</h2>
+<p>Quand des instances de Telaris se fédèrent (une fonctionnalité prévue, pas encore active au moment de ce brouillon), le contenu qu'une personne qui édite publie explicitement vers un partenaire de fédération voyage vers l'instance de ce partenaire sous des signatures cryptographiques. L'instance réceptrice héberge un miroir du contenu ; l'instance d'origine conserve sa souveraineté.</p>
+<p>Les comptes d'édition et les courriels d'exploitation <strong>ne</strong> traversent <strong>pas</strong> les frontières de la fédération. La communication entre instances passe par un relais qui masque les adresses de courriel des deux côtés.</p>
+<h2>Retrait du consentement</h2>
+<p>Une communauté source, une personne qui édite, ou toute personne dont le matériel est hébergé sur une instance de Telaris peut retirer son consentement à tout moment. Qui exploite l'instance est responsable d'honorer le retrait. Le retrait supprime le matériel ; il n'exige aucune négociation ; il est définitif.</p>
+<h2>Contact</h2>
+<p>Chaque instance de Telaris liste l'adresse de contact de qui l'exploite sur le site de l'instance elle-même. Utilise ce canal pour les questions de confidentialité propres à une instance. Pour les questions concernant www.telaris.ca, le logiciel lui-même, ou cet avis, contacte la personne qui maintient le projet, nommée sur la page <strong>/governance</strong> (à venir).</p>
+<h2>Version</h2>
+<p>Brouillon, 2026-05-22. Ne remplace aucune version antérieure. À réviser avant toute publication publique.</p>
+
+  </div>
+  <a class="pdf-cta" href="/docs/privacy-fr.pdf">Télécharger en PDF &rarr;</a>
+</main>
+
+<footer class="site-footer"><span class="dot" aria-hidden="true"></span><span class="status">Système : En ligne</span><span class="sep" aria-hidden="true">·</span><a href="/fr/privacy/">Confidentialité</a><span class="sep" aria-hidden="true">·</span><a href="/fr/terms/">Conditions</a></footer>
+
+</body>
+</html>

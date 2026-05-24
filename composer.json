@@ -1,0 +1,9 @@
+{
+    "name": "theagitist/telaris-pluriverse-website",
+    "description": "The Pluriverse website at www.telaris.ca. Public face of the Telaris federation; PHP 8.3 + MySQL.",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.3",
+        "league/commonmark": "^2.7"
+    }
+}

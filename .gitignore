@@ -2,3 +2,15 @@
 # the docs build script runs with TELARIS_WWW_DOCS_DIR set; the source for
 # them lives in github.com/theagitist/telaris-documentation, not here.
 /docs/*.pdf
+
+# Runtime config (DB credentials etc.). Per-instance, never in git.
+/config.php
+
+# Composer artefacts; runtime deps installed per-instance.
+/vendor/
+/composer.lock
+
+# Editor / OS noise.
+*.swp
+*.swo
+.DS_Store

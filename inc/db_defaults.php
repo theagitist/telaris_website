@@ -1,0 +1,133 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Default project_info chrome strings, one row per locale.
+ *
+ * Used by db_seed_project_info() to populate missing locale rows. Existing
+ * rows are never overwritten — operators may edit the table directly.
+ *
+ * Translation policy: ES tú-form, PT você-form, FR tu-form. Gender-neutral
+ * across all locales. See [[feedback-telaris-translation-style]] for canon.
+ *
+ * Lifted from /var/www/www.telaris.ca/build.py I18N dict (which the PHP
+ * migration replaces). When this list and that one drift, this file wins
+ * once the PHP migration ships; build.py will be removed at cutover.
+ */
+
+function pluriverse_project_info_defaults(): array {
+    return [
+        'en' => [
+            'html_lang' => 'en',
+            'title_suffix' => 'Telaris',
+            'weaving' => 'weaving memory',
+            'tagline_desc' => 'A decolonial knowledge archive project. Relational, P2P, non-hierarchical. Threaded by meaning.',
+            'nav_home' => 'Home',
+            'nav_documentation' => 'Documentation',
+            'nav_instances' => 'Instances',
+            'nav_manifest' => 'Manifest',
+            'nav_source_code' => 'Source code',
+            'footer_status' => 'System: Online',
+            'footer_privacy' => 'Privacy',
+            'footer_terms' => 'Terms',
+            'doc_title' => 'Documentation',
+            'doc_lead' => 'Telaris documentation, available as downloadable PDFs. Each document is also available in Spanish, Portuguese, and French; use the language toggle in the navigation bar to switch.',
+            'doc_download' => 'Download PDF',
+            'instance_title' => 'Active instances',
+            'instance_lead' => 'Telaris is run by independent operators. Each instance is governed by the operator who runs it and the editors and source communities who contribute to it. Below are the instances currently active.',
+            'manifest_title' => 'Manifest',
+            'manifest_lead' => 'A statement of position, kept short on purpose. What Telaris is, what it refuses, and the six principles that hold it together.',
+            'manifest_download_pdf' => 'Download as PDF',
+            'privacy_title' => 'Privacy',
+            'privacy_lead' => 'How Telaris handles data, at www.telaris.ca and across the network of independent instances.',
+            'privacy_download_pdf' => 'Download as PDF',
+            'terms_title' => 'Terms of Use',
+            'terms_lead' => 'How the website at www.telaris.ca and the Telaris software are offered to visitors, operators, and editors.',
+            'terms_download_pdf' => 'Download as PDF',
+        ],
+        'es' => [
+            'html_lang' => 'es',
+            'title_suffix' => 'Telaris',
+            'weaving' => 'tejiendo memoria',
+            'tagline_desc' => 'Un proyecto de archivo de conocimiento decolonial. Relacional, P2P, no jerárquico. Hilado por el significado.',
+            'nav_home' => 'Inicio',
+            'nav_documentation' => 'Documentación',
+            'nav_instances' => 'Instancias',
+            'nav_manifest' => 'Manifiesto',
+            'nav_source_code' => 'Código fuente',
+            'footer_status' => 'Sistema: En línea',
+            'footer_privacy' => 'Privacidad',
+            'footer_terms' => 'Términos',
+            'doc_title' => 'Documentación',
+            'doc_lead' => 'Documentación de Telaris, disponible como PDF descargable. Cada documento existe también en inglés, portugués y francés; usa el selector de idioma de la barra de navegación para cambiar.',
+            'doc_download' => 'Descargar PDF',
+            'instance_title' => 'Instancias activas',
+            'instance_lead' => 'Telaris lo operan personas independientes. Cada instancia se gobierna por quien la opera y por las editoras y comunidades de origen que contribuyen a ella. A continuación, las instancias actualmente activas.',
+            'manifest_title' => 'Manifiesto',
+            'manifest_lead' => 'Una declaración de posición, mantenida corta a propósito. Qué es Telaris, qué rechaza, y los seis principios que lo sostienen.',
+            'manifest_download_pdf' => 'Descargar como PDF',
+            'privacy_title' => 'Privacidad',
+            'privacy_lead' => 'Cómo Telaris maneja los datos, en www.telaris.ca y en la red de instancias independientes.',
+            'privacy_download_pdf' => 'Descargar como PDF',
+            'terms_title' => 'Términos de uso',
+            'terms_lead' => 'Cómo se ofrece el sitio www.telaris.ca y el software de Telaris a quienes visitan, operan y editan.',
+            'terms_download_pdf' => 'Descargar como PDF',
+        ],
+        'pt' => [
+            'html_lang' => 'pt-BR',
+            'title_suffix' => 'Telaris',
+            'weaving' => 'tecendo memória',
+            'tagline_desc' => 'Um projeto de arquivo de conhecimento decolonial. Relacional, P2P, não hierárquico. Fiado por significado.',
+            'nav_home' => 'Início',
+            'nav_documentation' => 'Documentação',
+            'nav_instances' => 'Instâncias',
+            'nav_manifest' => 'Manifesto',
+            'nav_source_code' => 'Código fonte',
+            'footer_status' => 'Sistema: Online',
+            'footer_privacy' => 'Privacidade',
+            'footer_terms' => 'Termos',
+            'doc_title' => 'Documentação',
+            'doc_lead' => 'Documentação de Telaris, disponível em PDF para download. Cada documento também existe em inglês, espanhol e francês; use o seletor de idioma na barra de navegação para alternar.',
+            'doc_download' => 'Baixar PDF',
+            'instance_title' => 'Instâncias ativas',
+            'instance_lead' => 'Telaris é operado por pessoas independentes. Cada instância é governada por quem a opera e pelas editoras e comunidades de origem que contribuem para ela. Abaixo, as instâncias atualmente ativas.',
+            'manifest_title' => 'Manifesto',
+            'manifest_lead' => 'Uma declaração de posição, mantida curta de propósito. O que Telaris é, o que recusa, e os seis princípios que o sustentam.',
+            'manifest_download_pdf' => 'Baixar como PDF',
+            'privacy_title' => 'Privacidade',
+            'privacy_lead' => 'Como Telaris lida com dados, em www.telaris.ca e na rede de instâncias independentes.',
+            'privacy_download_pdf' => 'Baixar como PDF',
+            'terms_title' => 'Termos de uso',
+            'terms_lead' => 'Como o site www.telaris.ca e o software de Telaris são oferecidos a quem visita, opera e edita.',
+            'terms_download_pdf' => 'Baixar como PDF',
+        ],
+        'fr' => [
+            'html_lang' => 'fr',
+            'title_suffix' => 'Telaris',
+            'weaving' => 'tisser la mémoire',
+            'tagline_desc' => "Un projet d'archive de connaissances décoloniale. Relationnelle, P2P, non hiérarchique. Filée par le sens.",
+            'nav_home' => 'Accueil',
+            'nav_documentation' => 'Documentation',
+            'nav_instances' => 'Instances',
+            'nav_manifest' => 'Manifeste',
+            'nav_source_code' => 'Code source',
+            'footer_status' => 'Système : En ligne',
+            'footer_privacy' => 'Confidentialité',
+            'footer_terms' => 'Conditions',
+            'doc_title' => 'Documentation',
+            'doc_lead' => "Documentation Telaris, disponible en PDF téléchargeable. Chaque document existe aussi en anglais, espagnol et portugais ; utilise le sélecteur de langue dans la barre de navigation pour changer.",
+            'doc_download' => 'Télécharger le PDF',
+            'instance_title' => 'Instances actives',
+            'instance_lead' => "Telaris est porté par des personnes indépendantes. Chaque instance est gouvernée par qui l'exploite et par les comptes d'édition et communautés sources qui y contribuent. Ci-dessous, les instances actuellement actives.",
+            'manifest_title' => 'Manifeste',
+            'manifest_lead' => "Une déclaration de position, gardée courte à dessein. Ce que Telaris est, ce qu'il refuse, et les six principes qui le tiennent ensemble.",
+            'manifest_download_pdf' => 'Télécharger en PDF',
+            'privacy_title' => 'Confidentialité',
+            'privacy_lead' => "Comment Telaris traite les données, sur www.telaris.ca et à travers le réseau d'instances indépendantes.",
+            'privacy_download_pdf' => 'Télécharger en PDF',
+            'terms_title' => "Conditions d'utilisation",
+            'terms_lead' => "Comment le site www.telaris.ca et le logiciel Telaris sont offerts à qui visite, exploite et édite.",
+            'terms_download_pdf' => 'Télécharger en PDF',
+        ],
+    ];
+}

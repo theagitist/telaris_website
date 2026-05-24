@@ -102,4 +102,6 @@ The PDFs in `docs/` are gitignored because they are generated artefacts whose so
 
 ## License
 
-The Pluriverse application itself is AGPL-3.0-or-later, per the federation plan v10. The static assets (`assets/styles.css`, `assets/bg.js`) and content are the project's own; see the Manifest for editorial framing.
+This repo is **AGPL-3.0-or-later**. Full license text in `LICENSE` (the canonical GNU text). The choice is deliberate: under GPL v3, a hostile or commercial operator could fork the Pluriverse and run a modified version as a network service without sharing changes; AGPL v3 closes that SaaS loophole and preserves the project's commitment that *any operator can fork the Pluriverse and run a parallel one if the network needs governance recovery* with full source visibility. See the federation plan v10 and the project Manifest for the political framing.
+
+The Telaris **instance** code at <https://github.com/theagitist/telaris> is GPL v3 (different scope — operators distribute the code; the source-sharing requirement bites at distribution).

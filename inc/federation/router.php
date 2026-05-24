@@ -1,0 +1,77 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Pluriverse-side federation request router.
+ *
+ * Entry point for every `/api/pluriverse/*` request on www.telaris.ca.
+ * Dispatches to the matching endpoint handler. Called from index.php
+ * before the visitor page handler dispatch runs.
+ *
+ * Endpoints land here as 2c → 2d → 2e → stage 2g+ work ships. At 2c the
+ * only endpoint is GET /api/pluriverse/identity.
+ *
+ * Responses use RFC 9457 Problem Details (application/problem+json) for
+ * errors. Same shape as the instance-side router so verifier code can
+ * parse both surfaces with one decoder.
+ */
+
+$path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '/';
+$path = rtrim($path, '/');
+if ($path === '') $path = '/';
+
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+$routes = [
+    '/api/pluriverse/identity' => ['methods' => ['GET'], 'handler' => __DIR__ . '/identity_handler.php'],
+];
+
+if (!isset($routes[$path])) {
+    federation_router_problem(
+        404,
+        'not_found',
+        'No federation endpoint at ' . $path,
+        $path
+    );
+    return;
+}
+
+$route = $routes[$path];
+if (!in_array($method, $route['methods'], true)) {
+    header('Allow: ' . implode(', ', $route['methods']));
+    federation_router_problem(
+        405,
+        'method_not_allowed',
+        $method . ' is not allowed on ' . $path . '; allowed: ' . implode(', ', $route['methods']),
+        $path
+    );
+    return;
+}
+
+require $route['handler'];
+return;
+
+/**
+ * Emit an RFC 9457 Problem Details JSON error and set headers.
+ */
+function federation_router_problem(int $status, string $code, string $detail, string $instance): void {
+    http_response_code($status);
+    header('Content-Type: application/problem+json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+    echo json_encode([
+        'type' => 'https://www.telaris.ca/docs/errors/' . $code,
+        'title' => match ($status) {
+            400 => 'Bad Request',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            429 => 'Too Many Requests',
+            500 => 'Internal Server Error',
+            503 => 'Service Unavailable',
+            default => 'Error',
+        },
+        'status' => $status,
+        'detail' => $detail,
+        'instance' => $instance,
+        'code' => $code,
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}

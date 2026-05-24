@@ -4,11 +4,29 @@ declare(strict_types=1);
 /**
  * Pluriverse website front controller.
  *
- * Bootstrap resolves REQUEST_URI → ($pluriverseLocale, $pluriversePage).
- * This file maps $pluriversePage to a handler under inc/pages/ and
- * dispatches to it. Unknown pages return 404.
+ * Two dispatch paths land here:
+ *   1. Federation API requests at /api/pluriverse/* are short-circuited to
+ *      inc/federation/router.php BEFORE bootstrap, because bootstrap pulls
+ *      in DB-backed locale resolution that federation endpoints don't need
+ *      and don't want.
+ *   2. Visitor page requests run through bootstrap (locale + page resolve,
+ *      project_info load) and dispatch by $pluriversePage to a handler in
+ *      inc/pages/.
+ *
+ * Nginx try_files routes everything without a literal file match through
+ * here ($uri → /index.php?route=$uri&$args), so this is the single entry
+ * point for both surfaces.
  */
 
+// 1. Federation short-circuit. No bootstrap needed; the router reads
+// secrets/pluriverse-coord.key directly via inc/federation/identity.php.
+$reqPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '/';
+if (str_starts_with($reqPath, '/api/pluriverse/')) {
+    require __DIR__ . '/inc/federation/router.php';
+    exit;
+}
+
+// 2. Visitor pages.
 require_once __DIR__ . '/inc/bootstrap.php';
 
 $pageHandlers = [

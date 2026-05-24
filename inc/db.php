@@ -189,3 +189,4 @@ function db_content_cache_put(string $slug, string $locale, int $sourceMtime, st
 }
 
 require_once __DIR__ . '/db_defaults.php';
+require_once __DIR__ . '/db_federation.php';

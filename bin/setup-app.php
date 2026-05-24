@@ -153,30 +153,38 @@ if (!$canConnect) {
         $version = (string)$pdo->query('SELECT VERSION()')->fetchColumn();
         $tasks[] = ['name' => 'DB reachable', 'status' => 'ok', 'detail' => 'MySQL ' . $version, 'fix' => null];
 
-        // Schema materialize is the "fix" for this task; the "check" is "do
-        // both tables exist". Either way idempotent.
-        $hasTables = function() use ($pdo): bool {
-            $rows = $pdo->query("SHOW TABLES LIKE 'project_info'")->fetchAll();
-            $rows2 = $pdo->query("SHOW TABLES LIKE 'content_cache'")->fetchAll();
-            return $rows !== [] && $rows2 !== [];
+        // Schema materialize covers website tables (project_info,
+        // content_cache) AND federation tables (12 of them; see
+        // inc/db_federation.php). Either way idempotent.
+        $expectedTables = ['project_info', 'content_cache'];
+        $expectedFederation = ['instances', 'instance_status_log', 'instance_status_log_archive', 'registry_admins', 'magic_link_tokens', 'sessions', 'blacklists', 'anomaly_log', 'key_events_signed', 'key_event_push_attempts', 'pluriverse_log', 'pluriverse_log_archive'];
+        $allExpected = array_merge($expectedTables, $expectedFederation);
+
+        $missingTables = function() use ($pdo, $allExpected): array {
+            $present = array_map('strval', $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN));
+            return array_values(array_diff($allExpected, $present));
         };
-        if ($hasTables()) {
-            $tasks[] = ['name' => 'schema materialized', 'status' => 'ok', 'detail' => 'project_info + content_cache present', 'fix' => null];
+        $missing = $missingTables();
+        if ($missing === []) {
+            $tasks[] = ['name' => 'schema materialized', 'status' => 'ok', 'detail' => count($allExpected) . ' tables present (website + federation)', 'fix' => null];
         } else {
-            $fix = function() use ($hasTables) {
+            $fix = function() use ($missingTables) {
                 db_ensure_project_info();
                 db_ensure_content_cache();
-                if (!$hasTables()) {
-                    return ['ok' => false, 'detail' => 'db_ensure_* ran but tables still missing'];
+                db_ensure_federation_schema();
+                $still = $missingTables();
+                if ($still !== []) {
+                    return ['ok' => false, 'detail' => 'db_ensure_* ran but still missing: ' . implode(', ', $still)];
                 }
-                return ['ok' => true, 'detail' => 'ran db_ensure_project_info + db_ensure_content_cache'];
+                return ['ok' => true, 'detail' => 'ran db_ensure_* (website + federation schema)'];
             };
-            $tasks[] = ['name' => 'schema materialized', 'status' => 'missing', 'detail' => 'tables absent', 'fix' => $fix];
+            $tasks[] = ['name' => 'schema materialized', 'status' => 'missing', 'detail' => 'missing tables: ' . implode(', ', $missing), 'fix' => $fix];
         }
 
-        // Locale row count check. After --check, if schema was missing this
-        // is skipped (no table to query); after fix it should pass.
-        if ($hasTables()) {
+        // Locale row count check. After --check, if project_info was missing
+        // this is skipped (no table to query); after fix it should pass.
+        $projectInfoPresent = $pdo->query("SHOW TABLES LIKE 'project_info'")->fetch() !== false;
+        if ($projectInfoPresent) {
             $count = (int)$pdo->query("SELECT COUNT(*) FROM project_info")->fetchColumn();
             $expected = count(PLURIVERSE_LOCALES);
             if ($count >= $expected) {

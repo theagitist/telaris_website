@@ -50,6 +50,21 @@ server {
         return 404;
     }
 
+    # Block deploy artefacts: nginx vhost sample, config.php template,
+    # everything under /etc/ and /bin/. These have no place in HTTP.
+    location ^~ /etc/ {
+        deny all;
+        return 404;
+    }
+    location ^~ /bin/ {
+        deny all;
+        return 404;
+    }
+    location ~ \.sample$ {
+        deny all;
+        return 404;
+    }
+
     # Serve /LICENSE inline as text/plain. nginx has no default mime type for
     # extensionless files, so without this it falls back to
     # application/octet-stream and browsers force a download.

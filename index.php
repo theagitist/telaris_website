@@ -36,6 +36,7 @@ $pageHandlers = [
     'manifest' => 'manifest',
     'privacy' => 'privacy',
     'terms' => 'terms',
+    'apply' => 'apply',
 ];
 
 $handler = $pageHandlers[$pluriversePage] ?? null;

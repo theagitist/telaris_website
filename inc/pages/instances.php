@@ -22,11 +22,7 @@ $instances = pluriverse_instances($pluriverseLocale);
       <div>
         <a class="instance-url" href="<?= h($inst['url']) ?>" target="_blank" rel="noopener noreferrer"><?= h($inst['host']) ?> &rarr;</a>
         <p class="instance-caption"><?= h($inst['caption']) ?></p>
-        <div class="instance-tags">
-<?php foreach ($inst['tags'] as $tag): ?>
-<span class="instance-tag"><?= h($tag) ?></span>
-<?php endforeach; ?>
-        </div>
+        <div class="instance-tags"><?php foreach ($inst['tags'] as $tag): ?><span class="instance-tag"><?= h($tag) ?></span><?php endforeach; ?></div>
       </div>
     </li>
 <?php endforeach; ?>

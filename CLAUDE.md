@@ -116,7 +116,21 @@ sudo php bin/setup-host.php --check
 
 The PDFs in `/docs/` arrive automatically when the docs repo builds with `TELARIS_WWW_DOCS_DIR=/var/www/www.telaris.ca/docs/` set in the shell rcfile.
 
-## What's next
+## Federation stage 2 — in flight
 
-- **Federation stage 2** (the Pluriverse v1 application) extends this same codebase with peers / key_events / registry_admins / instances / magic_link_tokens / sessions / blacklists / anomaly_log / key_events_signed / key_event_push_attempts / instance_status_log tables, operator magic-link auth, admin pages, and the Pluriverse-coord-key federation HTTP surface (`/api/pluriverse/identity` etc., mirroring the instance side at `~/apps/telaris/starmaps/inc/federation/`).
-- LICENSE: AGPL-3.0-or-later text in `LICENSE` at the repo root (added 2026-05-24, commit `042ba07`). composer.json declares the same license. Both layers in place.
+Mechanical mirrors (2a-2e) and Mailgun integration (2f-i) shipped 2026-05-24. Commits `2228152` → `027bcc9`. Provisioned on this host:
+
+- 12 federation tables materialized: `instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive.
+- Four secret keys in `secrets/` (0600 www-data:www-data): `pluriverse-coord.key` (Ed25519, fingerprint `IzyKJPRmhmVxWNKQEmTY4g`), `log.key`, `pii_master.key`, `pii_lookup.key`.
+- `GET /api/pluriverse/identity` live (returns `kind: "pluriverse-coord"`).
+- `GET /api/pluriverse/openapi.json` live (OpenAPI 3.1; info.version cross-pinned to identity.protocol_version).
+- `inc/federation/http_sig.php` (RFC 9421 sign/verify); byte-identical to instance side.
+- `inc/mail.php` (PHPMailer wrapper via Mailgun SMTP). Live MAIL_* credentials in `config.php` may need a top-up — verify via `pluriverse_mail_connection_check()` before sending.
+
+Design for the remaining sub-chunks (2f-ii through 2l) at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation/Stage 2 application surface design.md`. Active execution state at [[project-telaris-federation-stage-2-active]] in memory.
+
+Next-up: confirm MAIL_* in config.php → smoke email to `aemjcr@gmail.com` (Adri's main address per [[user-primary-email]]) → 2f-ii (`bin/init-admin`).
+
+## License
+
+LICENSE: AGPL-3.0-or-later text in `LICENSE` at the repo root (added 2026-05-24, commit `042ba07`). composer.json declares the same license. Both layers in place.

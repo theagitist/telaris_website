@@ -1,10 +1,10 @@
 # telaris_website
 
-Source for the Pluriverse website at <https://www.telaris.ca>. Static multi-page site, served by nginx, no application code. The federation plan (v10) frames `www.telaris.ca` as the eventual home of the Pluriverse application proper; the current implementation is the public-facing surface that lands when federation ships.
+Source for the Pluriverse website at <https://www.telaris.ca>. PHP 8.3 + MySQL, mirroring the stack of every Telaris instance. The federation plan v10 frames `www.telaris.ca` as the eventual home of the Pluriverse application proper; this codebase is the public-facing surface that ships first.
 
 ## Pages
 
-Six pages × four locales = 24 HTML files.
+Six pages × four locales = 24 URLs, served by one front controller.
 
 | Page | EN | ES | PT | FR |
 |---|---|---|---|---|
@@ -15,54 +15,91 @@ Six pages × four locales = 24 HTML files.
 | Privacy | `/privacy/` | `/es/privacy/` | `/pt/privacy/` | `/fr/privacy/` |
 | Terms | `/terms/` | `/es/terms/` | `/pt/terms/` | `/fr/terms/` |
 
-URL slugs stay English across all four locales; only the navbar labels and page content are localized. Each page has a language toggle in the navbar that preserves the page across locales (e.g. `/es/manifest/` ↔ `/manifest/` ↔ `/pt/manifest/` ↔ `/fr/manifest/`).
+URL slugs stay English across all four locales; only the navbar labels and page content are localized. The language toggle in the navbar preserves the current page across locales (e.g. `/es/manifest/` ↔ `/manifest/` ↔ `/pt/manifest/` ↔ `/fr/manifest/`).
 
-## Build
+## Architecture
+
+PHP 8.3 + MySQL, mirroring the Telaris instance pattern:
+
+- **`config.php`** — runtime credentials, gitignored. Per-instance, never in source control.
+- **`inc/db.php`** — PDO + utf8mb4 + InnoDB. Idempotent `db_ensure_*()` helpers create / reconcile the schema on first call; default project_info rows seeded by `INSERT IGNORE` so operator edits are preserved.
+- **`inc/db_defaults.php`** — default chrome strings for EN/ES/PT/FR, used by the seed.
+- **`inc/locale.php`** — parses `REQUEST_URI` → `(locale, page, prefix)`.
+- **`inc/bootstrap.php`** — common page bootstrap (config + db + schema ensure + locale resolve + project_info load). Every page request_onces this once.
+- **`inc/content.php`** — markdown renderer (league/commonmark) with the same Obsidian-callout transformer the docs PDFs use. Renders to cached HTML keyed by `(slug, locale, source_mtime)`.
+- **`inc/partials/`** — head/navbar and footer.
+- **`inc/pages/`** — six page handlers: `home`, `documentation`, `instances`, `manifest`, `privacy`, `terms`.
+- **`index.php`** — front controller. Bootstrap → handler dispatch.
+
+Long-form pages (Manifest, Privacy, Terms) render their prose at request time from the documentation repo at `~/apps/telaris/documentation/src/<slug>[-locale]/01-<slug>.md`. The same files build the downloadable PDFs in `docs/`. Cache invalidates automatically when the source mtime changes.
+
+## Schema
+
+Two tables in the `pluriverse` MySQL database:
+
+- **`project_info`** — one row per locale; chrome strings (navbar labels, page titles, page leads, doc captions, etc.). Operators may edit rows directly; seed rows install only if absent.
+- **`content_cache`** — markdown render cache, keyed by `(slug, locale, source_mtime)`.
+
+Federation tables (`peers`, `key_events`, `registry_admins`) are deferred — they land when federation implementation extends the Pluriverse beyond a marketing surface.
+
+## Dependencies
+
+- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring.
+- MySQL 8.x.
+- One Composer package: [`league/commonmark`](https://commonmark.thephpleague.com/) for markdown rendering.
 
 ```sh
-python3 build.py
+composer install --no-dev
 ```
-
-One script (`build.py`) generates all 24 HTML files. Edits go through the script:
-
-* **Small content change** (typo, doc caption tweak, new instance row): edit the `I18N` dict in `build.py`, re-run. Do not edit the generated HTML files directly, or your edits get blown away the next time the script runs.
-* **Chrome / structure change** (new page, new locale, navbar tweak): edit the page renderers or chrome helpers in `build.py`, re-run.
-
-Long-form pages (Manifest, Privacy, Terms) read their prose directly from the documentation repo at `~/apps/telaris/documentation/src/<slug>{,-es,-pt,-fr}/`; the website does not duplicate that content. The PDFs that are also offered for download are produced by the docs repo's build pipeline.
-
-Dependencies: `markdown-it-py` (the docs repo already installs it; the build script reuses the same renderer to keep callouts and prose consistent with the PDFs).
 
 ## File layout
 
 ```
 .
-├── build.py                # Generator for all 24 HTML files.
 ├── README.md
-├── .gitignore
-├── index.html              # Generated (EN home).
-├── documentation/
-│   └── index.html          # Generated.
-├── instances/index.html    # Generated.
-├── manifest/index.html     # Generated.
-├── privacy/index.html      # Generated.
-├── terms/index.html        # Generated.
-├── es/                     # Spanish locale, same six pages.
-├── pt/                     # Portuguese locale, same six pages.
-├── fr/                     # French locale, same six pages.
+├── .gitignore                # /config.php, /vendor/, /composer.lock, /docs/*.pdf
+├── composer.json
+├── config.php                # Per-instance; gitignored.
+├── index.php                 # Front controller.
+├── inc/
+│   ├── bootstrap.php
+│   ├── content.php
+│   ├── db.php
+│   ├── db_defaults.php
+│   ├── locale.php
+│   ├── partials/
+│   │   ├── head.php          # <head> + opening <body> + navbar
+│   │   └── footer.php        # footer + closing tags
+│   └── pages/
+│       ├── home.php
+│       ├── documentation.php
+│       ├── instances.php
+│       ├── manifest.php      # → _content_page.php with slug=manifest
+│       ├── privacy.php       # → _content_page.php with slug=privacy
+│       ├── terms.php         # → _content_page.php with slug=terms
+│       └── _content_page.php # Shared template for the three markdown-backed pages.
 ├── assets/
-│   ├── styles.css          # Shared stylesheet.
-│   └── bg.js               # Home-only canvas animation.
-└── docs/                   # PDF downloads, gitignored. Populated by the
-                            # docs repo's build pipeline with
-                            # TELARIS_WWW_DOCS_DIR set to this directory.
+│   ├── styles.css            # Shared stylesheet.
+│   └── bg.js                 # Home-only canvas animation.
+├── docs/                     # PDF downloads. Gitignored; populated by the docs
+│                             # repo's build pipeline when TELARIS_WWW_DOCS_DIR
+│                             # is set to this directory.
+└── vendor/                   # Composer-installed deps. Gitignored.
 ```
 
 ## Deployment
 
-Pull from git, run `python3 build.py`, and nginx serves the result. The vhost lives at `/etc/nginx/sites-available/www.telaris.ca.conf`; the document root is `/var/www/www.telaris.ca/`.
+Pull from git, run `composer install --no-dev`, and nginx serves the result. The vhost lives at `/etc/nginx/sites-available/www.telaris.ca.conf`; the document root is `/var/www/www.telaris.ca/`. The vhost routes every request through `index.php` (front controller); direct access to `config.php`, `/inc/`, `/vendor/`, and `composer.json` returns 404.
+
+The PHP-FPM worker user (`www-data` on this host) needs read access to the docs source tree. On this host that is granted via filesystem ACLs:
+
+```sh
+sudo setfacl -m u:www-data:x /home/<user> /home/<user>/apps /home/<user>/apps/telaris /home/<user>/apps/telaris/documentation
+sudo setfacl -R -m u:www-data:rX /home/<user>/apps/telaris/documentation/src
+```
 
 The PDFs in `docs/` are gitignored because they are generated artefacts whose source lives in [telaris-documentation](https://github.com/theagitist/telaris-documentation). They are copied here automatically whenever the docs repo's build runs with `TELARIS_WWW_DOCS_DIR=/var/www/www.telaris.ca/docs/` set in the shell rcfile.
 
-## Future
+## License
 
-The federation plan v10 anticipates this surface growing into the Pluriverse application (operator accounts, peer admission, federation message relay, etc.) on a PHP 8.3 + MySQL stack matching the existing Telaris instance code. The current build script is intentionally minimal so the upgrade path is open; when the dynamic surfaces land, the static HTML files for the public-facing pages can either stay as is or move into PHP includes that share the same chrome.
+The Pluriverse application itself is AGPL-3.0-or-later, per the federation plan v10. The static assets (`assets/styles.css`, `assets/bg.js`) and content are the project's own; see the Manifest for editorial framing.

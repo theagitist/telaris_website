@@ -44,7 +44,12 @@ function db_ensure_instances_table(): void {
     if ($checked) return;
     $checked = true;
     try {
-        getDB()->exec("
+        $pdo = getDB();
+        // Fresh-install shape. The two former fixed channels (telegram,
+        // signal) collapsed into a single JSON-in-secretbox "other_contacts_enc"
+        // column on 2026-05-24 so the application form can accept any
+        // service-name / user-id pair without schema churn.
+        $pdo->exec("
             CREATE TABLE IF NOT EXISTS instances (
                 id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
                 hostname VARCHAR(255) NOT NULL,
@@ -56,8 +61,7 @@ function db_ensure_instances_table(): void {
                 rotation_reason ENUM('scheduled','operational','compromise') NULL,
                 operator_email_enc VARBINARY(512) NOT NULL,
                 operator_email_lookup_hash VARBINARY(32) NOT NULL,
-                telegram_handle_enc VARBINARY(512) NULL,
-                signal_contact_enc VARBINARY(512) NULL,
+                other_contacts_enc VARBINARY(2048) NULL,
                 label VARCHAR(255) NOT NULL,
                 editorial_framing TEXT NULL,
                 publishable_slugs JSON NULL,
@@ -73,6 +77,23 @@ function db_ensure_instances_table(): void {
                 UNIQUE KEY uniq_operator_email_lookup (operator_email_lookup_hash)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        // Idempotent contact-column migration for installs that landed before
+        // 2026-05-24. MySQL 8 lacks IF EXISTS / IF NOT EXISTS at the column
+        // level, so probe INFORMATION_SCHEMA first.
+        $cols = $pdo->query("
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instances'
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        $present = array_flip(array_map('strval', $cols));
+        if (isset($present['telegram_handle_enc'])) {
+            $pdo->exec("ALTER TABLE instances DROP COLUMN telegram_handle_enc");
+        }
+        if (isset($present['signal_contact_enc'])) {
+            $pdo->exec("ALTER TABLE instances DROP COLUMN signal_contact_enc");
+        }
+        if (!isset($present['other_contacts_enc'])) {
+            $pdo->exec("ALTER TABLE instances ADD COLUMN other_contacts_enc VARBINARY(2048) NULL AFTER operator_email_lookup_hash");
+        }
     } catch (PDOException $e) {
         error_log('db_ensure_instances_table: ' . $e->getMessage());
     }

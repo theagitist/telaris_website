@@ -1,0 +1,136 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * bin/init-pii-keys — generate the Pluriverse's PII master + lookup keys.
+ *
+ * Writes BOTH:
+ *   <site-root>/secrets/pii_master.key   (32 random bytes, mode 0600)
+ *   <site-root>/secrets/pii_lookup.key   (32 random bytes, mode 0600)
+ *
+ * pii_master.key is the master from which per-row encryption keys are
+ * derived via HKDF-SHA256 (with info = `<rowContext>:<columnName>`). Used
+ * with libsodium crypto_secretbox to encrypt PII columns (operator_email_enc,
+ * telegram_handle_enc, signal_contact_enc on instances; email_enc on
+ * registry_admins).
+ *
+ * pii_lookup.key is the HMAC-SHA256 key for deterministic content-equality
+ * hashes (operator_email_lookup_hash on instances, email_lookup_hash on
+ * registry_admins). Same email always produces the same hash; supports
+ * UNIQUE constraints and reverse-lookup-by-email for magic-link delivery
+ * without storing plaintext.
+ *
+ * Generates BOTH keys in one shot intentionally: they're tightly paired and
+ * always provisioned together. Refuses to overwrite either file. If only
+ * one of the two exists, refuses to generate the other (the in-place key
+ * may have already encrypted data; pairing matters).
+ *
+ * Spec: P2P federation plan v10 § Key management → Keys on the Pluriverse
+ *       (line 820-821), § Schema → Pluriverse-side (line 1153-1154,
+ *       1191-1192), § Standards and crypto (line 487).
+ *
+ * Usage:
+ *   php bin/init-pii-keys           # generate both
+ *   php bin/init-pii-keys --check   # report present / absent for both
+ */
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    echo "bin/init-pii-keys must be run from the command line, not the web.\n";
+    exit(1);
+}
+
+require_once dirname(__DIR__) . '/inc/federation/pii.php';
+
+$opts = getopt('', ['check', 'help']);
+if (isset($opts['help'])) {
+    echo "Usage: php bin/init-pii-keys [--check]\n";
+    echo "\n";
+    echo "  --check   Report whether both key files exist + their perms.\n";
+    echo "  (no flag) Generate both pii_master.key and pii_lookup.key (32 bytes each, 0600).\n";
+    echo "            Refuses if either file already exists.\n";
+    exit(0);
+}
+
+$masterPath = federation_pii_master_key_path();
+$lookupPath = federation_pii_lookup_key_path();
+$paths = [
+    'pii_master.key' => $masterPath,
+    'pii_lookup.key' => $lookupPath,
+];
+$secretsDir = dirname($masterPath);
+
+if (isset($opts['check'])) {
+    $allOk = true;
+    foreach ($paths as $label => $path) {
+        if (!file_exists($path)) {
+            echo "MISSING: {$path}\n";
+            $allOk = false;
+            continue;
+        }
+        $size = filesize($path);
+        $mode = fileperms($path) & 0777;
+        $sizeOk = ($size === 32);
+        $modeOk = ($mode === 0600);
+        echo "PRESENT: {$path}\n";
+        echo sprintf("  size: %d bytes (want 32)\n", (int)$size);
+        echo sprintf("  mode: %o (want 0600)\n", $mode);
+        if (!$sizeOk || !$modeOk) $allOk = false;
+    }
+    exit($allOk ? 0 : 1);
+}
+
+// Refuse if EITHER file exists. PII keys must always be generated as a pair
+// against fresh state; replacing one in-place would orphan or corrupt the
+// data the other has already touched.
+$existing = [];
+foreach ($paths as $label => $path) {
+    if (file_exists($path)) $existing[] = $label;
+}
+if ($existing !== []) {
+    fwrite(STDERR, "Refusing to generate: " . implode(' + ', $existing) . " already present.\n");
+    fwrite(STDERR, "  PII keys are a tightly paired set; replacing one risks corrupting data the other encrypted.\n");
+    fwrite(STDERR, "  Rotation requires the paginated shadow-column procedure in the v10 operator runbook,\n");
+    fwrite(STDERR, "  not a re-run of this CLI. See § Operator runbooks → PII master-key rotation.\n");
+    exit(1);
+}
+
+if (!is_dir($secretsDir)) {
+    if (!@mkdir($secretsDir, 0700, true) && !is_dir($secretsDir)) {
+        fwrite(STDERR, "Could not create secrets dir at {$secretsDir}.\n");
+        exit(1);
+    }
+}
+@chmod($secretsDir, 0700);
+
+foreach ($paths as $label => $path) {
+    $keyBytes = random_bytes(32);
+    $tmp = $path . '.new.' . posix_getpid();
+    $fh = @fopen($tmp, 'w');
+    if ($fh === false) {
+        fwrite(STDERR, "Could not open {$tmp} for writing.\n");
+        exit(1);
+    }
+    @chmod($tmp, 0600);
+    $written = @fwrite($fh, $keyBytes);
+    @fclose($fh);
+    if ($written !== 32) {
+        @unlink($tmp);
+        fwrite(STDERR, "Short write to {$tmp} (wrote {$written}, expected 32).\n");
+        exit(1);
+    }
+    if (!@rename($tmp, $path)) {
+        @unlink($tmp);
+        fwrite(STDERR, "Could not rename {$tmp} → {$path}.\n");
+        exit(1);
+    }
+    @chmod($path, 0600);
+    sodium_memzero($keyBytes);
+    echo "Wrote {$path} (32 bytes, mode 0600)\n";
+}
+
+echo "\n";
+echo "PII keys provisioned. Rotation requires the paginated shadow-column procedure\n";
+echo "in the v10 operator runbook, not a re-run of this CLI.\n";
+exit(0);

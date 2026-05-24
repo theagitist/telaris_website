@@ -289,6 +289,58 @@ $tasks[] = (function() use ($configPath) {
     ];
 })();
 
+// 7. secrets/ directory perms: 0700 www-data:www-data. The federation secret
+// keys (pluriverse-coord.key, log.key, pii_master.key, pii_lookup.key) live
+// here; bin/init-coord-key + bin/init-log-key + bin/init-pii-keys generate
+// the file contents. This task only ensures the dir itself is correct.
+$tasks[] = (function() use ($root) {
+    $secretsDir = $root . '/secrets';
+    if (!file_exists($secretsDir)) {
+        $fix = function() use ($secretsDir) {
+            if (!@mkdir($secretsDir, 0700, true) && !is_dir($secretsDir)) {
+                return ['ok' => false, 'detail' => "could not create {$secretsDir}"];
+            }
+            $okMode = @chmod($secretsDir, 0700);
+            $okOwner = @chown($secretsDir, 'www-data');
+            $okGroup = @chgrp($secretsDir, 'www-data');
+            if (!$okMode || !$okOwner || !$okGroup) {
+                return ['ok' => false, 'detail' => "chmod/chown/chgrp on {$secretsDir} partially failed"];
+            }
+            return ['ok' => true, 'detail' => "created {$secretsDir} (0700 www-data:www-data)"];
+        };
+        return ['name' => 'secrets/ dir', 'status' => 'missing', 'detail' => "{$secretsDir} does not exist", 'fix' => $fix];
+    }
+    if (is_link($secretsDir)) {
+        return ['name' => 'secrets/ dir', 'status' => 'error', 'detail' => "{$secretsDir} is a symlink; refusing to chmod through it (unlink first if intentional)", 'fix' => null];
+    }
+    $mode = fileperms($secretsDir) & 0777;
+    $ownerPwd = posix_getpwuid(fileowner($secretsDir));
+    $ownerName = is_array($ownerPwd) ? ($ownerPwd['name'] ?? '?') : '?';
+    $groupGrp = posix_getgrgid(filegroup($secretsDir));
+    $groupName = is_array($groupGrp) ? ($groupGrp['name'] ?? '?') : '?';
+    $modeOk = ($mode === 0700);
+    $ownerOk = ($ownerName === 'www-data');
+    $groupOk = ($groupName === 'www-data');
+    if ($modeOk && $ownerOk && $groupOk) {
+        return ['name' => 'secrets/ dir', 'status' => 'ok', 'detail' => sprintf('mode %o owner %s group %s', $mode, $ownerName, $groupName), 'fix' => null];
+    }
+    $fix = function() use ($secretsDir) {
+        $okMode = @chmod($secretsDir, 0700);
+        $okOwner = @chown($secretsDir, 'www-data');
+        $okGroup = @chgrp($secretsDir, 'www-data');
+        if (!$okMode || !$okOwner || !$okGroup) {
+            return ['ok' => false, 'detail' => "chmod/chown/chgrp on {$secretsDir} partially failed"];
+        }
+        return ['ok' => true, 'detail' => "set {$secretsDir} to 0700 www-data:www-data"];
+    };
+    return [
+        'name' => 'secrets/ dir',
+        'status' => 'mismatch',
+        'detail' => sprintf('mode %o owner %s group %s; want 0700 www-data:www-data', $mode, $ownerName, $groupName),
+        'fix' => $fix,
+    ];
+})();
+
 // ---------------------------------------------------------------------------
 // Execute.
 // ---------------------------------------------------------------------------

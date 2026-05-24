@@ -1,0 +1,80 @@
+# Pluriverse website vhost.
+#
+# Sample shipped with the repo. bin/setup-host.php installs this to
+# /etc/nginx/sites-available/www.telaris.ca.conf only if no vhost exists
+# there; once installed, it is operator-owned (Certbot will add SSL lines
+# on top after `certbot --nginx`, etc.). The setup script does NOT
+# drift-check this file because Certbot edits in place.
+#
+# Logical contract this file is the canonical statement of:
+#   - Front controller dispatch through /index.php.
+#   - Only /index.php executes as PHP; arbitrary .php URLs 404.
+#   - /inc/, /vendor/, /config.php, /composer.json, /composer.lock all 404.
+#   - /LICENSE served as text/plain so browsers render inline.
+#   - Cloudflare real-IP, security hardening, and security headers via
+#     shared snippets the host already has.
+
+server {
+    server_name www.telaris.ca telaris.ca;
+    root /var/www/www.telaris.ca;
+    index index.php;
+
+    include snippets/cloudflare-realip.conf;
+    include snippets/security-hardening.conf;
+    include snippets/security-headers.conf;
+
+    limit_req zone=general burst=60 nodelay;
+
+    # Block direct access to internal directories (the PHP application
+    # surface). Front controller /index.php is the only entry point.
+    location ^~ /inc/ {
+        deny all;
+        return 404;
+    }
+    location ^~ /vendor/ {
+        deny all;
+        return 404;
+    }
+
+    # Block direct access to sensitive top-level files.
+    location = /config.php {
+        deny all;
+        return 404;
+    }
+    location = /composer.json {
+        deny all;
+        return 404;
+    }
+    location = /composer.lock {
+        deny all;
+        return 404;
+    }
+
+    # Serve /LICENSE inline as text/plain. nginx has no default mime type for
+    # extensionless files, so without this it falls back to
+    # application/octet-stream and browsers force a download.
+    location = /LICENSE {
+        default_type text/plain;
+    }
+
+    # Front controller dispatch. Visitors at /, /manifest/, /es/, etc. land here.
+    location / {
+        try_files $uri /index.php?route=$uri&$args;
+    }
+
+    # Only /index.php is allowed to execute as PHP. Other .php URLs 404.
+    location = /index.php {
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+    location ~ \.php$ {
+        return 404;
+    }
+
+    include snippets/static-cache.conf;
+
+    listen 80;
+    # Certbot will add the SSL listen + cert lines after `certbot --nginx`.
+}

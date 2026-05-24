@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+
+// Pluriverse website — runtime configuration template.
+//
+// Copy this file to config.php and fill in the values for your instance.
+// config.php is gitignored and lives per-host. Suggested perms after
+// editing: 0640 root:www-data (set by bin/setup-host.php).
+
+define('DB_HOST', 'your-database-hostname');
+define('DB_PORT', '3306');
+define('DB_NAME', 'pluriverse');
+define('DB_USER', 'pluriverse');
+define('DB_PASS', 'your-database-password');
+
+// Path to the Telaris documentation repo on this host. The Manifest /
+// Privacy / Terms pages render their markdown live from this tree.
+// PHP-FPM (www-data) needs read access; bin/setup-host.php can apply
+// the necessary filesystem ACLs.
+define('PLURIVERSE_DOCS_SRC', '/home/<your-user>/apps/telaris/documentation/src');
+
+require_once __DIR__ . '/inc/db.php';

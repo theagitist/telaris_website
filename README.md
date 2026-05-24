@@ -44,12 +44,28 @@ Federation tables (`peers`, `key_events`, `registry_admins`) are deferred — th
 
 ## Dependencies
 
-- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring.
+- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring, ext-json, ext-ctype.
 - MySQL 8.x.
 - One Composer package: [`league/commonmark`](https://commonmark.thephpleague.com/) for markdown rendering.
+- `acl` (the `setfacl` binary). On Debian / Ubuntu: `sudo apt install acl`.
+
+## Setup scripts
+
+Two idempotent scripts at `bin/`, mirroring the Telaris instance pattern. Both support `--check` (read-only; exit 1 on any gap) and `--verbose` (success-line details).
+
+- **`bin/setup-app.php`** — app-level bootstrap. Runs as the deploying user (not root). Verifies PHP version + extensions + composer; runs `composer install --no-dev` if `vendor/` is missing; verifies `config.php` exists; tests the DB connection; materializes the schema via `db_ensure_*`; verifies the four locale rows are seeded.
+
+- **`bin/setup-host.php`** — host-level provisioning. Runs as root via sudo. Checks nginx + PHP-FPM are active; installs the vhost from `etc/nginx/www.telaris.ca.conf.sample` if no vhost exists at `/etc/nginx/sites-available/<host>.conf` (Certbot edits the file in place after install, so we don't drift-check); enables it via the standard `sites-enabled` symlink; sets `config.php` to `0640 root:www-data` (or `<sudo-user>:www-data`); applies filesystem ACLs on the docs source tree (parsed from `PLURIVERSE_DOCS_SRC` in `config.php`) so PHP-FPM (www-data) can read the markdown the Manifest / Privacy / Terms pages render at request time. Reloads nginx once at the end if any nginx-touching fix succeeded.
 
 ```sh
-composer install --no-dev
+# Initial install on a fresh host:
+cp config.php.sample config.php          # then fill in DB credentials + docs path
+sudo php bin/setup-host.php               # install vhost, perms, ACLs, reload nginx
+php bin/setup-app.php                     # composer install, materialize schema
+
+# Run after every code pull (idempotent):
+php bin/setup-app.php
+sudo php bin/setup-host.php --check       # cheap drift check
 ```
 
 ## File layout
@@ -57,10 +73,18 @@ composer install --no-dev
 ```
 .
 ├── README.md
+├── LICENSE                   # GNU AGPL-3.0.
 ├── .gitignore                # /config.php, /vendor/, /composer.lock, /docs/*.pdf
 ├── composer.json
 ├── config.php                # Per-instance; gitignored.
+├── config.php.sample         # Template for fresh installs.
 ├── index.php                 # Front controller.
+├── bin/
+│   ├── setup-app.php         # Deploying-user CLI: composer + schema bootstrap.
+│   └── setup-host.php        # Root CLI: nginx vhost, config.php perms, docs ACLs.
+├── etc/
+│   └── nginx/
+│       └── www.telaris.ca.conf.sample  # Canonical vhost; installed by setup-host.
 ├── inc/
 │   ├── bootstrap.php
 │   ├── content.php
@@ -89,14 +113,7 @@ composer install --no-dev
 
 ## Deployment
 
-Pull from git, run `composer install --no-dev`, and nginx serves the result. The vhost lives at `/etc/nginx/sites-available/www.telaris.ca.conf`; the document root is `/var/www/www.telaris.ca/`. The vhost routes every request through `index.php` (front controller); direct access to `config.php`, `/inc/`, `/vendor/`, and `composer.json` returns 404.
-
-The PHP-FPM worker user (`www-data` on this host) needs read access to the docs source tree. On this host that is granted via filesystem ACLs:
-
-```sh
-sudo setfacl -m u:www-data:x /home/<user> /home/<user>/apps /home/<user>/apps/telaris /home/<user>/apps/telaris/documentation
-sudo setfacl -R -m u:www-data:rX /home/<user>/apps/telaris/documentation/src
-```
+The two setup scripts above cover both fresh-install and re-deploy. On any subsequent code pull, `php bin/setup-app.php` is the only required step. The vhost lives at `/etc/nginx/sites-available/<host>.conf`; the document root is `/var/www/www.telaris.ca/`. The vhost routes every request through `index.php` (front controller); direct access to `config.php`, `/inc/`, `/vendor/`, and `composer.json` returns 404.
 
 The PDFs in `docs/` are gitignored because they are generated artefacts whose source lives in [telaris-documentation](https://github.com/theagitist/telaris-documentation). They are copied here automatically whenever the docs repo's build runs with `TELARIS_WWW_DOCS_DIR=/var/www/www.telaris.ca/docs/` set in the shell rcfile.
 

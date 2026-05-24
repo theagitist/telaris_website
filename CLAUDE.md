@@ -96,10 +96,22 @@ Already applied on this host.
 
 ## Deploy
 
+Two idempotent scripts under `bin/`, mirroring the Telaris instance pattern:
+
+- **`bin/setup-app.php`** (no root) — verifies PHP / extensions / composer; runs `composer install --no-dev`; tests DB connection; materializes the schema via `db_ensure_*`; verifies the four locale rows.
+- **`bin/setup-host.php`** (sudo) — verifies nginx + PHP-FPM; installs the vhost from `etc/nginx/www.telaris.ca.conf.sample` on first run (then leaves it operator-owned, since Certbot edits in place); sets `config.php` to `0640 root:www-data`; applies filesystem ACLs on `PLURIVERSE_DOCS_SRC` so www-data can read the markdown sources.
+
+Both support `--check` (read-only; exit 1 on any gap) and `--verbose`.
+
 ```sh
-git pull
-composer install --no-dev
-# nginx reload only if vhost changed (not in this repo)
+# Fresh install:
+cp config.php.sample config.php   # fill in DB creds + PLURIVERSE_DOCS_SRC
+sudo php bin/setup-host.php       # vhost, perms, ACLs, reload nginx
+php bin/setup-app.php             # composer install, schema, seed
+
+# Re-deploy after code pull:
+php bin/setup-app.php
+sudo php bin/setup-host.php --check
 ```
 
 The PDFs in `/docs/` arrive automatically when the docs repo builds with `TELARIS_WWW_DOCS_DIR=/var/www/www.telaris.ca/docs/` set in the shell rcfile.

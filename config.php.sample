@@ -19,4 +19,16 @@ define('DB_PASS', 'your-database-password');
 // the necessary filesystem ACLs.
 define('PLURIVERSE_DOCS_SRC', '/home/<your-user>/apps/telaris/documentation/src');
 
+// Mailgun SMTP credentials. Used for magic-link delivery, application
+// acknowledgements, and admin-action notices. The Pluriverse reuses the
+// same Mailgun account / sending domain (telaris.ca) the Telaris instances
+// use; copy these five constants from any Telaris instance's config.php.
+define('MAIL_SMTP_HOST', 'smtp.mailgun.org');
+define('MAIL_SMTP_PORT', 25);
+define('MAIL_SMTP_USER', '<your mailgun smtp user>');
+define('MAIL_SMTP_PASS', '<your mailgun smtp password>');
+define('MAIL_SMTP_SECURE', 'tls');
+define('MAIL_FROM_ADDRESS', 'no-reply@telaris.ca');
+define('MAIL_FROM_NAME', 'Pluriverse');
+
 require_once __DIR__ . '/inc/db.php';

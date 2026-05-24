@@ -5,6 +5,7 @@
     "require": {
         "php": ">=8.3",
         "league/commonmark": "^2.7",
-        "zircote/swagger-php": "^6.1"
+        "zircote/swagger-php": "^6.1",
+        "phpmailer/phpmailer": "^7.1"
     }
 }

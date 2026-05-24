@@ -1,0 +1,302 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * POST /api/pluriverse/operators/apply
+ *
+ * Operator-application intake. Accepts a JSON body describing the
+ * applicant's instance, fetches the instance's identity envelope to confirm
+ * it self-identifies as a Telaris instance, captures its Ed25519 public key,
+ * PII-encrypts the operator email + optional secondary contacts, inserts a
+ * pending row into `instances`, mints a magic-link token, and emails the
+ * verification URL to the applicant.
+ *
+ * Spec: P2P federation plan v10 § 126 + the Stage 2 application surface
+ * design note (vault). Verification of the magic link itself is in 2g-i.
+ *
+ * Errors use RFC 9457 Problem Details via federation_router_problem.
+ */
+
+// The /api/pluriverse/* router short-circuits in index.php BEFORE the page
+// bootstrap that loads config.php + inc/db.php (the identity endpoint
+// does not need them). This handler is DB-heavy, so bring up the DB layer
+// explicitly. config.php already chains into inc/db.php.
+require_once dirname(__DIR__, 2) . '/config.php';
+require_once __DIR__ . '/identity_client.php';
+
+// -----------------------------------------------------------------------
+// Rate limit: 5 requests per hour per source IP (APCu best-effort; nginx
+// limit_req is the load-bearing layer in production).
+// -----------------------------------------------------------------------
+if (function_exists('apcu_inc')) {
+    $rateIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '-';
+    $bucket = 'pluriverse_apply:' . date('YmdH') . ':' . $rateIp;
+    $success = false;
+    $count = apcu_inc($bucket, 1, $success, 3700);
+    if ($count !== false && (int)$count > 5) {
+        federation_router_problem(
+            429,
+            'rate_limited',
+            'Too many application attempts from this IP this hour; retry within an hour.',
+            '/api/pluriverse/operators/apply'
+        );
+        return;
+    }
+}
+
+// -----------------------------------------------------------------------
+// Parse + validate JSON body.
+// -----------------------------------------------------------------------
+$raw = file_get_contents('php://input');
+if (!is_string($raw) || $raw === '') {
+    federation_router_problem(400, 'empty_body', 'Request body is empty; expected JSON.', '/api/pluriverse/operators/apply');
+    return;
+}
+if (strlen($raw) > 16384) {
+    federation_router_problem(413, 'body_too_large', 'Request body exceeds 16 KB.', '/api/pluriverse/operators/apply');
+    return;
+}
+try {
+    $body = json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
+} catch (JsonException $e) {
+    federation_router_problem(400, 'invalid_json', 'Request body is not valid JSON: ' . $e->getMessage(), '/api/pluriverse/operators/apply');
+    return;
+}
+if (!is_array($body)) {
+    federation_router_problem(400, 'invalid_body', 'Request body must be a JSON object.', '/api/pluriverse/operators/apply');
+    return;
+}
+
+$errors = [];
+$hostname = trim((string)($body['hostname'] ?? ''));
+if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $hostname) || strlen($hostname) < 4 || strlen($hostname) > 255) {
+    $errors[] = 'hostname must be a DNS-style label (a-z0-9 . -), 4..255 chars, no scheme';
+}
+
+$url = trim((string)($body['url'] ?? ''));
+if (!preg_match('#^https://#', $url) || filter_var($url, FILTER_VALIDATE_URL) === false) {
+    $errors[] = 'url must be a valid https:// URL';
+}
+
+$endpoint = trim((string)($body['pluriverse_endpoint'] ?? ''));
+if (!preg_match('#^https://#', $endpoint) || filter_var($endpoint, FILTER_VALIDATE_URL) === false) {
+    $errors[] = 'pluriverse_endpoint must be a valid https:// URL';
+}
+
+$operatorEmail = trim((string)($body['operator_email'] ?? ''));
+if (!filter_var($operatorEmail, FILTER_VALIDATE_EMAIL) || strlen($operatorEmail) > 254) {
+    $errors[] = 'operator_email must be a valid email address (max 254 chars)';
+}
+
+$label = trim((string)($body['label'] ?? ''));
+if ($label === '' || mb_strlen($label) > 255) {
+    $errors[] = 'label is required, max 255 chars';
+}
+
+$editorialFraming = (string)($body['editorial_framing'] ?? '');
+if (mb_strlen($editorialFraming) > 2000) {
+    $errors[] = 'editorial_framing exceeds 2000 chars';
+}
+
+$publishableSlugs = $body['publishable_slugs'] ?? [];
+if (!is_array($publishableSlugs)) {
+    $errors[] = 'publishable_slugs must be an array';
+    $publishableSlugs = [];
+} else {
+    foreach ($publishableSlugs as $i => $s) {
+        if (!is_string($s) || !preg_match('/^[a-z0-9][a-z0-9-]{0,127}$/', $s)) {
+            $errors[] = "publishable_slugs[{$i}] must be a kebab-case slug 1..128 chars";
+        }
+    }
+}
+
+$knownBridges = ['mocambos'];
+$bridges = $body['bridges'] ?? [];
+if (!is_array($bridges)) {
+    $errors[] = 'bridges must be an array';
+    $bridges = [];
+} else {
+    foreach ($bridges as $i => $b) {
+        if (!in_array($b, $knownBridges, true)) {
+            $errors[] = "bridges[{$i}] must be one of: " . implode(', ', $knownBridges);
+        }
+    }
+}
+
+$otherContacts = $body['other_contacts'] ?? [];
+if (!is_array($otherContacts)) {
+    $errors[] = 'other_contacts must be an array of {service, user_id} objects';
+    $otherContacts = [];
+} else {
+    if (count($otherContacts) > 8) {
+        $errors[] = 'other_contacts must contain at most 8 entries';
+    }
+    foreach ($otherContacts as $i => $entry) {
+        if (!is_array($entry) || !isset($entry['service'], $entry['user_id'])
+            || !is_string($entry['service']) || !is_string($entry['user_id'])) {
+            $errors[] = "other_contacts[{$i}] must be {service, user_id} with both as strings";
+            continue;
+        }
+        $service = trim($entry['service']);
+        $userId = trim($entry['user_id']);
+        if ($service === '' || mb_strlen($service) > 64) {
+            $errors[] = "other_contacts[{$i}].service required, 1..64 chars";
+        }
+        if ($userId === '' || mb_strlen($userId) > 256) {
+            $errors[] = "other_contacts[{$i}].user_id required, 1..256 chars";
+        }
+    }
+}
+
+$locale = (string)($body['locale'] ?? 'en');
+if (!in_array($locale, ['en', 'es', 'pt', 'fr'], true)) {
+    $locale = 'en';
+}
+
+if ($errors !== []) {
+    federation_router_problem(
+        422,
+        'validation_failed',
+        implode('; ', $errors),
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+
+// Normalize hostname / url consistency: the URL host must equal the
+// declared hostname (case-insensitive). Defence against mismatched data.
+$urlParts = parse_url($url);
+$urlHost = isset($urlParts['host']) ? strtolower((string)$urlParts['host']) : '';
+if ($urlHost !== strtolower($hostname)) {
+    federation_router_problem(422, 'hostname_url_mismatch', 'hostname does not match the host in url', '/api/pluriverse/operators/apply');
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Existing-application check. Apply once is the rule for v1; an operator
+// who wants to change instance can do that from /dashboard after they
+// finish verification. Two uniqueness keys to honour: hostname, email.
+// -----------------------------------------------------------------------
+try {
+    $pdo = getDB();
+    db_ensure_instances_table();
+    $emailLookupHash = federation_pii_lookup_hash($operatorEmail);
+    $stmt = $pdo->prepare("
+        SELECT id, admission_status FROM instances
+        WHERE hostname = :hostname OR operator_email_lookup_hash = :lookup
+        LIMIT 1
+    ");
+    $stmt->bindValue(':hostname', $hostname);
+    $stmt->bindValue(':lookup', $emailLookupHash, PDO::PARAM_LOB);
+    $stmt->execute();
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($existing !== false) {
+        federation_router_problem(
+            409,
+            'application_exists',
+            "An application is already on file for this hostname or email (status: {$existing['admission_status']}). Use the dashboard to update or withdraw.",
+            '/api/pluriverse/operators/apply'
+        );
+        return;
+    }
+} catch (Throwable $e) {
+    error_log('apply: pre-insert conflict check: ' . $e->getMessage());
+    federation_router_problem(500, 'database_error', 'Application could not be processed; please retry shortly.', '/api/pluriverse/operators/apply');
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Identity fetch + cross-check. The Pluriverse fetches the instance's
+// /api/pluriverse/identity endpoint, confirms kind=telaris-instance, and
+// captures the public key + fingerprint. Any failure here is 422
+// (unprocessable applicant) rather than 5xx (the Pluriverse is fine).
+// -----------------------------------------------------------------------
+require_once __DIR__ . '/identity_client.php';
+try {
+    $identity = federation_fetch_identity($endpoint);
+} catch (FederationIdentityFetchError $e) {
+    federation_router_problem(
+        422,
+        'identity_unverifiable',
+        'Could not verify the supplied pluriverse_endpoint: ' . $e->getMessage(),
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+
+// Hostname-of-record cross-check: the identity envelope's hostname should
+// match the applicant's declared hostname. Lenient (case-insensitive).
+if (strtolower($identity['hostname']) !== strtolower($hostname)) {
+    federation_router_problem(
+        422,
+        'hostname_identity_mismatch',
+        "Declared hostname '{$hostname}' does not match identity envelope hostname '{$identity['hostname']}'",
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Insert + mint magic link + send acknowledgement.
+// -----------------------------------------------------------------------
+try {
+    $instanceId = db_insert_instance_application([
+        'hostname' => $hostname,
+        'url' => $url,
+        'pluriverse_endpoint' => $endpoint,
+        'operator_email' => $operatorEmail,
+        'label' => $label,
+        'editorial_framing' => $editorialFraming,
+        'publishable_slugs' => $publishableSlugs,
+        'bridges' => $bridges,
+        'other_contacts' => $otherContacts,
+    ], $identity);
+} catch (Throwable $e) {
+    error_log('apply: INSERT instances failed: ' . $e->getMessage());
+    federation_router_problem(500, 'database_error', 'Application could not be saved; please retry shortly.', '/api/pluriverse/operators/apply');
+    return;
+}
+
+try {
+    $tokenRaw = db_create_magic_link_token($emailLookupHash, 3600);
+    $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
+} catch (Throwable $e) {
+    error_log("apply: magic-link mint failed (instance id={$instanceId}): " . $e->getMessage());
+    // Row inserted; operator can request a fresh link via the (yet-to-ship)
+    // /api/pluriverse/operators/request-magic-link endpoint in 2g-i.
+    $tokenUrl = null;
+}
+
+if ($tokenUrl !== null) {
+    require_once dirname(__DIR__) . '/mail.php';
+    $subject = 'Verify your Pluriverse application';
+    $bodyText = "Hello,\n\n"
+              . "We received your application for the Telaris instance at {$hostname}.\n"
+              . "Confirm your email address by visiting the link below within the next hour:\n\n"
+              . "  {$tokenUrl}\n\n"
+              . "After confirmation, an admin will review your application and let you\n"
+              . "know when your instance is published in the Pluriverse.\n\n"
+              . "If you did not submit this application, you can ignore this email; the\n"
+              . "pending record will be removed automatically within 48 hours.\n\n"
+              . "Pluriverse · https://www.telaris.ca/\n";
+    try {
+        pluriverse_send_mail($operatorEmail, $subject, $bodyText);
+    } catch (Throwable $e) {
+        error_log("apply: ack mail to {$operatorEmail} failed (instance id={$instanceId}): " . $e->getMessage());
+        // Row + token persist; operator can request a fresh link in 2g-i.
+    }
+}
+
+// -----------------------------------------------------------------------
+// 201 Created. We do NOT echo the magic-link in the response (only the
+// inbox sees it); we do not echo any PII either.
+// -----------------------------------------------------------------------
+http_response_code(201);
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+echo json_encode([
+    'status' => 'pending',
+    'instance_id' => $instanceId,
+    'public_key_fingerprint' => $identity['public_key_fingerprint'],
+    'message' => 'Application received. Check your email for a verification link; it expires in one hour. The pending application itself expires in 48 hours if not verified.',
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

@@ -25,6 +25,7 @@ $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $routes = [
     '/api/pluriverse/identity' => ['methods' => ['GET'], 'handler' => __DIR__ . '/identity_handler.php'],
     '/api/pluriverse/openapi.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/openapi_handler.php'],
+    '/api/pluriverse/operators/apply' => ['methods' => ['POST'], 'handler' => __DIR__ . '/apply_handler.php'],
 ];
 
 if (!isset($routes[$path])) {
@@ -65,8 +66,12 @@ function federation_router_problem(int $status, string $code, string $detail, st
             400 => 'Bad Request',
             404 => 'Not Found',
             405 => 'Method Not Allowed',
+            409 => 'Conflict',
+            413 => 'Payload Too Large',
+            422 => 'Unprocessable Content',
             429 => 'Too Many Requests',
             500 => 'Internal Server Error',
+            502 => 'Bad Gateway',
             503 => 'Service Unavailable',
             default => 'Error',
         },

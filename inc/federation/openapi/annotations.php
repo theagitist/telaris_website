@@ -49,6 +49,7 @@ use OpenApi\Attributes as OA;
     tags: [
         new OA\Tag(name: 'pluriverse-public', description: 'Public read endpoints (no signature required).'),
         new OA\Tag(name: 'pluriverse-meta', description: 'Protocol metadata and discovery.'),
+        new OA\Tag(name: 'pluriverse-operators', description: 'Operator-facing endpoints (application, auth, dashboard).'),
     ]
 )]
 final class OpenApiDocument {}
@@ -127,6 +128,108 @@ final class ProblemDetailsSchema {}
     ]
 )]
 final class GetCoordIdentityEndpoint {}
+
+#[OA\Schema(
+    schema: 'ContactEntry',
+    description: 'A free-form contact channel (Matrix, XMPP, IRC, etc.) declared by the operator. '
+        . 'The Pluriverse stores the JSON-encoded list as a single secretbox-encrypted column; the '
+        . 'service name is not constrained to a fixed enumeration so an operator can declare anything.',
+    required: ['service', 'user_id'],
+    properties: [
+        new OA\Property(property: 'service', type: 'string', minLength: 1, maxLength: 64, example: 'matrix', description: 'Name of the service (free-form).'),
+        new OA\Property(property: 'user_id', type: 'string', minLength: 1, maxLength: 256, example: '@operator:matrix.org', description: 'Operator handle within that service.'),
+    ]
+)]
+final class ContactEntrySchema {}
+
+#[OA\Schema(
+    schema: 'ApplicationRequest',
+    description: 'Body of POST /api/pluriverse/operators/apply. The Pluriverse fetches the instance\'s '
+        . 'identity envelope at the supplied pluriverse_endpoint and captures the public key itself, '
+        . 'so the form does NOT collect public_key. Fingerprint cross-check is performed locally.',
+    required: ['hostname', 'url', 'pluriverse_endpoint', 'operator_email', 'label'],
+    properties: [
+        new OA\Property(property: 'hostname', type: 'string', minLength: 4, maxLength: 255, pattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$', example: 'mocambos.example.com', description: 'DNS-style label, lowercase, no scheme.'),
+        new OA\Property(property: 'url', type: 'string', format: 'uri', example: 'https://mocambos.example.com', description: 'Canonical https:// URL of the instance. Host must equal hostname.'),
+        new OA\Property(property: 'pluriverse_endpoint', type: 'string', format: 'uri', example: 'https://mocambos.example.com/api/pluriverse/identity', description: 'URL where the instance serves its identity envelope.'),
+        new OA\Property(property: 'operator_email', type: 'string', format: 'email', maxLength: 254, description: 'Magic-link target. PII-encrypted at rest.'),
+        new OA\Property(property: 'label', type: 'string', minLength: 1, maxLength: 255, example: 'Mocambos archive', description: 'Operator-chosen editorial label.'),
+        new OA\Property(property: 'editorial_framing', type: 'string', maxLength: 2000, description: 'Short prose describing the instance\'s editorial focus. Optional.'),
+        new OA\Property(property: 'publishable_slugs', type: 'array', items: new OA\Items(type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,127}$'), description: 'Galaxy slugs the operator intends to publish through the Pluriverse. Optional.'),
+        new OA\Property(property: 'bridges', type: 'array', items: new OA\Items(type: 'string', enum: ['mocambos']), description: 'Bridges this instance speaks. Currently only "mocambos". Optional.'),
+        new OA\Property(property: 'other_contacts', type: 'array', maxItems: 8, items: new OA\Items(ref: '#/components/schemas/ContactEntry'), description: 'Secondary contact channels. Optional. PII-encrypted at rest.'),
+        new OA\Property(property: 'locale', type: 'string', enum: ['en', 'es', 'pt', 'fr'], description: 'Locale of the submission, used for the acknowledgement email. Defaults to en.'),
+    ]
+)]
+final class ApplicationRequestSchema {}
+
+#[OA\Schema(
+    schema: 'ApplicationResponse',
+    description: 'Successful response from POST /api/pluriverse/operators/apply.',
+    required: ['status', 'instance_id', 'public_key_fingerprint', 'message'],
+    properties: [
+        new OA\Property(property: 'status', type: 'string', enum: ['pending']),
+        new OA\Property(property: 'instance_id', type: 'integer', example: 42),
+        new OA\Property(property: 'public_key_fingerprint', type: 'string', minLength: 22, maxLength: 22, description: 'Fingerprint of the public key captured from the instance\'s identity envelope. The operator can compare this against their own bin/init-identity --check to confirm the Pluriverse stored the correct key.'),
+        new OA\Property(property: 'message', type: 'string'),
+    ]
+)]
+final class ApplicationResponseSchema {}
+
+#[OA\Post(
+    path: '/api/pluriverse/operators/apply',
+    operationId: 'submitApplication',
+    summary: 'Operator submits an application to join the Pluriverse.',
+    description: 'Accepts an applicant\'s instance description, fetches its /api/pluriverse/identity '
+        . 'envelope to verify it self-identifies as a Telaris instance, captures the public key + '
+        . 'fingerprint, encrypts the operator email and any secondary contacts at rest, inserts a '
+        . 'pending row, mints a one-hour single-use magic-link token, and emails the verification '
+        . 'URL to the operator. The pending row auto-expires after 48 hours if the magic link is '
+        . 'never followed. Rate limit 5 req/hour/IP.',
+    tags: ['pluriverse-operators'],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/ApplicationRequest')
+    ),
+    responses: [
+        new OA\Response(
+            response: 201,
+            description: 'Application received; check email for verification link.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ApplicationResponse')
+        ),
+        new OA\Response(
+            response: 400,
+            description: 'Request body missing or not JSON.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 409,
+            description: 'An application already exists for this hostname or email.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 413,
+            description: 'Request body exceeds 16 KB.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 422,
+            description: 'Validation failed, hostname mismatch, or identity envelope unverifiable.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 429,
+            description: 'Rate limit exceeded (5 req/hour/IP).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 500,
+            description: 'Database error processing the application.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+    ]
+)]
+final class SubmitApplicationEndpoint {}
 
 #[OA\Get(
     path: '/api/pluriverse/openapi.json',

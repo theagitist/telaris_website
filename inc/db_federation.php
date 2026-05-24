@@ -370,3 +370,123 @@ function db_seed_registry_admin(string $email, string $displayName, string $seed
     ]);
     return (int)$pdo->lastInsertId();
 }
+
+/**
+ * Row-context format for instances and registry_admins PII columns.
+ *
+ * info string = hex(email_lookup_hash) . ':' . column_name. Chosen because
+ * the lookup hash is deterministic per email, known at INSERT time (no two
+ * stage write needed), differs across rows, and survives auto-increment
+ * rebuilds. Documented in inc/federation/pii.php's docblock.
+ */
+function federation_row_context_for_instance(string $emailLookupHash): string {
+    return 'instance:' . bin2hex($emailLookupHash);
+}
+
+/**
+ * Insert a pending operator application into instances. Caller has already
+ * validated input and fetched the identity envelope; this helper handles
+ * PII encryption, lookup-hash computation, and the INSERT itself.
+ *
+ * Returns the new row id.
+ *
+ * Encryption choices:
+ * - operator_email_enc: per-row HKDF-derived key (rowContext = "instance:" .
+ *   hex(lookup_hash)); column_name "email".
+ * - other_contacts_enc: same rowContext, column_name "other_contacts". The
+ *   plaintext is the JSON-encoded contacts array (canonical UTF-8 JSON; no
+ *   pretty-printing).
+ *
+ * Throws PDOException on UNIQUE constraint violation (hostname or
+ * operator_email_lookup_hash already present); caller should map to 409.
+ */
+function db_insert_instance_application(array $application, array $identity): int {
+    db_ensure_instances_table();
+
+    $email = (string)$application['operator_email'];
+    $lookupHash = federation_pii_lookup_hash($email);
+    $rowContext = federation_row_context_for_instance($lookupHash);
+
+    $emailEnc = federation_pii_encrypt($email, $rowContext, 'email');
+
+    $otherContactsEnc = null;
+    if (!empty($application['other_contacts']) && is_array($application['other_contacts'])) {
+        $json = json_encode(array_values($application['other_contacts']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        if (strlen($json) > 1024) {
+            throw new InvalidArgumentException('other_contacts JSON exceeds 1024 bytes after encoding');
+        }
+        $otherContactsEnc = federation_pii_encrypt($json, $rowContext, 'other_contacts');
+    }
+
+    $publishableSlugs = (!empty($application['publishable_slugs']) && is_array($application['publishable_slugs']))
+        ? json_encode(array_values($application['publishable_slugs']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+        : null;
+    $bridges = (!empty($application['bridges']) && is_array($application['bridges']))
+        ? json_encode(array_values($application['bridges']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+        : null;
+
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        INSERT INTO instances (
+            hostname, url, pluriverse_endpoint, public_key,
+            operator_email_enc, operator_email_lookup_hash, other_contacts_enc,
+            label, editorial_framing, publishable_slugs, bridges,
+            admission_status, verify_by_at
+        ) VALUES (
+            :hostname, :url, :endpoint, :pk,
+            :email_enc, :lookup, :contacts,
+            :label, :framing, :slugs, :bridges,
+            'pending', DATE_ADD(NOW(), INTERVAL 48 HOUR)
+        )
+    ");
+    $stmt->execute([
+        ':hostname' => (string)$application['hostname'],
+        ':url' => (string)$application['url'],
+        ':endpoint' => (string)$application['pluriverse_endpoint'],
+        ':pk' => (string)$identity['public_key'],
+        ':email_enc' => $emailEnc,
+        ':lookup' => $lookupHash,
+        ':contacts' => $otherContactsEnc,
+        ':label' => (string)$application['label'],
+        ':framing' => isset($application['editorial_framing']) && $application['editorial_framing'] !== ''
+            ? (string)$application['editorial_framing']
+            : null,
+        ':slugs' => $publishableSlugs,
+        ':bridges' => $bridges,
+    ]);
+    return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Mint a one-hour single-use magic-link token bound to an email lookup hash.
+ *
+ * Persists SHA-256(raw_bytes) as token_hash; returns the raw 32 bytes so
+ * the caller can base64url-encode them for the verification URL.
+ *
+ * The verify endpoint (2g-i) hashes the received URL parameter the same way
+ * and matches against token_hash, then sets consumed_at on first success.
+ */
+function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3600): string {
+    if (strlen($emailLookupHash) !== 32) {
+        throw new InvalidArgumentException('db_create_magic_link_token: lookup hash must be 32 bytes');
+    }
+    db_ensure_magic_link_tokens_table();
+    $raw = random_bytes(32);
+    $tokenHash = hash('sha256', $raw, true);
+    $stmt = getDB()->prepare("
+        INSERT INTO magic_link_tokens (token_hash, email_lookup_hash, expires_at)
+        VALUES (:th, :lh, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+    ");
+    $stmt->bindValue(':th', $tokenHash, PDO::PARAM_LOB);
+    $stmt->bindValue(':lh', $emailLookupHash, PDO::PARAM_LOB);
+    $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
+    $stmt->execute();
+    return $raw;
+}
+
+/**
+ * Base64url-encode raw token bytes (no padding) for use in a magic-link URL.
+ */
+function federation_token_url_encode(string $raw): string {
+    return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}

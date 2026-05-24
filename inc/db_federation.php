@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Pluriverse federation schema (stage 2a).
+ * Pluriverse federation schema (stage 2a) + seed helpers (stage 2f-ii onward).
  *
  * Twelve tables, ten idempotent db_ensure_* helpers (instance_status_log and
  * pluriverse_log each pair with a LIKE-copy archive table managed by the same
@@ -14,11 +14,12 @@ declare(strict_types=1);
  *   - instance_status_log, anomaly_log, key_event_push_attempts → instances
  *   - key_event_push_attempts → key_events_signed
  *
- * No code in 2a actually inserts into these tables yet. They exist so 2b
- * (key generation), 2c (coord identity endpoint), 2e (HTTP Sig helper port),
- * 2f (bin/init-admin + first registry_admins seed), and the application
- * surface chunks (2g+) find the schema in place when they need it.
+ * 2f-ii adds first-admin seed helpers (db_registry_admins_count,
+ * db_seed_registry_admin); these pull in inc/federation/pii.php for PII
+ * encryption + lookup hashing.
  */
+
+require_once __DIR__ . '/federation/pii.php';
 
 /**
  * Materialize every federation table in one call. Invoked from
@@ -284,4 +285,67 @@ function db_ensure_pluriverse_log_tables(): void {
     } catch (PDOException $e) {
         error_log('db_ensure_pluriverse_log_tables: ' . $e->getMessage());
     }
+}
+
+// ---------------------------------------------------------------------------
+// Seed helpers (stage 2f-ii onward).
+// ---------------------------------------------------------------------------
+
+/**
+ * How many registry_admins rows exist. Ensures the table first so this is
+ * safe to call before db_ensure_federation_schema() ran.
+ */
+function db_registry_admins_count(): int {
+    db_ensure_registry_admins_table();
+    return (int)getDB()->query("SELECT COUNT(*) FROM registry_admins")->fetchColumn();
+}
+
+/**
+ * Seed a single registry_admins row with PII-encrypted email + deterministic
+ * lookup hash. Idempotent at the application layer: the UNIQUE constraint on
+ * email_lookup_hash means a re-seed of the same email throws (caller catches
+ * if a no-op re-seed is desired).
+ *
+ * Row context for HKDF: hex(email_lookup_hash) — deterministic, unique per
+ * row, known at insert time. Matches the v10 plan's interim stance
+ * (inc/federation/pii.php docblock); aligns with the same choice that the
+ * operator-application flow will use in 2f-iii.
+ *
+ * @param string $email        valid email; FILTER_VALIDATE_EMAIL enforced
+ * @param string $displayName  1..255 chars after trim
+ * @param string $seededVia    'cli' | 'web'
+ * @return int                 new registry_admins.id
+ * @throws InvalidArgumentException on validation failure
+ * @throws PDOException on duplicate (email already an admin) or DB error
+ */
+function db_seed_registry_admin(string $email, string $displayName, string $seededVia = 'cli'): int {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new InvalidArgumentException('db_seed_registry_admin: invalid email');
+    }
+    $displayName = trim($displayName);
+    if ($displayName === '' || mb_strlen($displayName) > 255) {
+        throw new InvalidArgumentException('db_seed_registry_admin: display_name must be 1..255 chars after trim');
+    }
+    if (!in_array($seededVia, ['cli', 'web'], true)) {
+        throw new InvalidArgumentException('db_seed_registry_admin: seeded_via must be cli or web');
+    }
+
+    db_ensure_registry_admins_table();
+
+    $lookupHash = federation_pii_lookup_hash($email);
+    $rowContext = 'registry_admin:' . bin2hex($lookupHash);
+    $emailEnc = federation_pii_encrypt($email, $rowContext, 'email');
+
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        INSERT INTO registry_admins (email_enc, email_lookup_hash, display_name, seeded_via)
+        VALUES (:enc, :lookup, :name, :via)
+    ");
+    $stmt->execute([
+        ':enc' => $emailEnc,
+        ':lookup' => $lookupHash,
+        ':name' => $displayName,
+        ':via' => $seededVia,
+    ]);
+    return (int)$pdo->lastInsertId();
 }

@@ -26,6 +26,8 @@ declare(strict_types=1);
  *   - DB connectivity
  *   - Schema materialized via db_ensure_*
  *   - 4 locale rows present in project_info
+ *   - First registry_admins row (bootstrap admin of the Pluriverse), prompted
+ *     interactively on a TTY when none exists
  *
  * What it does NOT cover:
  *   - Host-level concerns: nginx vhost, perms, ACLs. See bin/setup-host.php.
@@ -205,6 +207,59 @@ if (!$canConnect) {
         }
     } catch (Throwable $e) {
         $tasks[] = ['name' => 'DB reachable', 'status' => 'error', 'detail' => $e->getMessage(), 'fix' => null];
+    }
+}
+
+// 9. First registry_admins row seeded (bootstrap admin of the Pluriverse).
+// Requires the federation schema (registry_admins table) to be in place.
+if (!$canConnect) {
+    $tasks[] = ['name' => 'first admin seeded', 'status' => 'missing', 'detail' => 'prerequisite tasks above must pass first', 'fix' => null];
+} else {
+    try {
+        $registryAdminsPresent = $pdo->query("SHOW TABLES LIKE 'registry_admins'")->fetch() !== false;
+        if (!$registryAdminsPresent) {
+            $tasks[] = ['name' => 'first admin seeded', 'status' => 'missing', 'detail' => 'registry_admins table not yet materialized', 'fix' => null];
+        } else {
+            $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM registry_admins")->fetchColumn();
+            if ($adminCount > 0) {
+                $tasks[] = ['name' => 'first admin seeded', 'status' => 'ok', 'detail' => "{$adminCount} admin row(s) present", 'fix' => null];
+            } else {
+                $fix = function() use ($root) {
+                    if (!defined('STDIN') || !stream_isatty(STDIN)) {
+                        return ['ok' => false, 'detail' => 'no admin rows and stdin is not a TTY; seed manually via db_seed_registry_admin($email, $displayName, "cli")'];
+                    }
+                    echo "\n";
+                    echo "  Seeding first Pluriverse admin (registry_admins.seeded_via=cli).\n";
+                    echo "  This account will have authority over operator applications,\n";
+                    echo "  the blacklist, and the audit log on day one.\n\n";
+                    $email = '';
+                    while ($email === '') {
+                        echo "  Email: ";
+                        $line = trim((string)fgets(STDIN));
+                        if ($line === '') { echo "    (required)\n"; continue; }
+                        if (!filter_var($line, FILTER_VALIDATE_EMAIL)) { echo "    (not a valid email; try again)\n"; continue; }
+                        $email = $line;
+                    }
+                    $displayName = '';
+                    while ($displayName === '') {
+                        echo "  Display name: ";
+                        $line = trim((string)fgets(STDIN));
+                        if ($line === '') { echo "    (required)\n"; continue; }
+                        if (mb_strlen($line) > 255) { echo "    (too long; max 255 chars)\n"; continue; }
+                        $displayName = $line;
+                    }
+                    try {
+                        $id = db_seed_registry_admin($email, $displayName, 'cli');
+                        return ['ok' => true, 'detail' => "registry_admins.id={$id} ({$displayName})"];
+                    } catch (Throwable $e) {
+                        return ['ok' => false, 'detail' => 'seed failed: ' . $e->getMessage()];
+                    }
+                };
+                $tasks[] = ['name' => 'first admin seeded', 'status' => 'missing', 'detail' => 'no registry_admins rows yet (interactive prompt on TTY)', 'fix' => $fix];
+            }
+        }
+    } catch (Throwable $e) {
+        $tasks[] = ['name' => 'first admin seeded', 'status' => 'error', 'detail' => $e->getMessage(), 'fix' => null];
     }
 }
 

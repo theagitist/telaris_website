@@ -107,4 +107,4 @@ The PDFs in `/docs/` arrive automatically when the docs repo builds with `TELARI
 ## What's next
 
 - **Federation stage 2** (the Pluriverse v1 application) extends this same codebase with peers / key_events / registry_admins / instances / magic_link_tokens / sessions / blacklists / anomaly_log / key_events_signed / key_event_push_attempts / instance_status_log tables, operator magic-link auth, admin pages, and the Pluriverse-coord-key federation HTTP surface (`/api/pluriverse/identity` etc., mirroring the instance side at `~/apps/telaris/starmaps/inc/federation/`).
-- **Open follow-up**: drop an AGPL-3.0 LICENSE file at the repo root before stage 2 lands substantive commits. composer.json already declares AGPL-3.0-or-later but the actual license text isn't in the repo yet.
+- LICENSE: AGPL-3.0-or-later text in `LICENSE` at the repo root (added 2026-05-24, commit `042ba07`). composer.json declares the same license. Both layers in place.

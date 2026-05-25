@@ -91,7 +91,7 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_section_summary',
     'dashboard_label_name', 'dashboard_label_url', 'dashboard_label_hostname',
     'dashboard_label_status', 'dashboard_label_locale', 'dashboard_label_created',
-    'dashboard_section_contacts', 'dashboard_label_email', 'dashboard_label_other_contacts',
+    'dashboard_section_contacts', 'dashboard_label_email',
     'dashboard_section_galaxies', 'dashboard_galaxies_none', 'dashboard_galaxies_count_fmt',
     'dashboard_galaxies_rescan_note',
     'dashboard_section_history', 'dashboard_history_none',
@@ -125,6 +125,14 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_edit_err_label_invalid', 'dashboard_edit_err_framing_too_long',
     'dashboard_edit_err_locale_invalid', 'dashboard_edit_err_name_taken',
     'dashboard_edit_err_db',
+    // 2o-i Dashboard other_contacts edit.
+    'dashboard_other_contacts_heading', 'dashboard_other_contacts_help',
+    'dashboard_contacts_service_placeholder', 'dashboard_contacts_user_id_placeholder',
+    'dashboard_contacts_add_button', 'dashboard_contacts_remove_button',
+    'dashboard_contacts_save_button', 'dashboard_contacts_success',
+    'dashboard_contacts_err_csrf', 'dashboard_contacts_err_instance_missing',
+    'dashboard_contacts_err_too_many', 'dashboard_contacts_err_service_invalid',
+    'dashboard_contacts_err_user_id_invalid', 'dashboard_contacts_err_db',
     // 2l Contact + Governance static pages.
     'footer_contact', 'footer_governance',
     'contact_title', 'contact_lead',

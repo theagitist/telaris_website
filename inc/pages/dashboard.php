@@ -66,6 +66,93 @@ if ($method === 'POST'
 }
 
 // -----------------------------------------------------------------------
+// POST action=edit_contacts: operator edits other_contacts (the array of
+// {service, user_id} entries on the encrypted side). No identity ceremony
+// — service handles are pure editorial. Re-encrypt with the existing
+// per-row PII key; UPDATE + status_log INSERT in one transaction.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'edit_contacts'
+    && $session !== null
+    && $session['subject_type'] === 'operator'
+) {
+    $contactsErrorKey = '';
+    if (!pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $contactsErrorKey = 'csrf';
+    } else {
+        $instance = db_get_instance_by_id($session['subject_id']);
+        if ($instance === null) {
+            $contactsErrorKey = 'instance_missing';
+        } else {
+            $rawContacts = $_POST['contacts'] ?? [];
+            if (!is_array($rawContacts)) $rawContacts = [];
+            $normalized = [];
+            foreach ($rawContacts as $entry) {
+                if (!is_array($entry)) continue;
+                $service = trim((string)($entry['service'] ?? ''));
+                $userId = trim((string)($entry['user_id'] ?? ''));
+                // Skip wholly-empty rows (operator added a row then left it
+                // blank); validation kicks in for any partially-filled row.
+                if ($service === '' && $userId === '') continue;
+                $normalized[] = ['service' => $service, 'user_id' => $userId];
+            }
+            if (count($normalized) > 8) {
+                $contactsErrorKey = 'too_many';
+            } else {
+                foreach ($normalized as $i => $entry) {
+                    if ($entry['service'] === '' || mb_strlen($entry['service']) > 64) {
+                        $contactsErrorKey = 'service_invalid';
+                        break;
+                    }
+                    if ($entry['user_id'] === '' || mb_strlen($entry['user_id']) > 256) {
+                        $contactsErrorKey = 'user_id_invalid';
+                        break;
+                    }
+                }
+            }
+            if ($contactsErrorKey === '') {
+                $pdo = getDB();
+                try {
+                    $rowContext = federation_row_context_for_instance((string)$instance['operator_email_lookup_hash']);
+                    $newEnc = federation_pii_encrypt(
+                        json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        $rowContext,
+                        'other_contacts'
+                    );
+                    $pdo->beginTransaction();
+                    $upd = $pdo->prepare("
+                        UPDATE instances
+                        SET other_contacts_enc = :enc
+                        WHERE id = :id
+                    ");
+                    $upd->bindValue(':enc', $newEnc, PDO::PARAM_LOB);
+                    $upd->bindValue(':id', (int)$instance['id'], PDO::PARAM_INT);
+                    $upd->execute();
+                    $log = $pdo->prepare("
+                        INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+                        VALUES (:id, 'operator', 'edit', :summary)
+                    ");
+                    $log->execute([
+                        ':id' => (int)$instance['id'],
+                        ':summary' => 'operator edited other_contacts via dashboard: ' . count($normalized) . ' entr' . (count($normalized) === 1 ? 'y' : 'ies'),
+                    ]);
+                    $pdo->commit();
+                } catch (Throwable $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    error_log('dashboard edit_contacts: ' . $e->getMessage());
+                    $contactsErrorKey = 'db_error';
+                }
+            }
+        }
+    }
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    $qs = $contactsErrorKey === '' ? '?contacts_edited=1' : '?contacts_error=' . urlencode($contactsErrorKey);
+    header('Location: ' . $localePrefix . '/dashboard' . $qs);
+    http_response_code(303);
+    return;
+}
+
+// -----------------------------------------------------------------------
 // POST action=edit: operator edits label / editorial_framing / locale.
 // Non-PII fields only; email changes require a re-verify flow (deferred).
 // Validates inputs, UPDATEs atomically, logs to instance_status_log.
@@ -295,15 +382,100 @@ if ($session !== null && $session['subject_type'] === 'operator') {
               <dt><?= h(info('dashboard_label_email')) ?></dt>
               <dd><?= h($emailDisplay) ?></dd>
             </dl>
-            <?php if ($otherContacts !== []): ?>
-              <p class="dashboard-help"><?= h(info('dashboard_label_other_contacts')) ?></p>
-              <ul class="dashboard-contacts">
-                <?php foreach ($otherContacts as $c): ?>
-                  <?php if (!is_array($c) || !isset($c['service'], $c['user_id'])) continue; ?>
-                  <li><strong><?= h((string)$c['service']) ?>:</strong> <?= h((string)$c['user_id']) ?></li>
-                <?php endforeach; ?>
-              </ul>
+
+            <?php
+            $contactsEdited = isset($_GET['contacts_edited']);
+            $contactsErrorKey = isset($_GET['contacts_error']) ? (string)$_GET['contacts_error'] : '';
+            $contactsErrorMap = [
+                'csrf' => 'dashboard_contacts_err_csrf',
+                'instance_missing' => 'dashboard_contacts_err_instance_missing',
+                'too_many' => 'dashboard_contacts_err_too_many',
+                'service_invalid' => 'dashboard_contacts_err_service_invalid',
+                'user_id_invalid' => 'dashboard_contacts_err_user_id_invalid',
+                'db_error' => 'dashboard_contacts_err_db',
+            ];
+            ?>
+            <h3 class="dashboard-section-h3"><?= h(info('dashboard_other_contacts_heading')) ?></h3>
+            <p class="dashboard-help"><?= h(info('dashboard_other_contacts_help')) ?></p>
+            <?php if ($contactsEdited): ?>
+              <div class="dashboard-callout dashboard-callout-ok">
+                <p><?= h(info('dashboard_contacts_success')) ?></p>
+              </div>
             <?php endif; ?>
+            <?php if ($contactsErrorKey !== '' && isset($contactsErrorMap[$contactsErrorKey])): ?>
+              <div class="dashboard-callout dashboard-callout-error">
+                <p><?= h(info($contactsErrorMap[$contactsErrorKey])) ?></p>
+              </div>
+            <?php endif; ?>
+            <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>"
+                  class="dashboard-contacts-form"
+                  data-add-label="<?= h(info('dashboard_contacts_add_button')) ?>"
+                  data-remove-label="<?= h(info('dashboard_contacts_remove_button')) ?>"
+                  data-service-placeholder="<?= h(info('dashboard_contacts_service_placeholder')) ?>"
+                  data-user-id-placeholder="<?= h(info('dashboard_contacts_user_id_placeholder')) ?>">
+              <?= pluriverse_csrf_field() ?>
+              <input type="hidden" name="action" value="edit_contacts">
+              <div class="dashboard-contacts-rows">
+                <?php $contactIdx = 0; foreach ($otherContacts as $c):
+                    if (!is_array($c) || !isset($c['service'], $c['user_id'])) continue; ?>
+                  <div class="dashboard-contacts-row">
+                    <input type="text" name="contacts[<?= $contactIdx ?>][service]"
+                           value="<?= h((string)$c['service']) ?>" maxlength="64"
+                           placeholder="<?= h(info('dashboard_contacts_service_placeholder')) ?>">
+                    <input type="text" name="contacts[<?= $contactIdx ?>][user_id]"
+                           value="<?= h((string)$c['user_id']) ?>" maxlength="256"
+                           placeholder="<?= h(info('dashboard_contacts_user_id_placeholder')) ?>">
+                    <button type="button" class="dashboard-contacts-remove"><?= h(info('dashboard_contacts_remove_button')) ?></button>
+                  </div>
+                  <?php $contactIdx++; endforeach; ?>
+              </div>
+              <button type="button" class="dashboard-contacts-add"><?= h(info('dashboard_contacts_add_button')) ?></button>
+              <button type="submit"><?= h(info('dashboard_contacts_save_button')) ?></button>
+            </form>
+            <script>
+            (function () {
+                var forms = document.querySelectorAll('form.dashboard-contacts-form');
+                forms.forEach(function (form) {
+                    var rows = form.querySelector('.dashboard-contacts-rows');
+                    var addBtn = form.querySelector('.dashboard-contacts-add');
+                    var addLabel = form.dataset.addLabel;
+                    var removeLabel = form.dataset.removeLabel;
+                    var servicePh = form.dataset.servicePlaceholder;
+                    var userIdPh = form.dataset.userIdPlaceholder;
+                    var MAX = 8;
+                    function attachRemove(row) {
+                        var btn = row.querySelector('.dashboard-contacts-remove');
+                        if (btn) btn.addEventListener('click', function () { row.remove(); });
+                    }
+                    rows.querySelectorAll('.dashboard-contacts-row').forEach(attachRemove);
+                    addBtn.addEventListener('click', function () {
+                        if (rows.children.length >= MAX) return;
+                        var i = rows.children.length;
+                        var row = document.createElement('div');
+                        row.className = 'dashboard-contacts-row';
+                        var s = document.createElement('input');
+                        s.type = 'text';
+                        s.name = 'contacts[' + i + '][service]';
+                        s.maxLength = 64;
+                        s.placeholder = servicePh;
+                        var u = document.createElement('input');
+                        u.type = 'text';
+                        u.name = 'contacts[' + i + '][user_id]';
+                        u.maxLength = 256;
+                        u.placeholder = userIdPh;
+                        var r = document.createElement('button');
+                        r.type = 'button';
+                        r.className = 'dashboard-contacts-remove';
+                        r.textContent = removeLabel;
+                        row.appendChild(s);
+                        row.appendChild(u);
+                        row.appendChild(r);
+                        rows.appendChild(row);
+                        attachRemove(row);
+                    });
+                });
+            })();
+            </script>
           </section>
 
           <section class="dashboard-section">

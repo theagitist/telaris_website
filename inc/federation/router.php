@@ -26,6 +26,7 @@ $routes = [
     '/api/pluriverse/identity' => ['methods' => ['GET'], 'handler' => __DIR__ . '/identity_handler.php'],
     '/api/pluriverse/openapi.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/openapi_handler.php'],
     '/api/pluriverse/operators/apply' => ['methods' => ['POST'], 'handler' => __DIR__ . '/apply_handler.php'],
+    '/api/pluriverse/operators/status' => ['methods' => ['GET'], 'handler' => __DIR__ . '/status_handler.php'],
     '/api/pluriverse/peers.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/peers_handler.php'],
     '/api/pluriverse/blacklist.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/blacklist_handler.php'],
     '/api/pluriverse/key-events.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/key_events_handler.php'],

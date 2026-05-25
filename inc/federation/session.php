@@ -71,21 +71,41 @@ function pluriverse_session_read_cookie(): string {
 
 /**
  * One-shot: read the cookie, validate against DB, return the subject info
- * or null. Clears the cookie if the session is unknown/expired.
+ * or null. Clears the cookie if the session is unknown/expired. The result
+ * is memoized for the rest of the request so the CSRF helper and the page
+ * handler can both query without doubling DB hits.
  *
- * @return array{subject_type:string, subject_id:int}|null
+ * Call pluriverse_current_session_invalidate() after destroying a session
+ * (e.g. on logout) so the cache reflects the new state.
+ *
+ * @return array{subject_type:string, subject_id:int, csrf_token:string, session_id:string}|null
  */
 function pluriverse_current_session(): ?array {
+    if (array_key_exists('__pluriverse_current_session', $GLOBALS)) {
+        return $GLOBALS['__pluriverse_current_session'];
+    }
     $raw = pluriverse_session_read_cookie();
-    if ($raw === '' || strlen($raw) !== 32) return null;
+    if ($raw === '' || strlen($raw) !== 32) {
+        return $GLOBALS['__pluriverse_current_session'] = null;
+    }
     $session = db_validate_session($raw);
     if ($session === null) {
         // Cookie present but DB doesn't know it. Drop it.
         pluriverse_session_clear_cookie();
-        return null;
+        return $GLOBALS['__pluriverse_current_session'] = null;
     }
-    return [
+    return $GLOBALS['__pluriverse_current_session'] = [
         'subject_type' => (string)$session['subject_type'],
         'subject_id' => (int)$session['subject_id'],
+        'csrf_token' => (string)$session['csrf_token'],
+        'session_id' => $raw,
     ];
+}
+
+/**
+ * Drop the per-request memoized session. Call after db_destroy_session so
+ * subsequent reads in the same request don't return a stale row.
+ */
+function pluriverse_current_session_invalidate(): void {
+    unset($GLOBALS['__pluriverse_current_session']);
 }

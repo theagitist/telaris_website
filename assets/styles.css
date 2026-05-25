@@ -758,3 +758,22 @@ body.home footer.site-footer {
   background: rgba(220, 110, 110, 0.06);
   border-left-color: rgba(220, 110, 110, 0.7);
 }
+
+.dashboard-logout-form {
+  margin: 1.5rem 0 0;
+}
+.dashboard-logout-form button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  padding: 0.45rem 1.1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.78));
+  cursor: pointer;
+}
+.dashboard-logout-form button:hover,
+.dashboard-logout-form button:focus {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--fg, #fff);
+}

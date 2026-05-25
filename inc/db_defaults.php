@@ -98,6 +98,7 @@ function pluriverse_project_info_defaults(): array {
             'dashboard_login_button' => 'Send sign-in link',
             'dashboard_login_rate_limited' => 'Too many sign-in attempts from this network. Wait an hour and try again.',
             'dashboard_login_invalid_email' => 'Enter a valid email address.',
+            'dashboard_logout_button' => 'Sign out',
         ],
         'es' => [
             'html_lang' => 'es',
@@ -180,6 +181,7 @@ function pluriverse_project_info_defaults(): array {
             'dashboard_login_button' => 'Enviar enlace',
             'dashboard_login_rate_limited' => 'Demasiados intentos desde esta red. Espera una hora y vuelve a intentarlo.',
             'dashboard_login_invalid_email' => 'Ingresa una dirección de correo válida.',
+            'dashboard_logout_button' => 'Cerrar sesión',
         ],
         'pt' => [
             'html_lang' => 'pt-BR',
@@ -262,6 +264,7 @@ function pluriverse_project_info_defaults(): array {
             'dashboard_login_button' => 'Enviar link',
             'dashboard_login_rate_limited' => 'Tentativas demais desta rede. Aguarde uma hora e tente novamente.',
             'dashboard_login_invalid_email' => 'Digite um endereço de email válido.',
+            'dashboard_logout_button' => 'Sair',
         ],
         'fr' => [
             'html_lang' => 'fr',
@@ -344,6 +347,7 @@ function pluriverse_project_info_defaults(): array {
             'dashboard_login_button' => 'Envoyer le lien',
             'dashboard_login_rate_limited' => 'Trop de tentatives depuis ce réseau. Attends une heure et réessaie.',
             'dashboard_login_invalid_email' => 'Saisis une adresse courriel valide.',
+            'dashboard_logout_button' => 'Se déconnecter',
         ],
     ];
 }

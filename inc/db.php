@@ -99,6 +99,7 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_login_title', 'dashboard_login_lead', 'dashboard_login_sent',
     'dashboard_login_email_label', 'dashboard_login_button',
     'dashboard_login_rate_limited', 'dashboard_login_invalid_email',
+    'dashboard_logout_button',
 ];
 
 function db_ensure_project_info(): void {

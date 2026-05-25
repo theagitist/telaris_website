@@ -23,18 +23,50 @@ declare(strict_types=1);
  *
  * Locale: bootstrap's URL-derived value is used until the operator's
  * instance is known, then we switch to instance.locale (same pattern as
- * operators_verify.php). Edits and withdrawal land with 2g-ii (CSRF).
+ * operators_verify.php).
  *
  * Rate limit: 5 login email requests per IP per hour. APCu-backed.
+ *
+ * State-changing actions (logout shipped 2g-ii; edit + withdraw to follow)
+ * arrive as POST /dashboard with an `action` field plus a CSRF token in
+ * `csrf`. CSRF is checked via pluriverse_csrf_verify before any state
+ * mutates.
  */
 
 require_once __DIR__ . '/../db_federation.php';
 require_once __DIR__ . '/../federation/session.php';
+require_once __DIR__ . '/../federation/csrf.php';
 require_once __DIR__ . '/../federation/pii.php';
 
 global $pluriverseLocale, $pluriverseInfo, $pluriversePrefix;
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$session = pluriverse_current_session();
+
+// -----------------------------------------------------------------------
+// POST action=logout: process before any rendering so we can redirect
+// cleanly. CSRF protects against off-site forms forcing a logout.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'logout'
+    && $session !== null
+) {
+    if (pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        db_destroy_session($session['session_id']);
+        pluriverse_session_clear_cookie();
+        pluriverse_current_session_invalidate();
+    }
+    // Always redirect back to the dashboard, whether the CSRF check
+    // succeeded (logged out, login form) or failed (still logged in or
+    // already logged out). Avoids exposing a different surface on attempt.
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    header('Location: ' . $localePrefix . '/dashboard');
+    http_response_code(303);
+    return;
+}
+
+// Re-read session after a possible logout above (the static cache was
+// invalidated). $session and the rest of the handler need the fresh state.
 $session = pluriverse_current_session();
 
 // -----------------------------------------------------------------------
@@ -178,6 +210,12 @@ if ($session !== null && $session['subject_type'] === 'operator') {
           </section>
 
           <p class="dashboard-footer-note"><?= h(info('dashboard_edit_pending')) ?></p>
+
+          <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-logout-form">
+            <?= pluriverse_csrf_field() ?>
+            <input type="hidden" name="action" value="logout">
+            <button type="submit"><?= h(info('dashboard_logout_button')) ?></button>
+          </form>
         </main>
         <?php
         require __DIR__ . '/../partials/footer.php';

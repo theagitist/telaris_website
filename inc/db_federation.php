@@ -189,11 +189,13 @@ function db_ensure_sessions_table(): void {
     if ($checked) return;
     $checked = true;
     try {
-        getDB()->exec("
+        $pdo = getDB();
+        $pdo->exec("
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id VARBINARY(32) PRIMARY KEY,
                 subject_type ENUM('operator','admin') NOT NULL,
                 subject_id INT UNSIGNED NOT NULL,
+                csrf_token VARBINARY(32) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP NOT NULL,
@@ -201,6 +203,14 @@ function db_ensure_sessions_table(): void {
                 INDEX idx_expires (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        // Inline migration for installs that landed before 2g-ii.
+        $cols = $pdo->query("
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sessions'
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('csrf_token', array_map('strval', $cols), true)) {
+            $pdo->exec("ALTER TABLE sessions ADD COLUMN csrf_token VARBINARY(32) NULL AFTER subject_id");
+        }
     } catch (PDOException $e) {
         error_log('db_ensure_sessions_table: ' . $e->getMessage());
     }
@@ -711,13 +721,15 @@ function db_create_session(string $subjectType, int $subjectId, int $ttlSeconds 
     }
     db_ensure_sessions_table();
     $raw = random_bytes(32);
+    $csrf = random_bytes(32);
     $stmt = getDB()->prepare("
-        INSERT INTO sessions (session_id, subject_type, subject_id, expires_at)
-        VALUES (:sid, :st, :si, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+        INSERT INTO sessions (session_id, subject_type, subject_id, csrf_token, expires_at)
+        VALUES (:sid, :st, :si, :csrf, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
     ");
     $stmt->bindValue(':sid', $raw, PDO::PARAM_LOB);
     $stmt->bindValue(':st', $subjectType);
     $stmt->bindValue(':si', $subjectId, PDO::PARAM_INT);
+    $stmt->bindValue(':csrf', $csrf, PDO::PARAM_LOB);
     $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
     $stmt->execute();
     return $raw;
@@ -739,7 +751,7 @@ function db_validate_session(string $rawSessionId): ?array {
     db_ensure_sessions_table();
     $pdo = getDB();
     $stmt = $pdo->prepare("
-        SELECT subject_type, subject_id
+        SELECT subject_type, subject_id, csrf_token
         FROM sessions
         WHERE session_id = :sid AND expires_at > NOW()
         LIMIT 1
@@ -748,6 +760,16 @@ function db_validate_session(string $rawSessionId): ?array {
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row === false) return null;
+    // Pre-2g-ii sessions might have NULL csrf_token. Lazy-mint on first
+    // use so existing sessions keep working without a forced re-login.
+    if ($row['csrf_token'] === null) {
+        $csrf = random_bytes(32);
+        $upd = $pdo->prepare("UPDATE sessions SET csrf_token = :c WHERE session_id = :sid");
+        $upd->bindValue(':c', $csrf, PDO::PARAM_LOB);
+        $upd->bindValue(':sid', $rawSessionId, PDO::PARAM_LOB);
+        $upd->execute();
+        $row['csrf_token'] = $csrf;
+    }
     // Touch last_activity_at. The ON UPDATE CURRENT_TIMESTAMP only fires
     // when at least one column actually changes value; a plain SET
     // last_activity_at = NOW() forces it.

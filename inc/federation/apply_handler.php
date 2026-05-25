@@ -85,7 +85,7 @@ if ($sigInput === '' || $sigValue === '') {
     federation_router_problem(
         401,
         'signature_required',
-        'POST /api/pluriverse/operators/apply requires an RFC 9421 HTTP Signature from your instance\'s pluriverse.key. Submit via your instance\'s admin "Publish to Pluriverse" action.',
+        'POST /api/pluriverse/operators/apply requires an RFC 9421 HTTP Signature from your instance\'s pluriverse.key. Submit via your instance\'s admin "Join the Pluriverse" action.',
         '/api/pluriverse/operators/apply'
     );
     return;
@@ -315,7 +315,7 @@ try {
     }
 } catch (Throwable $e) {
     error_log('apply: pre-insert conflict check: ' . $e->getMessage());
-    federation_router_problem(500, 'database_error', 'Application could not be processed; please retry shortly.', '/api/pluriverse/operators/apply');
+    federation_router_problem(500, 'database_error', 'Request could not be processed; please retry shortly.', '/api/pluriverse/operators/apply');
     return;
 }
 
@@ -336,7 +336,7 @@ try {
     ], $identity);
 } catch (Throwable $e) {
     error_log('apply: INSERT instances failed: ' . $e->getMessage());
-    federation_router_problem(500, 'database_error', 'Application could not be saved; please retry shortly.', '/api/pluriverse/operators/apply');
+    federation_router_problem(500, 'database_error', 'Request could not be saved; please retry shortly.', '/api/pluriverse/operators/apply');
     return;
 }
 
@@ -350,14 +350,14 @@ try {
 
 if ($tokenUrl !== null) {
     require_once dirname(__DIR__) . '/mail.php';
-    $subject = 'Verify your Pluriverse application';
+    $subject = 'Verify your Pluriverse join request';
     $bodyText = "Hello,\n\n"
-              . "We received your application for the Telaris instance at {$hostname}.\n"
+              . "We received your request to join the Pluriverse from the Telaris instance at {$hostname}.\n"
               . "Confirm your email address by visiting the link below within the next hour:\n\n"
               . "  {$tokenUrl}\n\n"
-              . "After confirmation, an admin will review your application and let you\n"
+              . "After confirmation, an admin will review your request and let you\n"
               . "know when your instance is published in the Pluriverse.\n\n"
-              . "If you did not submit this application, you can ignore this email; the\n"
+              . "If you did not submit this request, you can ignore this email; the\n"
               . "pending record will be removed automatically within 48 hours.\n\n"
               . "Pluriverse - https://www.telaris.ca/\n";
     try {
@@ -374,5 +374,5 @@ echo json_encode([
     'status' => 'pending',
     'instance_id' => $instanceId,
     'public_key_fingerprint' => $identity['public_key_fingerprint'],
-    'message' => 'Application received. Check your email for a verification link; it expires in one hour. The pending application itself expires in 48 hours if not verified.',
+    'message' => 'Request received. Check your email for a verification link; it expires in one hour. The pending request itself expires in 48 hours if not verified.',
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

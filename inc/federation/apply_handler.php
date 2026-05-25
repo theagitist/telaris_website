@@ -280,33 +280,53 @@ if ($errors !== []) {
 }
 
 // -----------------------------------------------------------------------
-// Conflict check. Same one-SELECT-three-keys probe as the old form path.
+// Sweep stale-pending rows past their 24h verify window into 'expired',
+// then run the conflict check. An expired prior attempt for the same
+// hostname/email is replaced (delete + insert) so the operator can
+// re-join without admin intervention.
 // -----------------------------------------------------------------------
 try {
     $pdo = getDB();
     db_ensure_instances_table();
+    db_expire_stale_pending_instances();
     $emailLookupHash = federation_pii_lookup_hash($operatorEmail);
+
+    // Look for any existing row matching by hostname OR email OR label.
+    // If matches are 'expired' AND share both hostname and email (i.e.
+    // the same operator's prior attempt), drop them and continue. Any
+    // non-expired collision is still a 409.
     $stmt = $pdo->prepare("
         SELECT id, admission_status, hostname, operator_email_lookup_hash, label
         FROM instances
         WHERE hostname = :hostname OR operator_email_lookup_hash = :lookup OR label = :label
-        LIMIT 1
     ");
     $stmt->bindValue(':hostname', $hostname);
     $stmt->bindValue(':lookup', $emailLookupHash, PDO::PARAM_LOB);
     $stmt->bindValue(':label', $label);
     $stmt->execute();
-    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($existing !== false) {
+    $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($matches as $row) {
+        $sameHost = strcasecmp((string)$row['hostname'], $hostname) === 0;
+        $sameEmail = hash_equals((string)$row['operator_email_lookup_hash'], $emailLookupHash);
+        $sameLabel = strcasecmp((string)$row['label'], $label) === 0;
+        if ($row['admission_status'] === 'expired' && $sameHost && $sameEmail) {
+            // Same operator's expired prior attempt. Drop it (and its log
+            // rows via FK cascade) so the new INSERT below can land.
+            db_delete_instance((int)$row['id']);
+            continue;
+        }
+        // Live conflict (any non-expired status, or expired but a label-only
+        // collision from a different operator). Return 409.
         $code = 'application_exists';
-        $detail = "An application is already on file for this hostname, email, or name (status: {$existing['admission_status']}).";
-        if (strcasecmp((string)$existing['hostname'], $hostname) === 0) {
+        $detail = "An application is already on file for this hostname, email, or name (status: {$row['admission_status']}).";
+        if ($sameHost) {
             $code = 'hostname_taken';
-            $detail = "An application for hostname '{$hostname}' is already on file (status: {$existing['admission_status']}).";
-        } elseif (hash_equals((string)$existing['operator_email_lookup_hash'], $emailLookupHash)) {
+            $detail = "An application for hostname '{$hostname}' is already on file (status: {$row['admission_status']}).";
+        } elseif ($sameEmail) {
             $code = 'email_taken';
-            $detail = "An application from this email address is already on file (status: {$existing['admission_status']}).";
-        } elseif (strcasecmp((string)$existing['label'], $label) === 0) {
+            $detail = "An application from this email address is already on file (status: {$row['admission_status']}).";
+        } elseif ($sameLabel) {
             $code = 'name_taken';
             $detail = "The name '{$label}' is already taken by another instance. Pick a different name.";
         }
@@ -342,7 +362,7 @@ try {
 }
 
 try {
-    $tokenRaw = db_create_magic_link_token($emailLookupHash, 3600);
+    $tokenRaw = db_create_magic_link_token($emailLookupHash, 86400);
     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 } catch (Throwable $e) {
     error_log("apply: magic-link mint failed (instance id={$instanceId}): " . $e->getMessage());
@@ -354,12 +374,12 @@ if ($tokenUrl !== null) {
     $subject = 'Verify your Pluriverse join request';
     $bodyText = "Hello,\n\n"
               . "We received your request to join the Pluriverse from the Telaris instance at {$hostname}.\n"
-              . "Confirm your email address by visiting the link below within the next hour:\n\n"
+              . "Confirm your email address by visiting the link below within the next 24 hours:\n\n"
               . "  {$tokenUrl}\n\n"
               . "After confirmation, an admin will review your request and let you\n"
               . "know when your instance is published in the Pluriverse.\n\n"
-              . "If you did not submit this request, you can ignore this email; the\n"
-              . "pending record will be removed automatically within 48 hours.\n\n"
+              . "If you do not confirm in that window, the request will expire and\n"
+              . "you can submit a fresh one from your instance's admin panel.\n\n"
               . "Pluriverse - https://www.telaris.ca/\n";
     try {
         pluriverse_send_mail($operatorEmail, $subject, $bodyText);
@@ -375,5 +395,5 @@ echo json_encode([
     'status' => 'pending',
     'instance_id' => $instanceId,
     'public_key_fingerprint' => $identity['public_key_fingerprint'],
-    'message' => 'Request received. Check your email for a verification link; it expires in one hour. The pending request itself expires in 48 hours if not verified.',
+    'message' => 'Request received. Check your email for a verification link; both the link and the pending request itself expire in 24 hours. After that, the operator can submit a fresh request from the instance admin panel.',
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

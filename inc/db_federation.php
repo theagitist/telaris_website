@@ -75,7 +75,7 @@ function db_ensure_instances_table(): void {
                 bridges JSON NULL,
                 locale CHAR(2) NOT NULL DEFAULT 'en',
                 is_highlighted BOOLEAN NOT NULL DEFAULT FALSE,
-                admission_status ENUM('pending','verified','published','rejected','blacklisted','outdated','withdrawn','revoked') NOT NULL DEFAULT 'pending',
+                admission_status ENUM('pending','verified','published','rejected','blacklisted','outdated','withdrawn','revoked','expired') NOT NULL DEFAULT 'pending',
                 verify_by_at TIMESTAMP NULL,
                 last_seen_at TIMESTAMP NULL,
                 health_status ENUM('up','degraded','down','unknown') NOT NULL DEFAULT 'unknown',
@@ -104,6 +104,17 @@ function db_ensure_instances_table(): void {
         }
         if (!isset($colsPresent['locale'])) {
             $pdo->exec("ALTER TABLE instances ADD COLUMN locale CHAR(2) NOT NULL DEFAULT 'en' AFTER bridges");
+        }
+        // 2026-05-25: admission_status grows an 'expired' option for pending
+        // rows whose 24h verification window passed without a click. Probe
+        // the COLUMN_TYPE to avoid the ALTER on tables already at the new
+        // shape.
+        $colInfo = $pdo->query("
+            SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instances' AND COLUMN_NAME = 'admission_status'
+        ")->fetchColumn();
+        if (is_string($colInfo) && strpos($colInfo, "'expired'") === false) {
+            $pdo->exec("ALTER TABLE instances MODIFY COLUMN admission_status ENUM('pending','verified','published','rejected','blacklisted','outdated','withdrawn','revoked','expired') NOT NULL DEFAULT 'pending'");
         }
         $indexes = $pdo->query("
             SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
@@ -470,7 +481,7 @@ function db_insert_instance_application(array $application, array $identity): in
             :hostname, :url, :endpoint, :pk,
             :email_enc, :lookup, :contacts,
             :label, :framing, :slugs, :bridges, :locale,
-            'pending', DATE_ADD(NOW(), INTERVAL 48 HOUR)
+            'pending', DATE_ADD(NOW(), INTERVAL 24 HOUR)
         )
     ");
     $stmt->execute([
@@ -786,6 +797,67 @@ function db_validate_session(string $rawSessionId): ?array {
  * is responsible for decrypting `operator_email_enc` / `other_contacts_enc`
  * via federation_pii_decrypt with the right rowContext.
  */
+/**
+ * Mark any pending instance whose verify_by_at deadline has passed as
+ * expired, and log the transition. Returns the count of rows transitioned.
+ *
+ * Lazy sweep: called from the apply handler (so a fresh apply attempt sees
+ * stale-pending rows as expired and can replace them) and from the
+ * dashboard sign-in POST (so /dashboard reflects expiry on the next user
+ * visit). A proper cron job is deferred until the federation is busy
+ * enough that the lazy path stops covering hygiene.
+ */
+function db_expire_stale_pending_instances(): int {
+    db_ensure_instances_table();
+    db_ensure_instance_status_log_tables();
+    $pdo = getDB();
+    try {
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare("
+            SELECT id FROM instances
+            WHERE admission_status = 'pending' AND verify_by_at IS NOT NULL AND verify_by_at < NOW()
+            FOR UPDATE
+        ");
+        $stmt->execute();
+        $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        if ($ids === []) {
+            $pdo->commit();
+            return 0;
+        }
+        $place = implode(',', array_fill(0, count($ids), '?'));
+        $pdo->prepare("UPDATE instances SET admission_status = 'expired' WHERE id IN ($place)")->execute($ids);
+        $logStmt = $pdo->prepare("
+            INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+            VALUES (:id, 'system', 'transition:pending->expired', '24h verification window passed without confirmation')
+        ");
+        foreach ($ids as $id) {
+            $logStmt->execute([':id' => $id]);
+        }
+        $pdo->commit();
+        return count($ids);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('db_expire_stale_pending_instances: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Delete an instance row and its cascading log entries. Used when a fresh
+ * apply replaces an expired prior attempt. Returns true iff a row was
+ * deleted.
+ *
+ * Caller is responsible for verifying the row's admission_status before
+ * calling: this function does not check, it just removes. Wrong calls
+ * would lose data.
+ */
+function db_delete_instance(int $instanceId): bool {
+    db_ensure_instances_table();
+    $stmt = getDB()->prepare("DELETE FROM instances WHERE id = :id");
+    $stmt->execute([':id' => $instanceId]);
+    return $stmt->rowCount() === 1;
+}
+
 function db_get_instance_by_id(int $instanceId): ?array {
     db_ensure_instances_table();
     $stmt = getDB()->prepare("SELECT * FROM instances WHERE id = :id LIMIT 1");

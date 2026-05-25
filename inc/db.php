@@ -84,7 +84,7 @@ const PROJECT_INFO_COLUMNS = [
     'verify_label_name', 'verify_label_hostname', 'verify_label_status',
     'verify_status_pending', 'verify_status_verified', 'verify_status_published',
     'verify_status_rejected', 'verify_status_blacklisted', 'verify_status_outdated',
-    'verify_status_withdrawn', 'verify_status_revoked',
+    'verify_status_withdrawn', 'verify_status_revoked', 'verify_status_expired',
     'verify_back_home',
     // Operator dashboard (2h, 2026-05-25).
     'dashboard_title', 'dashboard_lead',

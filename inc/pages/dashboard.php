@@ -248,7 +248,7 @@ if ($method === 'POST') {
                 $lookupHash = federation_pii_lookup_hash($emailInput);
                 $instance = db_get_instance_by_email_lookup_hash($lookupHash);
                 if ($instance !== null && in_array((string)$instance['admission_status'], ['verified', 'published', 'outdated', 'withdrawn'], true)) {
-                    $tokenRaw = db_create_magic_link_token($lookupHash, 3600);
+                    $tokenRaw = db_create_magic_link_token($lookupHash, 86400);
                     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 
                     // Use the operator's stored locale for the email body.
@@ -261,7 +261,7 @@ if ($method === 'POST') {
                             'body' => "Hello,\n\n"
                                     . "Open the link below to sign in to your Pluriverse dashboard for the\n"
                                     . "instance \"{$instance['label']}\". The link is single-use and expires\n"
-                                    . "in one hour.\n\n"
+                                    . "in 24 hours.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "If you did not request a sign-in, you can safely ignore this email.\n\n"
                                     . "Pluriverse - https://www.telaris.ca/\n",
@@ -271,7 +271,7 @@ if ($method === 'POST') {
                             'body' => "Hola,\n\n"
                                     . "Abre el enlace siguiente para iniciar sesión en tu panel de la\n"
                                     . "Pluriverse para la instancia \"{$instance['label']}\". El enlace es de\n"
-                                    . "un solo uso y caduca en una hora.\n\n"
+                                    . "un solo uso y caduca en 24 horas.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
                                     . "Pluriverse - https://www.telaris.ca/\n",
@@ -281,7 +281,7 @@ if ($method === 'POST') {
                             'body' => "Olá,\n\n"
                                     . "Abra o link abaixo para entrar no seu painel da Pluriverse para a\n"
                                     . "instância \"{$instance['label']}\". O link é de uso único e expira em\n"
-                                    . "uma hora.\n\n"
+                                    . "24 horas.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Se você não solicitou entrar, pode ignorar este email.\n\n"
                                     . "Pluriverse - https://www.telaris.ca/\n",
@@ -291,7 +291,7 @@ if ($method === 'POST') {
                             'body' => "Bonjour,\n\n"
                                     . "Ouvre le lien ci-dessous pour te connecter à ton tableau de bord\n"
                                     . "Pluriverse pour l'instance \"{$instance['label']}\". Le lien est à\n"
-                                    . "usage unique et expire dans une heure.\n\n"
+                                    . "usage unique et expire dans 24 heures.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
                                     . "Pluriverse - https://www.telaris.ca/\n",

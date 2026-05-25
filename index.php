@@ -29,6 +29,17 @@ if (str_starts_with($reqPath, '/api/pluriverse/')) {
 // 2. Visitor pages.
 require_once __DIR__ . '/inc/bootstrap.php';
 
+// 2a. Multi-segment operator routes that don't fit the single-segment page
+//     dispatch below. These render through the same chrome (head/footer) but
+//     their handler does its own state work first (token consume, etc.).
+//     The path is matched before locale-stripping because magic-link URLs
+//     are emitted without a locale prefix; the handler picks the locale from
+//     the instance row after token consumption.
+if ($reqPath === '/operators/verify-magic-link' || $reqPath === '/operators/verify-magic-link/') {
+    require __DIR__ . '/inc/pages/operators_verify.php';
+    return;
+}
+
 $pageHandlers = [
     '' => 'home',
     'documentation' => 'documentation',

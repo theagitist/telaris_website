@@ -333,6 +333,7 @@ try {
         'publishable_slugs' => $publishableSlugs,
         'bridges' => [],
         'other_contacts' => $otherContacts,
+        'locale' => $locale,
     ], $identity);
 } catch (Throwable $e) {
     error_log('apply: INSERT instances failed: ' . $e->getMessage());

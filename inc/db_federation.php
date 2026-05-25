@@ -45,14 +45,17 @@ function db_ensure_instances_table(): void {
     $checked = true;
     try {
         $pdo = getDB();
-        // Fresh-install shape. Three migrations live here as inline ALTER
-        // probes for installs that landed before each change:
+        // Fresh-install shape. Inline ALTER probes carry forward earlier
+        // installs:
         //   - 2026-05-24: collapse telegram_handle_enc + signal_contact_enc
         //     into a single JSON-in-secretbox other_contacts_enc column.
         //   - 2026-05-24: UNIQUE constraint on instances.label so the
         //     operator-application form's "Name" field is reservable per
         //     instance and stays stable on /api/pluriverse/peers.json. The
         //     UNIQUE is case-insensitive by table collation.
+        //   - 2026-05-25: locale column carrying the language the operator
+        //     applied in. Used to render the verify-magic-link page and any
+        //     future status emails in the operator's preferred language.
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS instances (
                 id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
@@ -70,6 +73,7 @@ function db_ensure_instances_table(): void {
                 editorial_framing TEXT NULL,
                 publishable_slugs JSON NULL,
                 bridges JSON NULL,
+                locale CHAR(2) NOT NULL DEFAULT 'en',
                 is_highlighted BOOLEAN NOT NULL DEFAULT FALSE,
                 admission_status ENUM('pending','verified','published','rejected','blacklisted','outdated','withdrawn','revoked') NOT NULL DEFAULT 'pending',
                 verify_by_at TIMESTAMP NULL,
@@ -97,6 +101,9 @@ function db_ensure_instances_table(): void {
         }
         if (!isset($colsPresent['other_contacts_enc'])) {
             $pdo->exec("ALTER TABLE instances ADD COLUMN other_contacts_enc VARBINARY(2048) NULL AFTER operator_email_lookup_hash");
+        }
+        if (!isset($colsPresent['locale'])) {
+            $pdo->exec("ALTER TABLE instances ADD COLUMN locale CHAR(2) NOT NULL DEFAULT 'en' AFTER bridges");
         }
         $indexes = $pdo->query("
             SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
@@ -437,17 +444,22 @@ function db_insert_instance_application(array $application, array $identity): in
         ? json_encode(array_values($application['bridges']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
         : null;
 
+    $locale = (string)($application['locale'] ?? 'en');
+    if (!in_array($locale, ['en', 'es', 'pt', 'fr'], true)) {
+        $locale = 'en';
+    }
+
     $pdo = getDB();
     $stmt = $pdo->prepare("
         INSERT INTO instances (
             hostname, url, pluriverse_endpoint, public_key,
             operator_email_enc, operator_email_lookup_hash, other_contacts_enc,
-            label, editorial_framing, publishable_slugs, bridges,
+            label, editorial_framing, publishable_slugs, bridges, locale,
             admission_status, verify_by_at
         ) VALUES (
             :hostname, :url, :endpoint, :pk,
             :email_enc, :lookup, :contacts,
-            :label, :framing, :slugs, :bridges,
+            :label, :framing, :slugs, :bridges, :locale,
             'pending', DATE_ADD(NOW(), INTERVAL 48 HOUR)
         )
     ");
@@ -465,6 +477,7 @@ function db_insert_instance_application(array $application, array $identity): in
             : null,
         ':slugs' => $publishableSlugs,
         ':bridges' => $bridges,
+        ':locale' => $locale,
     ]);
     return (int)$pdo->lastInsertId();
 }
@@ -501,6 +514,163 @@ function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3
  */
 function federation_token_url_encode(string $raw): string {
     return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}
+
+/**
+ * Base64url-decode a magic-link URL parameter. Returns the raw bytes or '' on
+ * malformed input. The verify endpoint validates the resulting length (must
+ * be 32) before using it for a hash lookup.
+ */
+function federation_token_url_decode(string $encoded): string {
+    if ($encoded === '' || strlen($encoded) > 64) return '';
+    if (!preg_match('/^[A-Za-z0-9_\-]+$/', $encoded)) return '';
+    $b64 = strtr($encoded, '-_', '+/');
+    $pad = strlen($b64) % 4;
+    if ($pad !== 0) $b64 .= str_repeat('=', 4 - $pad);
+    $raw = base64_decode($b64, true);
+    return is_string($raw) ? $raw : '';
+}
+
+/**
+ * Atomically consume a magic-link token by raw bytes.
+ *
+ * On success: marks consumed_at = NOW(), returns
+ * ['status' => 'consumed', 'email_lookup_hash' => <32 bytes>].
+ *
+ * On a row-found-but-unusable case (expired, or already consumed), returns
+ * ['status' => 'expired' | 'already_consumed', 'email_lookup_hash' => <bytes>]
+ * so the caller can distinguish those from "unknown token".
+ *
+ * Returns null on unknown token, malformed input, or unrecoverable DB error.
+ *
+ * The SELECT ... FOR UPDATE + UPDATE pair runs in a transaction, so two
+ * concurrent verify clicks for the same token cannot both succeed.
+ */
+function db_consume_magic_link_token(string $rawToken): ?array {
+    if (strlen($rawToken) !== 32) return null;
+    db_ensure_magic_link_tokens_table();
+    $tokenHash = hash('sha256', $rawToken, true);
+    $pdo = getDB();
+    try {
+        $pdo->beginTransaction();
+        $sel = $pdo->prepare("
+            SELECT email_lookup_hash, expires_at, consumed_at
+            FROM magic_link_tokens
+            WHERE token_hash = :th
+            FOR UPDATE
+        ");
+        $sel->bindValue(':th', $tokenHash, PDO::PARAM_LOB);
+        $sel->execute();
+        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            $pdo->rollBack();
+            return null;
+        }
+        $emailLookupHash = (string)$row['email_lookup_hash'];
+        if ($row['consumed_at'] !== null) {
+            $pdo->rollBack();
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash];
+        }
+        if (strtotime((string)$row['expires_at']) < time()) {
+            $pdo->rollBack();
+            return ['status' => 'expired', 'email_lookup_hash' => $emailLookupHash];
+        }
+        $upd = $pdo->prepare("
+            UPDATE magic_link_tokens SET consumed_at = NOW()
+            WHERE token_hash = :th AND consumed_at IS NULL
+        ");
+        $upd->bindValue(':th', $tokenHash, PDO::PARAM_LOB);
+        $upd->execute();
+        if ($upd->rowCount() !== 1) {
+            $pdo->rollBack();
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash];
+        }
+        $pdo->commit();
+        return ['status' => 'consumed', 'email_lookup_hash' => $emailLookupHash];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('db_consume_magic_link_token: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Fetch the instance row keyed by operator_email_lookup_hash (the same 32-byte
+ * value `magic_link_tokens.email_lookup_hash` carries).
+ *
+ * Returns the row as an associative array, or null if no such instance.
+ * The returned shape includes locale + admission_status; PII columns are
+ * NOT returned (verify never needs the plaintext email).
+ */
+function db_get_instance_by_email_lookup_hash(string $lookupHash): ?array {
+    if (strlen($lookupHash) !== 32) return null;
+    db_ensure_instances_table();
+    $stmt = getDB()->prepare("
+        SELECT id, hostname, url, label, locale, admission_status
+        FROM instances
+        WHERE operator_email_lookup_hash = :lh
+        LIMIT 1
+    ");
+    $stmt->bindValue(':lh', $lookupHash, PDO::PARAM_LOB);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
+/**
+ * Transition `instances.admission_status` from $expected → $next, atomically.
+ *
+ * Returns true iff a row was updated (i.e. the instance was in $expected at
+ * the moment of the UPDATE). Returns false if the instance is in some other
+ * state (idempotent: a second verify click on an already-verified instance
+ * returns false without changing anything).
+ *
+ * Also appends to instance_status_log so the admin surface can replay
+ * lifecycle events. The log write happens in the same transaction as the
+ * status flip so they cannot diverge.
+ */
+function db_transition_instance_admission(
+    int $instanceId,
+    string $expected,
+    string $next,
+    string $actor,
+    ?string $details = null
+): bool {
+    db_ensure_instances_table();
+    db_ensure_instance_status_log_tables();
+    $pdo = getDB();
+    try {
+        $pdo->beginTransaction();
+        $upd = $pdo->prepare("
+            UPDATE instances SET admission_status = :next
+            WHERE id = :id AND admission_status = :expected
+        ");
+        $upd->execute([
+            ':next' => $next,
+            ':expected' => $expected,
+            ':id' => $instanceId,
+        ]);
+        if ($upd->rowCount() !== 1) {
+            $pdo->rollBack();
+            return false;
+        }
+        $log = $pdo->prepare("
+            INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+            VALUES (:id, :actor, :action, :details)
+        ");
+        $log->execute([
+            ':id' => $instanceId,
+            ':actor' => $actor,
+            ':action' => 'transition:' . $expected . '->' . $next,
+            ':details' => $details,
+        ]);
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('db_transition_instance_admission: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /**

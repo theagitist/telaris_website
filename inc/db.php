@@ -72,6 +72,19 @@ const PROJECT_INFO_COLUMNS = [
     'manifest_title', 'manifest_lead', 'manifest_download_pdf',
     'privacy_title', 'privacy_lead', 'privacy_download_pdf',
     'terms_title', 'terms_lead', 'terms_download_pdf',
+    // Operator magic-link verify page (2g-i, 2026-05-25).
+    'verify_heading_verified', 'verify_body_verified',
+    'verify_heading_already_verified', 'verify_body_already_verified',
+    'verify_heading_expired', 'verify_body_expired',
+    'verify_heading_already_used', 'verify_body_already_used',
+    'verify_heading_invalid', 'verify_body_invalid',
+    'verify_heading_missing', 'verify_body_missing',
+    'verify_heading_instance_missing', 'verify_body_instance_missing',
+    'verify_label_name', 'verify_label_hostname', 'verify_label_status',
+    'verify_status_pending', 'verify_status_verified', 'verify_status_published',
+    'verify_status_rejected', 'verify_status_blacklisted', 'verify_status_outdated',
+    'verify_status_withdrawn', 'verify_status_revoked',
+    'verify_back_home',
 ];
 
 function db_ensure_project_info(): void {
@@ -130,6 +143,23 @@ function db_seed_project_info(): void {
         $params = [];
         foreach ($row as $k => $v) $params[':' . $k] = $v;
         $stmt->execute($params);
+    }
+    // Backfill: when PROJECT_INFO_COLUMNS grows in a release, ALTER TABLE
+    // adds the new columns with empty implicit defaults on existing rows.
+    // INSERT IGNORE above won't update them. This second pass fills any
+    // empty cell with the canonical default so newly added chrome strings
+    // become visible without an operator edit. Existing non-empty cells
+    // (operator-customized) are preserved.
+    foreach (PROJECT_INFO_COLUMNS as $c) {
+        // Whitelisted from the const; safe to inline as an identifier.
+        $upd = $pdo->prepare(
+            "UPDATE project_info SET `$c` = :v WHERE locale = :l AND (`$c` IS NULL OR `$c` = '')"
+        );
+        foreach (PLURIVERSE_LOCALES as $locale) {
+            $val = (string)($defaults[$locale][$c] ?? '');
+            if ($val === '') continue;
+            $upd->execute([':v' => $val, ':l' => $locale]);
+        }
     }
 }
 

@@ -66,6 +66,96 @@ if ($method === 'POST'
 }
 
 // -----------------------------------------------------------------------
+// POST action=edit: operator edits label / editorial_framing / locale.
+// Non-PII fields only; email changes require a re-verify flow (deferred).
+// Validates inputs, UPDATEs atomically, logs to instance_status_log.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'edit'
+    && $session !== null
+    && $session['subject_type'] === 'operator'
+) {
+    $editErrorKey = '';
+    if (!pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $editErrorKey = 'csrf';
+    } else {
+        $instance = db_get_instance_by_id($session['subject_id']);
+        if ($instance === null) {
+            $editErrorKey = 'instance_missing';
+        } else {
+            $newLabel = trim((string)($_POST['label'] ?? ''));
+            $newFraming = trim((string)($_POST['editorial_framing'] ?? ''));
+            $newLocale = (string)($_POST['locale'] ?? '');
+            $curLabel = (string)$instance['label'];
+            $curFraming = (string)($instance['editorial_framing'] ?? '');
+            $curLocale = (string)$instance['locale'];
+
+            if ($newLabel === '' || mb_strlen($newLabel) > 255) {
+                $editErrorKey = 'label_invalid';
+            } elseif (mb_strlen($newFraming) > 2000) {
+                $editErrorKey = 'framing_too_long';
+            } elseif (!in_array($newLocale, ['en', 'es', 'pt', 'fr'], true)) {
+                $editErrorKey = 'locale_invalid';
+            } elseif (strcasecmp($newLabel, $curLabel) !== 0 && !db_label_available($newLabel)) {
+                $editErrorKey = 'name_taken';
+            } else {
+                $unchanged = ($newLabel === $curLabel)
+                    && ($newFraming === $curFraming)
+                    && ($newLocale === $curLocale);
+                if (!$unchanged) {
+                    $pdo = getDB();
+                    try {
+                        $pdo->beginTransaction();
+                        $upd = $pdo->prepare("
+                            UPDATE instances
+                            SET label = :label,
+                                editorial_framing = :framing,
+                                locale = :locale
+                            WHERE id = :id
+                        ");
+                        $upd->execute([
+                            ':label' => $newLabel,
+                            ':framing' => $newFraming,
+                            ':locale' => $newLocale,
+                            ':id' => (int)$instance['id'],
+                        ]);
+                        $changed = [];
+                        if ($newLabel !== $curLabel) $changed[] = 'label';
+                        if ($newFraming !== $curFraming) $changed[] = 'editorial_framing';
+                        if ($newLocale !== $curLocale) $changed[] = 'locale';
+                        $log = $pdo->prepare("
+                            INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+                            VALUES (:id, 'operator', 'edit', :summary)
+                        ");
+                        $log->execute([
+                            ':id' => (int)$instance['id'],
+                            ':summary' => 'operator edited via dashboard: ' . implode(', ', $changed),
+                        ]);
+                        $pdo->commit();
+                    } catch (Throwable $e) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
+                        error_log('dashboard edit: ' . $e->getMessage());
+                        $editErrorKey = 'db_error';
+                    }
+                }
+            }
+        }
+    }
+    // Redirect to a URL whose locale prefix matches the operator's saved
+    // locale (which may have just changed). If the edit failed early
+    // (CSRF, missing instance), fall back to the URL-derived locale so
+    // we don't try to read a locale that wasn't validated.
+    $redirectLocale = ($editErrorKey === '' && isset($newLocale) && in_array($newLocale, ['en', 'es', 'pt', 'fr'], true))
+        ? $newLocale
+        : $pluriverseLocale;
+    $localePrefix = ($redirectLocale !== 'en') ? '/' . $redirectLocale : '';
+    $qs = $editErrorKey === '' ? '?edited=1' : '?edit_error=' . urlencode($editErrorKey);
+    header('Location: ' . $localePrefix . '/dashboard' . $qs);
+    http_response_code(303);
+    return;
+}
+
+// -----------------------------------------------------------------------
 // POST action=withdraw: operator-initiated withdrawal. Transitions the
 // instance to 'withdrawn' (one atomic step), logs it, destroys the session.
 // Reversible: re-applying from the instance admin panel will drop the
@@ -251,7 +341,55 @@ if ($session !== null && $session['subject_type'] === 'operator') {
             <?php endif; ?>
           </section>
 
-          <p class="dashboard-footer-note"><?= h(info('dashboard_edit_pending')) ?></p>
+          <?php
+          // Edit-flash from the POST action=edit redirect.
+          $edited = isset($_GET['edited']);
+          $editErrorKey = isset($_GET['edit_error']) ? (string)$_GET['edit_error'] : '';
+          $editErrorMap = [
+              'csrf' => 'dashboard_edit_err_csrf',
+              'instance_missing' => 'dashboard_edit_err_instance_missing',
+              'label_invalid' => 'dashboard_edit_err_label_invalid',
+              'framing_too_long' => 'dashboard_edit_err_framing_too_long',
+              'locale_invalid' => 'dashboard_edit_err_locale_invalid',
+              'name_taken' => 'dashboard_edit_err_name_taken',
+              'db_error' => 'dashboard_edit_err_db',
+          ];
+          ?>
+          <section class="dashboard-section dashboard-section-edit">
+            <h2><?= h(info('dashboard_section_edit')) ?></h2>
+            <p class="dashboard-help"><?= h(info('dashboard_edit_help')) ?></p>
+            <?php if ($edited): ?>
+              <div class="dashboard-callout dashboard-callout-ok">
+                <p><?= h(info('dashboard_edit_success')) ?></p>
+              </div>
+            <?php endif; ?>
+            <?php if ($editErrorKey !== '' && isset($editErrorMap[$editErrorKey])): ?>
+              <div class="dashboard-callout dashboard-callout-error">
+                <p><?= h(info($editErrorMap[$editErrorKey])) ?></p>
+              </div>
+            <?php endif; ?>
+            <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-edit-form">
+              <?= pluriverse_csrf_field() ?>
+              <input type="hidden" name="action" value="edit">
+
+              <label for="dashboard-edit-label"><?= h(info('dashboard_edit_label_label')) ?></label>
+              <input type="text" id="dashboard-edit-label" name="label" required maxlength="255"
+                     value="<?= h((string)$instance['label']) ?>">
+
+              <label for="dashboard-edit-framing"><?= h(info('dashboard_edit_framing_label')) ?></label>
+              <textarea id="dashboard-edit-framing" name="editorial_framing" rows="4" maxlength="2000"><?= h((string)($instance['editorial_framing'] ?? '')) ?></textarea>
+              <p class="dashboard-help dashboard-help-quiet"><?= h(info('dashboard_edit_framing_help')) ?></p>
+
+              <label for="dashboard-edit-locale"><?= h(info('dashboard_edit_locale_label')) ?></label>
+              <select id="dashboard-edit-locale" name="locale">
+                <?php foreach (['en' => 'English', 'es' => 'Español', 'pt' => 'Português', 'fr' => 'Français'] as $code => $name): ?>
+                  <option value="<?= h($code) ?>"<?= ((string)$instance['locale'] === $code) ? ' selected' : '' ?>><?= h($name) ?></option>
+                <?php endforeach; ?>
+              </select>
+
+              <button type="submit"><?= h(info('dashboard_edit_save_button')) ?></button>
+            </form>
+          </section>
 
           <?php if (in_array((string)$instance['admission_status'], ['pending', 'verified', 'published', 'outdated'], true)): ?>
           <section class="dashboard-section dashboard-section-withdraw">

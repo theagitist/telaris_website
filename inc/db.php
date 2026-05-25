@@ -95,7 +95,6 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_section_galaxies', 'dashboard_galaxies_none', 'dashboard_galaxies_count_fmt',
     'dashboard_galaxies_rescan_note',
     'dashboard_section_history', 'dashboard_history_none',
-    'dashboard_edit_pending',
     'dashboard_login_title', 'dashboard_login_lead', 'dashboard_login_sent',
     'dashboard_login_email_label', 'dashboard_login_button',
     'dashboard_login_rate_limited', 'dashboard_login_invalid_email',
@@ -117,6 +116,15 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_section_withdraw', 'dashboard_withdraw_help',
     'dashboard_withdraw_button', 'dashboard_withdraw_confirm',
     'dashboard_withdraw_success', 'dashboard_withdraw_error',
+    // 2m-ii Dashboard edit action.
+    'dashboard_section_edit', 'dashboard_edit_help',
+    'dashboard_edit_label_label', 'dashboard_edit_framing_label', 'dashboard_edit_framing_help',
+    'dashboard_edit_locale_label', 'dashboard_edit_save_button',
+    'dashboard_edit_success',
+    'dashboard_edit_err_csrf', 'dashboard_edit_err_instance_missing',
+    'dashboard_edit_err_label_invalid', 'dashboard_edit_err_framing_too_long',
+    'dashboard_edit_err_locale_invalid', 'dashboard_edit_err_name_taken',
+    'dashboard_edit_err_db',
     // 2l Contact + Governance static pages.
     'footer_contact', 'footer_governance',
     'contact_title', 'contact_lead',

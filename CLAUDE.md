@@ -160,7 +160,11 @@ Design at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation
 
 **2m shipped 2026-05-25** (`8641f0a` + `8c51126`): operator-side mutations on `/dashboard` (the deferred half of 2h). 2m-i adds a CSRF-protected withdraw flow (transitions {pending, verified, published, outdated} → withdrawn, destroys the session, redirects with a localized confirmation banner; the apply re-apply logic now also drops 'withdrawn' rows for same-operator semantics, mirroring 'expired'). 2m-ii adds edit for the three non-PII fields (label, editorial_framing, locale) with full validation (uniqueness, length caps, locale enum); atomic UPDATE + status_log INSERT in one transaction; redirect target carries the new locale prefix so the URL matches the saved language. 22 new chrome keys × 4 locales = 88 strings.
 
-**What's still ahead**: JWS-signed envelopes for the three public reads (peers.json / blacklist.json / key-events.json, gated on stages 3+ peer verifier), HEAD method on the API router, PII edit on the dashboard (operator_email + other_contacts, gated on a re-verify flow). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
+**2n shipped 2026-05-25** (`2dc95bf`): HEAD method support on the five unauthenticated GET endpoints (identity, openapi.json, peers.json, blacklist.json, key-events.json). Body captured into an output buffer and discarded; Content-Length set from the buffered byte count. Signed GET endpoints (operators/status) stay GET-only because RFC 9421 covers @method in the signature base. Conditional HEAD with matching If-None-Match returns 304 as expected.
+
+**JWS-signing follow-up DROPPED 2026-05-25**: the v10 plan doesn't actually require coord-signed wrappers for peers.json / blacklist.json, and key-events.json already carries inner JWS-signed payloads via `signed_payload`. Reconsider only if a peer-to-peer cache-forwarding scenario surfaces.
+
+**What's still ahead**: PII edit on the dashboard. Splits into two chunks: `other_contacts` (straightforward re-encrypt, ~1h) and `operator_email` (needs a `purpose='email-change'` magic-link flow because the email is the operator's identity, ~3h). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
 
 ## License
 

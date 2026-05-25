@@ -116,20 +116,43 @@ sudo php bin/setup-host.php --check
 
 The PDFs in `/docs/` arrive automatically when the docs repo builds with `TELARIS_WWW_DOCS_DIR=/var/www/www.telaris.ca/docs/` set in the shell rcfile.
 
-## Federation stage 2 — in flight
+## Federation stage 2, closed (2026-05-25)
 
-Mechanical mirrors (2a-2e) and Mailgun integration (2f-i) shipped 2026-05-24. Commits `2228152` → `027bcc9`. Provisioned on this host:
+Stage 1 (2026-05-24) shipped the helper-only surface; stage 2 closed 2026-05-25 with the full application surface live on this codebase.
 
-- 12 federation tables materialized: `instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive.
-- Four secret keys in `secrets/` (0600 www-data:www-data): `pluriverse-coord.key` (Ed25519, fingerprint `IzyKJPRmhmVxWNKQEmTY4g`), `log.key`, `pii_master.key`, `pii_lookup.key`.
-- `GET /api/pluriverse/identity` live (returns `kind: "pluriverse-coord"`).
-- `GET /api/pluriverse/openapi.json` live (OpenAPI 3.1; info.version cross-pinned to identity.protocol_version).
-- `inc/federation/http_sig.php` (RFC 9421 sign/verify); byte-identical to instance side.
-- `inc/mail.php` (PHPMailer wrapper via Mailgun SMTP). Live MAIL_* credentials in `config.php` may need a top-up — verify via `pluriverse_mail_connection_check()` before sending.
+Provisioned on this host:
 
-Design for the remaining sub-chunks (2f-ii through 2l) at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation/Stage 2 application surface design.md`. Active execution state at [[project-telaris-federation-stage-2-active]] in memory.
+- 12 federation tables: `instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive.
+- Six secret keys in `secrets/` (0600 www-data:www-data): `pluriverse-coord.key` (Ed25519, fingerprint `IzyKJPRmhmVxWNKQEmTY4g`), `log.key`, `pii_master.key`, `pii_lookup.key` on this side; `pluriverse.key` + `log.key` on each instance.
+- One row in `registry_admins`: `aemjcr@gmail.com` / "Adri M.", seeded via CLI.
+- One row in `instances`: Starmaps (`starmaps.polivoxia.ca`), `admission_status='published'`, fingerprint `MtwnZ422XdQYkpT5KQp2sg`. First live federation member.
 
-Next-up: confirm MAIL_* in config.php → smoke email to `aemjcr@gmail.com` (Adri's main address per [[user-primary-email]]) → 2f-ii (`bin/init-admin`).
+API endpoints (all under `/api/pluriverse/`):
+
+| Method · Path | Auth | Purpose |
+|---|---|---|
+| GET `/identity` | none | `kind: pluriverse-coord` identity envelope |
+| GET `/openapi.json` | none | OpenAPI 3.1 spec, info.version cross-pinned to identity.protocol_version |
+| POST `/operators/apply` | RFC 9421 sig, tag=`pluriverse-apply` | Operator join request (signed-only; no public form) |
+| GET `/operators/status` | RFC 9421 sig, tag=`pluriverse-status` | Instance asks for its own current admission_status |
+| GET `/peers.json` | none (data-hash ETag + 304) | Published-instance directory |
+| GET `/blacklist.json` | none | Curated hostname/ip/domain blocklist |
+| GET `/key-events.json?since=…` | none | Pull fallback for the push-based compromise channel |
+
+Page routes (front controller; locale-prefixed `/es/`, `/pt/`, `/fr/` variants exist for the public pages):
+
+| Path | Surface |
+|---|---|
+| `/operators/verify-magic-link?t=…` | Magic-link consume; branches on token `purpose` ∈ `{operator, admin}` |
+| `/dashboard` | Operator self-service: read-only own-instance view + CSRF-protected logout. Sign-in via magic-link request from a non-authenticated GET. |
+| `/admin` | Pluriverse admin: read-only instance list + per-row transition actions (publish, reject, blacklist, unpublish, reinstate). CSRF-protected. Admin sign-in via magic-link request. |
+| `/`, `/documentation/`, `/instances/`, `/manifest/`, `/privacy/`, `/terms/` | Public site pages (unchanged from the PHP migration) |
+
+Composer runtime deps (all installed): `league/commonmark ^2.7`, `zircote/swagger-php ^6.1`, `phpmailer/phpmailer ^7.1`.
+
+Design at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation/Stage 2 application surface design.md`. Cycle record at [[project-telaris-federation-stage-2-active]] in memory.
+
+**What's still ahead**: 2k i18n sweep (admin sign-in email + a couple of operator-facing strings still EN-only), 2l `/contact` + `/governance` static pages, JWS-signed envelopes for the three public reads (gated on stages 3+ peer verifier), dashboard edit + withdraw (operator-side mutations on their own row). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
 
 ## License
 

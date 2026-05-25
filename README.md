@@ -40,13 +40,42 @@ Two tables in the `pluriverse` MySQL database:
 - **`project_info`** — one row per locale; chrome strings (navbar labels, page titles, page leads, doc captions, etc.). Operators may edit rows directly; seed rows install only if absent.
 - **`content_cache`** — markdown render cache, keyed by `(slug, locale, source_mtime)`.
 
-Federation tables (`peers`, `key_events`, `registry_admins`) are deferred — they land when federation implementation extends the Pluriverse beyond a marketing surface.
+Federation tables (twelve) are materialized as of stage 2 (2026-05-25): `instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive. All idempotent via `db_ensure_*()`; see `inc/db_federation.php`.
+
+## Federation surface
+
+The Pluriverse coordinates a network of Telaris instances. Stage 1 + stage 2 are live; stages 3+ ship the peer-side pull and verify on instances.
+
+API endpoints (under `/api/pluriverse/`):
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /identity` | none | Identity envelope (kind=pluriverse-coord), cross-pinned to the OpenAPI spec version. |
+| `GET /openapi.json` | none | OpenAPI 3.1 spec for the surface. |
+| `POST /operators/apply` | RFC 9421 sig, tag=`pluriverse-apply` | Operator join request. Signed-only (instance signs with its `pluriverse.key`); no public form. |
+| `GET /operators/status` | RFC 9421 sig, tag=`pluriverse-status` | Instance asks for its own current admission_status (drives the instance-side status-sync poll). |
+| `GET /peers.json` | none | Published-instance directory (peers discover each other from here). |
+| `GET /blacklist.json` | none | Curated hostname/ip/domain blocklist. |
+| `GET /key-events.json?since=...` | none | Pull fallback for the push-based compromise channel. |
+
+Page routes (front controller; locale-prefixed `/es/`, `/pt/`, `/fr/` variants on the public pages):
+
+| Path | Surface |
+|---|---|
+| `/operators/verify-magic-link?t=…` | Magic-link consume; branches on token `purpose` ∈ `{operator, admin}`. |
+| `/dashboard` | Operator self-service: read-only own-instance view (summary, contacts, galaxies, status history) + CSRF-protected logout. Sign-in via magic-link request. |
+| `/admin` | Pluriverse admin: instance list + per-row transition actions (publish, reject, blacklist, unpublish, reinstate). CSRF-protected. Admin sign-in via magic-link request, gated to `registry_admins` rows. |
+
+Public reads (`peers.json`, `blacklist.json`, `key-events.json`) ship as plain JSON for now; JWS-signed envelopes with the Pluriverse coord key are a planned follow-up before any stage-3 peer-side verifier ships.
 
 ## Dependencies
 
-- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring, ext-json, ext-ctype.
+- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring, ext-json, ext-ctype, ext-sodium (federation signing), ext-curl (apply-side HTTP), ext-apcu (rate-limit buckets).
 - MySQL 8.x.
-- One Composer package: [`league/commonmark`](https://commonmark.thephpleague.com/) for markdown rendering.
+- Composer packages:
+  - [`league/commonmark`](https://commonmark.thephpleague.com/) for markdown rendering of Manifest / Privacy / Terms.
+  - [`zircote/swagger-php`](https://github.com/zircote/swagger-php) for the OpenAPI 3.1 surface.
+  - [`phpmailer/phpmailer`](https://github.com/PHPMailer/PHPMailer) for ack + magic-link emails over Mailgun SMTP.
 - `acl` (the `setfacl` binary). On Debian / Ubuntu: `sudo apt install acl`.
 
 ## Setup scripts

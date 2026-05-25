@@ -26,6 +26,8 @@ $routes = [
     '/api/pluriverse/identity' => ['methods' => ['GET'], 'handler' => __DIR__ . '/identity_handler.php'],
     '/api/pluriverse/openapi.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/openapi_handler.php'],
     '/api/pluriverse/operators/apply' => ['methods' => ['POST'], 'handler' => __DIR__ . '/apply_handler.php'],
+    '/api/pluriverse/operators/check-name' => ['methods' => ['GET'], 'handler' => __DIR__ . '/check_name_handler.php'],
+    '/api/pluriverse/operators/list-galaxies' => ['methods' => ['POST'], 'handler' => __DIR__ . '/list_galaxies_handler.php'],
 ];
 
 if (!isset($routes[$path])) {

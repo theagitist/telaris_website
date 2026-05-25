@@ -45,10 +45,14 @@ function db_ensure_instances_table(): void {
     $checked = true;
     try {
         $pdo = getDB();
-        // Fresh-install shape. The two former fixed channels (telegram,
-        // signal) collapsed into a single JSON-in-secretbox "other_contacts_enc"
-        // column on 2026-05-24 so the application form can accept any
-        // service-name / user-id pair without schema churn.
+        // Fresh-install shape. Three migrations live here as inline ALTER
+        // probes for installs that landed before each change:
+        //   - 2026-05-24: collapse telegram_handle_enc + signal_contact_enc
+        //     into a single JSON-in-secretbox other_contacts_enc column.
+        //   - 2026-05-24: UNIQUE constraint on instances.label so the
+        //     operator-application form's "Name" field is reservable per
+        //     instance and stays stable on /api/pluriverse/peers.json. The
+        //     UNIQUE is case-insensitive by table collation.
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS instances (
                 id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
@@ -74,25 +78,33 @@ function db_ensure_instances_table(): void {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY uniq_hostname (hostname),
-                UNIQUE KEY uniq_operator_email_lookup (operator_email_lookup_hash)
+                UNIQUE KEY uniq_operator_email_lookup (operator_email_lookup_hash),
+                UNIQUE KEY uniq_label (label)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
-        // Idempotent contact-column migration for installs that landed before
-        // 2026-05-24. MySQL 8 lacks IF EXISTS / IF NOT EXISTS at the column
+        // MySQL 8 lacks IF EXISTS / IF NOT EXISTS at the column or index
         // level, so probe INFORMATION_SCHEMA first.
         $cols = $pdo->query("
             SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instances'
         ")->fetchAll(PDO::FETCH_COLUMN);
-        $present = array_flip(array_map('strval', $cols));
-        if (isset($present['telegram_handle_enc'])) {
+        $colsPresent = array_flip(array_map('strval', $cols));
+        if (isset($colsPresent['telegram_handle_enc'])) {
             $pdo->exec("ALTER TABLE instances DROP COLUMN telegram_handle_enc");
         }
-        if (isset($present['signal_contact_enc'])) {
+        if (isset($colsPresent['signal_contact_enc'])) {
             $pdo->exec("ALTER TABLE instances DROP COLUMN signal_contact_enc");
         }
-        if (!isset($present['other_contacts_enc'])) {
+        if (!isset($colsPresent['other_contacts_enc'])) {
             $pdo->exec("ALTER TABLE instances ADD COLUMN other_contacts_enc VARBINARY(2048) NULL AFTER operator_email_lookup_hash");
+        }
+        $indexes = $pdo->query("
+            SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instances'
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        $indexNames = array_flip(array_map('strval', $indexes));
+        if (!isset($indexNames['uniq_label'])) {
+            $pdo->exec("ALTER TABLE instances ADD UNIQUE KEY uniq_label (label)");
         }
     } catch (PDOException $e) {
         error_log('db_ensure_instances_table: ' . $e->getMessage());
@@ -489,4 +501,25 @@ function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3
  */
 function federation_token_url_encode(string $raw): string {
     return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}
+
+/**
+ * Check whether an instance Name (DB column `label`) is available.
+ *
+ * Single indexed lookup against the UNIQUE uniq_label index. Returns true
+ * if no instance currently claims this label. Case-insensitive via the
+ * table collation (utf8mb4_unicode_ci).
+ *
+ * Used by the apply-form's async availability check and by the pre-INSERT
+ * conflict probe in apply_handler.php.
+ */
+function db_label_available(string $label): bool {
+    db_ensure_instances_table();
+    $label = trim($label);
+    if ($label === '' || mb_strlen($label) > 255) {
+        return false;
+    }
+    $stmt = getDB()->prepare("SELECT 1 FROM instances WHERE label = :l LIMIT 1");
+    $stmt->execute([':l' => $label]);
+    return $stmt->fetchColumn() === false;
 }

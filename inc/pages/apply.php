@@ -4,60 +4,55 @@ declare(strict_types=1);
 /**
  * /apply  (and /es/apply, /pt/apply, /fr/apply)
  *
- * Operator-application form. Renders an HTML form that posts to the JSON
- * endpoint at POST /api/pluriverse/operators/apply via fetch(); on success
- * the form area swaps to a thank-you panel and the operator is told to
- * check their inbox for the verification link.
+ * Operator-application form. Posts to /api/pluriverse/operators/apply
+ * via fetch(); on success the form area swaps to a thank-you panel with
+ * the captured public-key fingerprint.
  *
- * Locale-aware routing only at this stage: strings are EN throughout (a
- * transitional inline $strings dict at the top so the i18n sweep in
- * 2f-iii-c can lift them into project_info without searching the
- * markup). Locale URL prefix is preserved on the form's hidden `locale`
- * input so the eventual ack email is rendered in the operator's locale
- * once those templates exist.
+ * Locale-aware routing only at this stage: form strings stay EN until
+ * 2f-iii-c lifts them into project_info. An inline $strings dict holds
+ * them so that lift is a key-extraction, not a markup search.
  *
- * Hard requirement: JavaScript. The form depends on fetch() for submission
- * and on a small "add another contact" UI for the optional secondary
- * contacts. A <noscript> notice tells visitors without JS to enable it or
- * email the admin directly. Adding a server-side fallback handler is
- * deferred until anyone asks.
+ * Hard requirement: JavaScript (form submission, async name-availability
+ * check, dynamic galaxies picker, repeatable contact rows). A noscript
+ * notice tells visitors without JS to email the admin out of band.
  */
 
 $strings = [
     'page_title' => 'Apply to join the Pluriverse',
-    'lead' => 'If you run a Telaris instance and want it published in the Pluriverse, fill in the form below. We will fetch your instance\'s identity envelope to capture your public key, then email you a verification link to confirm the address you provide here. After that an admin reviews the application and lets you know when your instance is published.',
+    'lead' => 'If you run a Telaris instance and want it published in the Pluriverse, fill in the form below. We will fetch your instance\'s identity envelope to capture your public key, then email you a verification link. After that an admin reviews the application.',
     'noscript' => 'This form needs JavaScript to submit. Enable it, or write to the Pluriverse admin out of band.',
-    'section_instance' => 'Your instance',
-    'section_contact' => 'Contact',
-    'section_optional' => 'Optional',
 
     'field_hostname_label' => 'Hostname',
-    'field_hostname_help' => 'DNS-style label only, lowercase. No scheme, no port, no path. Example: starmaps.polivoxia.ca',
+    'field_hostname_help' => 'DNS-style label only, lowercase. No scheme, no port, no path.',
 
     'field_url_label' => 'URL',
-    'field_url_help' => 'Canonical https:// URL of your instance. Host must match the hostname above.',
+    'field_url_help' => 'Canonical https:// URL of your instance.',
 
-    'field_endpoint_label' => 'Pluriverse endpoint',
-    'field_endpoint_help' => 'Where your instance serves /api/pluriverse/identity. Defaults to your URL + that path; change only if your instance is not at the path root.',
+    'field_name_label' => 'Name',
+    'field_name_help' => 'Short editorial name for your instance, unique across the Pluriverse.',
+    'name_checking' => 'Checking…',
+    'name_available' => 'Available',
+    'name_taken' => 'Already taken',
+    'name_invalid' => 'Invalid',
 
     'field_email_label' => 'Operator email',
-    'field_email_help' => 'Magic-link target. We encrypt this at rest; nobody but you (via magic-link auth) and the admins will ever read it.',
-
-    'field_label_label' => 'Label',
-    'field_label_help' => 'Short editorial name for your instance. Example: "Mocambos archive".',
+    'field_email_help' => 'Magic-link target. Encrypted at rest.',
 
     'field_framing_label' => 'Editorial framing',
-    'field_framing_help' => 'A sentence or three. What is your instance for, and why does the Pluriverse benefit from federating with it? Optional.',
+    'field_framing_help' => 'A sentence or three. What is your instance for? Optional.',
 
-    'field_slugs_label' => 'Publishable galaxies',
-    'field_slugs_help' => 'Galaxy slugs you intend to publish through the Pluriverse, one per line. Kebab-case. Optional and editable later.',
-
-    'field_bridges_label' => 'Bridges',
-    'field_bridges_help' => 'Which Telaris bridges your instance speaks. Leave unchecked if none apply.',
-    'bridge_mocambos' => 'Mocambos',
+    'field_galaxies_label' => 'Publishable galaxies',
+    'field_galaxies_help' => 'Galaxies you want listed in the Pluriverse. Load them from your instance, then uncheck any you do not want public.',
+    'galaxies_load' => 'Load from my instance',
+    'galaxies_loading' => 'Loading…',
+    'galaxies_empty' => 'Your instance returned no galaxies.',
+    'galaxies_load_failed' => 'Could not load galaxies. You can list slugs manually below.',
+    'galaxies_check_all' => 'Check all',
+    'galaxies_uncheck_all' => 'Uncheck all',
+    'galaxies_manual_label' => 'Or enter slugs manually, one per line:',
 
     'field_contacts_label' => 'Secondary contacts',
-    'field_contacts_help' => 'Optional channels we can use if email is failing (Matrix, XMPP, IRC, whatever you use). Up to eight entries.',
+    'field_contacts_help' => 'Optional fallback channels. Up to eight.',
     'contact_service_placeholder' => 'service',
     'contact_user_id_placeholder' => 'handle / address',
     'contact_add' => 'Add another',
@@ -69,7 +64,7 @@ $strings = [
     'success_title' => 'Application received',
     'success_body' => 'Check your inbox for a verification link. The link expires in one hour; the pending application itself expires in 48 hours if you do not verify.',
     'success_fingerprint_label' => 'Captured public-key fingerprint',
-    'success_fingerprint_help' => 'Compare this against your instance\'s bin/init-identity --check output. If they match, the Pluriverse has the correct key.',
+    'success_fingerprint_help' => 'Compare against your instance\'s bin/init-identity --check to confirm the Pluriverse stored the correct key.',
 
     'error_generic' => 'Something went wrong. Please try again in a minute, or contact the Pluriverse admin if it keeps failing.',
 ];
@@ -81,7 +76,6 @@ require __DIR__ . '/../partials/head.php';
 ?>
 
 <main class="page page-form">
-  <p class="page-eyebrow"><?= h($strings['page_title']) ?></p>
   <h1 class="page-title"><?= h($strings['page_title']) ?></h1>
   <p class="page-lead"><?= h($strings['lead']) ?></p>
 
@@ -104,82 +98,70 @@ require __DIR__ . '/../partials/head.php';
   <form id="apply-form" class="form" novalidate>
     <input type="hidden" name="locale" value="<?= h($pluriverseLocale) ?>">
 
-    <fieldset class="form-section">
-      <legend><?= h($strings['section_instance']) ?></legend>
+    <div class="form-field">
+      <label class="form-label" for="apply-hostname"><?= h($strings['field_hostname_label']) ?></label>
+      <input id="apply-hostname" type="text" name="hostname" required pattern="^[a-z0-9][a-z0-9.\-]*[a-z0-9]$" minlength="4" maxlength="255" autocomplete="off" spellcheck="false" inputmode="url" placeholder="instance.example.org">
+      <small class="form-help"><?= h($strings['field_hostname_help']) ?></small>
+    </div>
 
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_hostname_label']) ?></span>
-        <input type="text" name="hostname" required pattern="^[a-z0-9][a-z0-9.\-]*[a-z0-9]$" minlength="4" maxlength="255" autocomplete="off" spellcheck="false" inputmode="url">
-        <small class="form-help"><?= h($strings['field_hostname_help']) ?></small>
-      </label>
+    <div class="form-field">
+      <label class="form-label" for="apply-url"><?= h($strings['field_url_label']) ?></label>
+      <input id="apply-url" type="url" name="url" required pattern="^https://.+" maxlength="512" autocomplete="off" spellcheck="false" placeholder="https://instance.example.org">
+      <small class="form-help"><?= h($strings['field_url_help']) ?></small>
+    </div>
 
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_url_label']) ?></span>
-        <input type="url" name="url" required pattern="^https://.+" maxlength="512" autocomplete="off" spellcheck="false">
-        <small class="form-help"><?= h($strings['field_url_help']) ?></small>
-      </label>
+    <div class="form-field">
+      <label class="form-label" for="apply-name"><?= h($strings['field_name_label']) ?></label>
+      <div class="form-input-wrap">
+        <input id="apply-name" type="text" name="label" required maxlength="255" autocomplete="off" aria-describedby="apply-name-status">
+        <span id="apply-name-status" class="form-status-pill" data-state=""></span>
+      </div>
+      <small class="form-help"><?= h($strings['field_name_help']) ?></small>
+    </div>
 
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_endpoint_label']) ?></span>
-        <input type="url" name="pluriverse_endpoint" required pattern="^https://.+" maxlength="512" autocomplete="off" spellcheck="false">
-        <small class="form-help"><?= h($strings['field_endpoint_help']) ?></small>
-      </label>
+    <div class="form-field">
+      <label class="form-label" for="apply-email"><?= h($strings['field_email_label']) ?></label>
+      <input id="apply-email" type="email" name="operator_email" required maxlength="254" autocomplete="email" spellcheck="false">
+      <small class="form-help"><?= h($strings['field_email_help']) ?></small>
+    </div>
 
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_label_label']) ?></span>
-        <input type="text" name="label" required maxlength="255" autocomplete="off">
-        <small class="form-help"><?= h($strings['field_label_help']) ?></small>
-      </label>
-    </fieldset>
+    <div class="form-field">
+      <label class="form-label" for="apply-framing"><?= h($strings['field_framing_label']) ?></label>
+      <textarea id="apply-framing" name="editorial_framing" maxlength="2000" rows="3"></textarea>
+      <small class="form-help"><?= h($strings['field_framing_help']) ?></small>
+    </div>
 
-    <fieldset class="form-section">
-      <legend><?= h($strings['section_contact']) ?></legend>
+    <div class="form-field">
+      <span class="form-label"><?= h($strings['field_galaxies_label']) ?></span>
+      <small class="form-help"><?= h($strings['field_galaxies_help']) ?></small>
+      <div class="form-row-actions">
+        <button type="button" id="galaxies-load" class="form-secondary-btn">
+          <span class="label-idle"><?= h($strings['galaxies_load']) ?></span>
+          <span class="label-busy" hidden><?= h($strings['galaxies_loading']) ?></span>
+        </button>
+        <button type="button" id="galaxies-check-all" class="form-link-btn" hidden><?= h($strings['galaxies_check_all']) ?></button>
+        <button type="button" id="galaxies-uncheck-all" class="form-link-btn" hidden><?= h($strings['galaxies_uncheck_all']) ?></button>
+      </div>
+      <div id="galaxies-list" class="galaxies-list" hidden></div>
+      <details class="form-disclosure">
+        <summary><?= h($strings['galaxies_manual_label']) ?></summary>
+        <textarea id="apply-slugs" name="publishable_slugs" rows="3" placeholder="example-galaxy&#10;another-galaxy"></textarea>
+      </details>
+    </div>
 
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_email_label']) ?></span>
-        <input type="email" name="operator_email" required maxlength="254" autocomplete="email" spellcheck="false">
-        <small class="form-help"><?= h($strings['field_email_help']) ?></small>
-      </label>
-
-      <fieldset class="form-field form-subfield">
-        <legend class="form-label"><?= h($strings['field_contacts_label']) ?></legend>
-        <small class="form-help"><?= h($strings['field_contacts_help']) ?></small>
-        <ol id="contacts-rows" class="contacts-rows"></ol>
-        <template id="contact-row-template">
-          <li class="contact-row">
-            <input type="text" name="contact_service[]" maxlength="64" placeholder="<?= h($strings['contact_service_placeholder']) ?>" autocomplete="off" spellcheck="false">
-            <input type="text" name="contact_user_id[]" maxlength="256" placeholder="<?= h($strings['contact_user_id_placeholder']) ?>" autocomplete="off" spellcheck="false">
-            <button type="button" class="contact-remove" aria-label="<?= h($strings['contact_remove']) ?>">×</button>
-          </li>
-        </template>
-        <button type="button" id="contacts-add" class="form-secondary-btn">+ <?= h($strings['contact_add']) ?></button>
-      </fieldset>
-    </fieldset>
-
-    <fieldset class="form-section">
-      <legend><?= h($strings['section_optional']) ?></legend>
-
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_framing_label']) ?></span>
-        <textarea name="editorial_framing" maxlength="2000" rows="4"></textarea>
-        <small class="form-help"><?= h($strings['field_framing_help']) ?></small>
-      </label>
-
-      <label class="form-field">
-        <span class="form-label"><?= h($strings['field_slugs_label']) ?></span>
-        <textarea name="publishable_slugs" rows="3" placeholder="example-galaxy&#10;another-galaxy"></textarea>
-        <small class="form-help"><?= h($strings['field_slugs_help']) ?></small>
-      </label>
-
-      <fieldset class="form-field form-subfield">
-        <legend class="form-label"><?= h($strings['field_bridges_label']) ?></legend>
-        <small class="form-help"><?= h($strings['field_bridges_help']) ?></small>
-        <label class="form-check">
-          <input type="checkbox" name="bridges[]" value="mocambos">
-          <span><?= h($strings['bridge_mocambos']) ?></span>
-        </label>
-      </fieldset>
-    </fieldset>
+    <div class="form-field">
+      <span class="form-label"><?= h($strings['field_contacts_label']) ?></span>
+      <small class="form-help"><?= h($strings['field_contacts_help']) ?></small>
+      <ol id="contacts-rows" class="contacts-rows"></ol>
+      <template id="contact-row-template">
+        <li class="contact-row">
+          <input type="text" name="contact_service[]" maxlength="64" placeholder="<?= h($strings['contact_service_placeholder']) ?>" autocomplete="off" spellcheck="false">
+          <input type="text" name="contact_user_id[]" maxlength="256" placeholder="<?= h($strings['contact_user_id_placeholder']) ?>" autocomplete="off" spellcheck="false">
+          <button type="button" class="contact-remove" aria-label="<?= h($strings['contact_remove']) ?>">×</button>
+        </li>
+      </template>
+      <button type="button" id="contacts-add" class="form-secondary-btn">+ <?= h($strings['contact_add']) ?></button>
+    </div>
 
     <button type="submit" id="apply-submit" class="form-submit">
       <span class="label-idle"><?= h($strings['submit']) ?></span>
@@ -191,7 +173,13 @@ require __DIR__ . '/../partials/head.php';
 <script src="/assets/apply.js" defer></script>
 <script>
   window.PLURIVERSE_APPLY_STRINGS = {
-    error_generic: <?= json_encode($strings['error_generic'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+    error_generic:        <?= json_encode($strings['error_generic'],        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    name_checking:        <?= json_encode($strings['name_checking'],        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    name_available:       <?= json_encode($strings['name_available'],       JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    name_taken:           <?= json_encode($strings['name_taken'],           JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    name_invalid:         <?= json_encode($strings['name_invalid'],         JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    galaxies_empty:       <?= json_encode($strings['galaxies_empty'],       JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    galaxies_load_failed: <?= json_encode($strings['galaxies_load_failed'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
   };
 </script>
 

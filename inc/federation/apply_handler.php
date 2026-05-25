@@ -78,9 +78,17 @@ if (!preg_match('#^https://#', $url) || filter_var($url, FILTER_VALIDATE_URL) ==
     $errors[] = 'url must be a valid https:// URL';
 }
 
+// pluriverse_endpoint is now optional. When the operator omits it we
+// derive `<url>/api/pluriverse/identity`, which is where every Telaris
+// instance serves the envelope by convention. The form no longer asks
+// for it; the API still accepts an explicit value for the rare case of
+// an instance running the federation surface under a non-default path.
 $endpoint = trim((string)($body['pluriverse_endpoint'] ?? ''));
-if (!preg_match('#^https://#', $endpoint) || filter_var($endpoint, FILTER_VALIDATE_URL) === false) {
-    $errors[] = 'pluriverse_endpoint must be a valid https:// URL';
+if ($endpoint === '' && $url !== '' && preg_match('#^https://#', $url)) {
+    $endpoint = rtrim($url, '/') . '/api/pluriverse/identity';
+}
+if ($endpoint === '' || !preg_match('#^https://#', $endpoint) || filter_var($endpoint, FILTER_VALIDATE_URL) === false) {
+    $errors[] = 'pluriverse_endpoint must be a valid https:// URL (omit to default to <url>/api/pluriverse/identity)';
 }
 
 $operatorEmail = trim((string)($body['operator_email'] ?? ''));
@@ -110,18 +118,12 @@ if (!is_array($publishableSlugs)) {
     }
 }
 
-$knownBridges = ['mocambos'];
-$bridges = $body['bridges'] ?? [];
-if (!is_array($bridges)) {
-    $errors[] = 'bridges must be an array';
-    $bridges = [];
-} else {
-    foreach ($bridges as $i => $b) {
-        if (!in_array($b, $knownBridges, true)) {
-            $errors[] = "bridges[{$i}] must be one of: " . implode(', ', $knownBridges);
-        }
-    }
-}
+// Bridges intentionally not collected on the apply form: the operator
+// surface for bridge configuration is admin-mediated and bridge-specific.
+// Keeping the column on the schema so admin can set it later. Accepting
+// the field in the API body for forward-compat and CLI tooling, but
+// silently ignoring anything an applicant submits.
+$bridges = [];
 
 $otherContacts = $body['other_contacts'] ?? [];
 if (!is_array($otherContacts)) {
@@ -175,28 +177,40 @@ if ($urlHost !== strtolower($hostname)) {
 // -----------------------------------------------------------------------
 // Existing-application check. Apply once is the rule for v1; an operator
 // who wants to change instance can do that from /dashboard after they
-// finish verification. Two uniqueness keys to honour: hostname, email.
+// finish verification. Three uniqueness keys to honour: hostname, email,
+// and the operator-chosen Name (DB column `label`). One SELECT covers
+// all three; we post-process the matched row to emit a specific code
+// per clash so the form can highlight the right field.
 // -----------------------------------------------------------------------
 try {
     $pdo = getDB();
     db_ensure_instances_table();
     $emailLookupHash = federation_pii_lookup_hash($operatorEmail);
     $stmt = $pdo->prepare("
-        SELECT id, admission_status FROM instances
-        WHERE hostname = :hostname OR operator_email_lookup_hash = :lookup
+        SELECT id, admission_status, hostname, operator_email_lookup_hash, label
+        FROM instances
+        WHERE hostname = :hostname OR operator_email_lookup_hash = :lookup OR label = :label
         LIMIT 1
     ");
     $stmt->bindValue(':hostname', $hostname);
     $stmt->bindValue(':lookup', $emailLookupHash, PDO::PARAM_LOB);
+    $stmt->bindValue(':label', $label);
     $stmt->execute();
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($existing !== false) {
-        federation_router_problem(
-            409,
-            'application_exists',
-            "An application is already on file for this hostname or email (status: {$existing['admission_status']}). Use the dashboard to update or withdraw.",
-            '/api/pluriverse/operators/apply'
-        );
+        $code = 'application_exists';
+        $detail = "An application is already on file for this hostname, email, or name (status: {$existing['admission_status']}).";
+        if (strcasecmp((string)$existing['hostname'], $hostname) === 0) {
+            $code = 'hostname_taken';
+            $detail = "An application for hostname '{$hostname}' is already on file (status: {$existing['admission_status']}).";
+        } elseif (hash_equals((string)$existing['operator_email_lookup_hash'], $emailLookupHash)) {
+            $code = 'email_taken';
+            $detail = "An application from this email address is already on file (status: {$existing['admission_status']}).";
+        } elseif (strcasecmp((string)$existing['label'], $label) === 0) {
+            $code = 'name_taken';
+            $detail = "The name '{$label}' is already taken by another instance. Pick a different name.";
+        }
+        federation_router_problem(409, $code, $detail, '/api/pluriverse/operators/apply');
         return;
     }
 } catch (Throwable $e) {

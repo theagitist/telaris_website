@@ -594,49 +594,26 @@ body.home footer.site-footer {
 
 /* ---------------------------------------------------------------------------
    Forms (Apply page; future Dashboard + Admin pages share the same shapes).
+   Standard form chrome: flat field stack, no fieldset frames, no uppercase
+   eyebrows. Inputs are full-width, labels sit above, help text below.
    --------------------------------------------------------------------------- */
 
 .page-form .form {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  margin: 2rem 0;
-}
-
-.form-section {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
-  padding: 1.25rem 1.5rem;
-  margin: 0;
-}
-.form-section > legend {
-  padding: 0 0.5rem;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--dim);
+  gap: 1.25rem;
+  margin: 1.5rem 0 2.5rem;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin: 1rem 0 0;
-}
-.form-field:first-child {
-  margin-top: 0.5rem;
-}
-.form-subfield {
-  border: 0;
-  padding: 0;
-}
-.form-subfield > .form-label {
-  display: block;
-  margin-bottom: 0.35rem;
+  gap: 0.3rem;
 }
 .form-label {
   font-size: 0.9rem;
   color: var(--fg);
+  font-weight: 500;
 }
 .form-help {
   font-size: 0.78rem;
@@ -664,13 +641,37 @@ body.home footer.site-footer {
 .form textarea {
   resize: vertical;
   min-height: 4.5rem;
+  font-family: inherit;
 }
+
+/* Wrapper for inputs that have a sibling status pill on the right. */
+.form-input-wrap {
+  position: relative;
+}
+.form-input-wrap input {
+  padding-right: 6.5rem;
+}
+.form-status-pill {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 2px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+.form-status-pill[data-state=""]         { display: none; }
+.form-status-pill[data-state="checking"] { color: var(--dim); }
+.form-status-pill[data-state="ok"]       { color: var(--accent); background: rgba(0, 255, 204, 0.10); }
+.form-status-pill[data-state="bad"]      { color: #ff8888; background: rgba(255, 80, 80, 0.10); }
+.form-status-pill[data-state="warn"]     { color: #f0c050; background: rgba(240, 192, 80, 0.10); }
 
 .form-check {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  margin-top: 0.5rem;
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -680,16 +681,16 @@ body.home footer.site-footer {
 
 .contacts-rows {
   list-style: none;
-  margin: 0.5rem 0;
+  margin: 0.5rem 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 .contact-row {
   display: grid;
   grid-template-columns: 1fr 2fr auto;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 .contact-remove {
   font: inherit;
@@ -705,19 +706,84 @@ body.home footer.site-footer {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.form-secondary-btn {
+.form-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.4rem 0;
+}
+
+.form-secondary-btn,
+.form-link-btn {
   font: inherit;
   background: transparent;
-  color: var(--accent);
-  border: 1px solid rgba(0, 255, 204, 0.4);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 3px;
   padding: 0.35rem 0.85rem;
   cursor: pointer;
-  margin-top: 0.5rem;
-  align-self: flex-start;
 }
-.form-secondary-btn:hover {
+.form-secondary-btn:hover,
+.form-link-btn:hover {
   border-color: var(--accent);
+  color: var(--accent);
+}
+.form-link-btn {
+  border-color: transparent;
+  padding: 0.35rem 0.5rem;
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.form-link-btn:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+}
+.form-secondary-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.galaxies-list {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 0.5rem 0.75rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0.4rem 0;
+}
+.galaxies-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.galaxies-checks li {
+  padding: 0.15rem 0;
+}
+.galaxies-name {
+  color: var(--dim);
+  margin-left: 0.35rem;
+}
+
+.form-disclosure {
+  margin-top: 0.5rem;
+}
+.form-disclosure > summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--dim);
+  padding: 0.25rem 0;
+}
+.form-disclosure > summary:hover {
+  color: var(--fg);
+}
+.form-disclosure[open] > summary {
+  margin-bottom: 0.4rem;
 }
 
 .form-submit {
@@ -730,6 +796,7 @@ body.home footer.site-footer {
   cursor: pointer;
   align-self: flex-start;
   letter-spacing: 0.03em;
+  margin-top: 0.5rem;
 }
 .form-submit:disabled {
   opacity: 0.5;
@@ -745,7 +812,7 @@ body.home footer.site-footer {
   color: var(--fg);
   padding: 0.75rem 1rem;
   border-radius: 3px;
-  margin: 1.25rem 0;
+  margin: 1rem 0;
   font-size: 0.9rem;
 }
 
@@ -766,8 +833,7 @@ body.home footer.site-footer {
 }
 .form-success-meta dt {
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   color: var(--dim);
 }
 .form-success-meta dd {

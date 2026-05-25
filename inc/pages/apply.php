@@ -22,11 +22,8 @@ $strings = [
     'lead' => 'If you run a Telaris instance and want it published in the Pluriverse, fill in the form below. We will fetch your instance\'s identity envelope to capture your public key, then email you a verification link. After that an admin reviews the application.',
     'noscript' => 'This form needs JavaScript to submit. Enable it, or write to the Pluriverse admin out of band.',
 
-    'field_hostname_label' => 'Hostname',
-    'field_hostname_help' => 'DNS-style label only, lowercase. No scheme, no port, no path.',
-
     'field_url_label' => 'URL',
-    'field_url_help' => 'Canonical https:// URL of your instance.',
+    'field_url_help' => 'Canonical https:// URL of your instance. The hostname is derived from this.',
 
     'field_name_label' => 'Name',
     'field_name_help' => 'Short editorial name for your instance, unique across the Pluriverse.',
@@ -42,14 +39,14 @@ $strings = [
     'field_framing_help' => 'A sentence or three. What is your instance for? Optional.',
 
     'field_galaxies_label' => 'Publishable galaxies',
-    'field_galaxies_help' => 'Galaxies you want listed in the Pluriverse. Load them from your instance, then uncheck any you do not want public.',
+    'field_galaxies_help' => 'Load the galaxies from your instance, then uncheck any you do not want public. At least one must stay checked.',
     'galaxies_load' => 'Load from my instance',
     'galaxies_loading' => 'Loading…',
-    'galaxies_empty' => 'Your instance returned no galaxies.',
-    'galaxies_load_failed' => 'Could not load galaxies. You can list slugs manually below.',
+    'galaxies_empty' => 'Your instance returned no galaxies. Add a galaxy in your instance, then come back.',
+    'galaxies_load_failed' => 'Could not load galaxies. Confirm the URL is reachable, then try again.',
     'galaxies_check_all' => 'Check all',
     'galaxies_uncheck_all' => 'Uncheck all',
-    'galaxies_manual_label' => 'Or enter slugs manually, one per line:',
+    'galaxies_required' => 'Pick at least one galaxy to publish.',
 
     'field_contacts_label' => 'Secondary contacts',
     'field_contacts_help' => 'Optional fallback channels. Up to eight.',
@@ -99,12 +96,6 @@ require __DIR__ . '/../partials/head.php';
     <input type="hidden" name="locale" value="<?= h($pluriverseLocale) ?>">
 
     <div class="form-field">
-      <label class="form-label" for="apply-hostname"><?= h($strings['field_hostname_label']) ?></label>
-      <input id="apply-hostname" type="text" name="hostname" required pattern="^[a-z0-9][a-z0-9.\-]*[a-z0-9]$" minlength="4" maxlength="255" autocomplete="off" spellcheck="false" inputmode="url" placeholder="instance.example.org">
-      <small class="form-help"><?= h($strings['field_hostname_help']) ?></small>
-    </div>
-
-    <div class="form-field">
       <label class="form-label" for="apply-url"><?= h($strings['field_url_label']) ?></label>
       <input id="apply-url" type="url" name="url" required pattern="^https://.+" maxlength="512" autocomplete="off" spellcheck="false" placeholder="https://instance.example.org">
       <small class="form-help"><?= h($strings['field_url_help']) ?></small>
@@ -143,10 +134,6 @@ require __DIR__ . '/../partials/head.php';
         <button type="button" id="galaxies-uncheck-all" class="form-link-btn" hidden><?= h($strings['galaxies_uncheck_all']) ?></button>
       </div>
       <div id="galaxies-list" class="galaxies-list" hidden></div>
-      <details class="form-disclosure">
-        <summary><?= h($strings['galaxies_manual_label']) ?></summary>
-        <textarea id="apply-slugs" name="publishable_slugs" rows="3" placeholder="example-galaxy&#10;another-galaxy"></textarea>
-      </details>
     </div>
 
     <div class="form-field">
@@ -170,7 +157,7 @@ require __DIR__ . '/../partials/head.php';
   </form>
 </main>
 
-<script src="/assets/apply.js" defer></script>
+<script src="/assets/apply.js?v=<?= h((string)@filemtime(dirname(__DIR__, 2) . '/assets/apply.js') ?: '0') ?>" defer></script>
 <script>
   window.PLURIVERSE_APPLY_STRINGS = {
     error_generic:        <?= json_encode($strings['error_generic'],        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
@@ -179,7 +166,8 @@ require __DIR__ . '/../partials/head.php';
     name_taken:           <?= json_encode($strings['name_taken'],           JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
     name_invalid:         <?= json_encode($strings['name_invalid'],         JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
     galaxies_empty:       <?= json_encode($strings['galaxies_empty'],       JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
-    galaxies_load_failed: <?= json_encode($strings['galaxies_load_failed'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+    galaxies_load_failed: <?= json_encode($strings['galaxies_load_failed'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    galaxies_required:    <?= json_encode($strings['galaxies_required'],    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
   };
 </script>
 

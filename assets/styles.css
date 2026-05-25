@@ -625,23 +625,43 @@ body.home footer.site-footer {
 .form input[type="url"],
 .form input[type="email"],
 .form textarea {
-  font: inherit;
+  font-family: inherit;
+  font-size: 0.95rem;
   color: var(--fg);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 3px;
-  padding: 0.55rem 0.7rem;
+  background: #0f1416;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  padding: 0.7rem 0.85rem;
   width: 100%;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.form input::placeholder,
+.form textarea::placeholder {
+  color: rgba(232, 238, 240, 0.35);
+}
+.form input:hover,
+.form textarea:hover {
+  border-color: rgba(255, 255, 255, 0.35);
 }
 .form input:focus,
 .form textarea:focus {
-  outline: 1px solid var(--accent);
+  outline: none;
   border-color: var(--accent);
+  background: #0d1416;
+  box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.18);
 }
 .form textarea {
   resize: vertical;
-  min-height: 4.5rem;
-  font-family: inherit;
+  min-height: 5rem;
+}
+/* Defeat Chrome autofill's pale yellow on dark background. */
+.form input:-webkit-autofill,
+.form input:-webkit-autofill:hover,
+.form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--fg);
+  -webkit-box-shadow: 0 0 0 30px #0f1416 inset;
+  caret-color: var(--fg);
 }
 
 /* Wrapper for inputs that have a sibling status pill on the right. */

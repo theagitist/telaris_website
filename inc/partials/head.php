@@ -37,7 +37,7 @@ $navItems = [
   <title><?= h($fullTitle) ?></title>
   <meta name="description" content="<?= h($desc) ?>">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/styles.css?v=<?= h((string)@filemtime(dirname(__DIR__, 2) . '/assets/styles.css') ?: '0') ?>">
 </head>
 <body class="<?= h($bodyClass) ?>">
 <?php if ($includeBg): ?>

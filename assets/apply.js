@@ -34,7 +34,6 @@
   var checkAllButton = document.getElementById('galaxies-check-all');
   var uncheckAllButton = document.getElementById('galaxies-uncheck-all');
   var galaxiesList = document.getElementById('galaxies-list');
-  var manualSlugs = document.getElementById('apply-slugs');
   var urlInput = document.getElementById('apply-url');
 
   var contactsList = document.getElementById('contacts-rows');
@@ -227,20 +226,11 @@
   function collectSlugs() {
     var slugs = [];
     var seen = {};
-    // Checked galaxies from the loaded list.
     if (galaxiesList && !galaxiesList.hidden) {
       var boxes = galaxiesList.querySelectorAll('input[type=checkbox]:checked');
       for (var i = 0; i < boxes.length; i++) {
         var v = (boxes[i].value || '').trim();
         if (v !== '' && !seen[v]) { seen[v] = true; slugs.push(v); }
-      }
-    }
-    // Manual textarea (always merged; gives the operator a way to override).
-    if (manualSlugs) {
-      var lines = (manualSlugs.value || '').split('\n');
-      for (var j = 0; j < lines.length; j++) {
-        var s = lines[j].trim();
-        if (s !== '' && !seen[s]) { seen[s] = true; slugs.push(s); }
       }
     }
     return slugs;
@@ -277,16 +267,22 @@
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     clearError();
-    setBusy(true);
 
     var body;
     try {
       body = buildBody();
     } catch (e) {
-      setBusy(false);
       showError(strings.error_generic);
       return;
     }
+
+    if (!body.publishable_slugs || body.publishable_slugs.length === 0) {
+      showError(strings.galaxies_required || 'Pick at least one galaxy.');
+      if (loadButton) loadButton.focus();
+      return;
+    }
+
+    setBusy(true);
 
     fetch('/api/pluriverse/operators/apply', {
       method: 'POST',

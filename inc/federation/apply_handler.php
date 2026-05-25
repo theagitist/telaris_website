@@ -68,14 +68,26 @@ if (!is_array($body)) {
 }
 
 $errors = [];
-$hostname = trim((string)($body['hostname'] ?? ''));
-if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $hostname) || strlen($hostname) < 4 || strlen($hostname) > 255) {
-    $errors[] = 'hostname must be a DNS-style label (a-z0-9 . -), 4..255 chars, no scheme';
-}
 
 $url = trim((string)($body['url'] ?? ''));
 if (!preg_match('#^https://#', $url) || filter_var($url, FILTER_VALIDATE_URL) === false) {
     $errors[] = 'url must be a valid https:// URL';
+}
+
+// Derive hostname from the URL host component. Form callers do not
+// send hostname any more; API callers may still supply it explicitly
+// and we will respect / cross-check that value against the URL host.
+$urlHost = '';
+if ($url !== '') {
+    $parsed = parse_url($url);
+    if (is_array($parsed) && isset($parsed['host']) && is_string($parsed['host'])) {
+        $urlHost = strtolower($parsed['host']);
+    }
+}
+$hostnameRaw = isset($body['hostname']) ? trim((string)$body['hostname']) : '';
+$hostname = $hostnameRaw !== '' ? strtolower($hostnameRaw) : $urlHost;
+if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $hostname) || strlen($hostname) < 4 || strlen($hostname) > 255) {
+    $errors[] = 'url must include a valid hostname (a-z0-9 . -), 4..255 chars';
 }
 
 // pluriverse_endpoint is now optional. When the operator omits it we
@@ -111,6 +123,9 @@ if (!is_array($publishableSlugs)) {
     $errors[] = 'publishable_slugs must be an array';
     $publishableSlugs = [];
 } else {
+    if (count($publishableSlugs) === 0) {
+        $errors[] = 'publishable_slugs must include at least one slug; load galaxies from your instance and pick at least one';
+    }
     foreach ($publishableSlugs as $i => $s) {
         if (!is_string($s) || !preg_match('/^[a-z0-9][a-z0-9-]{0,127}$/', $s)) {
             $errors[] = "publishable_slugs[{$i}] must be a kebab-case slug 1..128 chars";
@@ -165,11 +180,9 @@ if ($errors !== []) {
     return;
 }
 
-// Normalize hostname / url consistency: the URL host must equal the
-// declared hostname (case-insensitive). Defence against mismatched data.
-$urlParts = parse_url($url);
-$urlHost = isset($urlParts['host']) ? strtolower((string)$urlParts['host']) : '';
-if ($urlHost !== strtolower($hostname)) {
+// If hostname was supplied explicitly (API caller, not the form), the
+// URL host must equal the declared hostname.
+if ($hostnameRaw !== '' && $urlHost !== $hostname) {
     federation_router_problem(422, 'hostname_url_mismatch', 'hostname does not match the host in url', '/api/pluriverse/operators/apply');
     return;
 }

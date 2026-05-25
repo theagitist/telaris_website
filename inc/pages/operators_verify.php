@@ -4,38 +4,44 @@ declare(strict_types=1);
 /**
  * GET /operators/verify-magic-link?t=<base64url-token>
  *
- * Confirms the operator's email after a join request. The token was minted by
- * the apply endpoint (`db_create_magic_link_token`) and emailed to the
- * operator inside a one-hour ack message. Clicking the link:
+ * Single endpoint for all magic-link consumes. Two callers:
  *
- *   1. base64url-decodes the token, validates the 32-byte length.
- *   2. atomically consumes the token (single-use, TTL-bounded).
- *   3. looks up the instance by email_lookup_hash, switches admission_status
- *      from `pending` to `verified`, logs the transition.
- *   4. re-renders this page in the operator's preferred locale (stored on
- *      `instances.locale` since 2g-i, captured from the apply body).
+ *   - Apply ack email (2f-iii): "confirm your join request".
+ *   - Dashboard sign-in email (2h): "sign in to your dashboard".
  *
- * The endpoint is idempotent: a second click on an already-consumed token
- * (or on an instance that is already past `pending`) renders the
- * "already verified" surface instead of erroring.
+ * The endpoint doesn't distinguish them: it consumes the token, looks up the
+ * instance, and decides what to do based on the instance's admission_status.
  *
- * No session is created here. The session for the operator dashboard arrives
- * with 2g-ii / 2h. After verification, the operator's next touchpoint with
- * the Pluriverse is the admin-decision email.
+ *   pending  → transition to verified, create session, redirect to /dashboard
+ *   verified | published | outdated | withdrawn
+ *            → create session, redirect to /dashboard
+ *   rejected | blacklisted | revoked
+ *            → no session, render the not-eligible message
+ *
+ * Single-use rule: a session is only minted on a *fresh* consume. An
+ * already_consumed token (re-click, replay) yields the "link already used"
+ * message even if the instance is past pending; the operator must request
+ * a new sign-in link from /dashboard to obtain a session.
+ *
+ * Error states (rendered with HTTP 410): expired, invalid (malformed or
+ * unknown), missing (no `t` param), instance_missing (consumed but the row
+ * is gone), not_eligible (status blocks dashboard access).
  */
 
 require_once __DIR__ . '/../db_federation.php';
+require_once __DIR__ . '/../federation/session.php';
 
 global $pluriverseLocale, $pluriverseInfo, $pluriversePrefix;
 
 // -----------------------------------------------------------------------
-// Step 1: decode + consume the token.
+// Decode + consume the token. Branch on consume status.
 // -----------------------------------------------------------------------
 $rawParam = (string)($_GET['t'] ?? '');
 $tokenBytes = federation_token_url_decode($rawParam);
 
 $state = 'invalid';
 $instance = null;
+$consumeFresh = false;
 
 if ($rawParam === '') {
     $state = 'missing';
@@ -49,22 +55,15 @@ if ($rawParam === '') {
         $state = 'expired';
         $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
     } elseif ($consume['status'] === 'already_consumed') {
-        // Token was clicked before; treat as success-already if the instance
-        // moved past `pending`. Otherwise the verify clearly hasn't completed
-        // (unusual race) and we surface the already-used message.
+        // Re-click on a burned token. No session minted (preserves single-use).
         $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
-        $state = ($instance !== null && $instance['admission_status'] !== 'pending')
-            ? 'already_verified'
-            : 'already_used';
-    } else { // 'consumed'
+        $state = 'already_used';
+    } else { // 'consumed', fresh
+        $consumeFresh = true;
         $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
         if ($instance === null) {
-            // Token consumed but instance gone (manually deleted, e.g.). Rare.
             $state = 'instance_missing';
-        } elseif ($instance['admission_status'] !== 'pending') {
-            // Already verified by a previous click within the same TTL window.
-            $state = 'already_verified';
-        } else {
+        } elseif ($instance['admission_status'] === 'pending') {
             $ok = db_transition_instance_admission(
                 (int)$instance['id'],
                 'pending',
@@ -73,24 +72,52 @@ if ($rawParam === '') {
                 'email verified via magic link'
             );
             if ($ok) {
-                $state = 'verified';
                 $instance['admission_status'] = 'verified';
+                $state = 'verified';
             } else {
-                // Lost the race against a parallel transition; refetch.
+                // Lost the race against a parallel transition; refetch and
+                // continue as if we'd seen the post-transition state.
                 $refresh = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
                 $instance = $refresh ?? $instance;
-                $state = ($instance['admission_status'] !== 'pending')
-                    ? 'already_verified'
-                    : 'invalid';
+                $state = ($instance['admission_status'] !== 'pending') ? 'verified' : 'invalid';
             }
+        } else {
+            // Fresh consume on an already-past-pending instance. This is the
+            // dashboard sign-in case: token proves email ownership, grant
+            // session.
+            $state = 'verified';
         }
     }
 }
 
 // -----------------------------------------------------------------------
-// Step 2: switch locale to the operator's preferred language if we know it.
-// $pluriverseLocale already carries the URL-derived value (en at root); we
-// override only when the instance row has a usable locale.
+// On a fresh consume into a session-eligible state, mint the session and
+// redirect to /dashboard. The cookie is set in the same response.
+// -----------------------------------------------------------------------
+$sessionEligibleStates = ['verified', 'published', 'outdated', 'withdrawn'];
+if ($consumeFresh && $state === 'verified' && $instance !== null) {
+    if (in_array((string)$instance['admission_status'], $sessionEligibleStates, true)) {
+        try {
+            $rawSession = db_create_session('operator', (int)$instance['id']);
+            pluriverse_session_set_cookie($rawSession);
+            $instanceLocale = (string)$instance['locale'];
+            $localePrefix = in_array($instanceLocale, ['es', 'pt', 'fr'], true) ? '/' . $instanceLocale : '';
+            header('Location: ' . $localePrefix . '/dashboard');
+            http_response_code(303);
+            return;
+        } catch (Throwable $e) {
+            error_log('verify: session create failed for instance ' . $instance['id'] . ': ' . $e->getMessage());
+            // Fall through and render the success page without a session.
+        }
+    } else {
+        // Fresh consume but instance is rejected/blacklisted/revoked. The
+        // operator authenticated, but the Pluriverse won't let them in.
+        $state = 'not_eligible';
+    }
+}
+
+// -----------------------------------------------------------------------
+// Switch chrome locale to the operator's preferred language when known.
 // -----------------------------------------------------------------------
 if ($instance !== null && isset($instance['locale'])
     && in_array($instance['locale'], ['en', 'es', 'pt', 'fr'], true)
@@ -106,8 +133,7 @@ if ($instance !== null && isset($instance['locale'])
 }
 
 // -----------------------------------------------------------------------
-// Step 3: render. Strings come from project_info via info(); the keys are
-// `verify_*` and live alongside the rest of the chrome.
+// Render. Error states use HTTP 410.
 // -----------------------------------------------------------------------
 $headingKey = 'verify_heading_' . $state;
 $bodyKey = 'verify_body_' . $state;
@@ -115,7 +141,7 @@ $pageTitle = info($headingKey) !== '' ? info($headingKey) : info('verify_heading
 $bodyClass = 'page-verify';
 $includeBg = false;
 
-if ($state !== 'verified' && $state !== 'already_verified') {
+if ($state !== 'verified') {
     http_response_code(410);
 }
 
@@ -125,7 +151,7 @@ require __DIR__ . '/../partials/head.php';
 <main class="page">
   <h1 class="page-title"><?= h($pageTitle) ?></h1>
   <p class="page-lead"><?= h(info($bodyKey)) ?></p>
-<?php if ($instance !== null && in_array($state, ['verified', 'already_verified'], true)): ?>
+<?php if ($instance !== null && $state === 'verified'): ?>
   <dl class="verify-instance">
     <dt><?= h(info('verify_label_name')) ?></dt>
     <dd><?= h((string)$instance['label']) ?></dd>

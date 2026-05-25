@@ -693,3 +693,113 @@ function db_label_available(string $label): bool {
     $stmt->execute([':l' => $label]);
     return $stmt->fetchColumn() === false;
 }
+
+/**
+ * Mint a session for the given subject. Returns the raw 32-byte session ID;
+ * the page layer wraps it in a base64url cookie payload.
+ *
+ * subject_type='operator' uses instances.id; subject_type='admin' uses
+ * registry_admins.id. The sessions table indexes both with (subject_type,
+ * subject_id) so lookups stay O(log n) when both surfaces coexist.
+ */
+function db_create_session(string $subjectType, int $subjectId, int $ttlSeconds = 1209600): string {
+    if (!in_array($subjectType, ['operator', 'admin'], true)) {
+        throw new InvalidArgumentException('db_create_session: subject_type must be operator|admin');
+    }
+    if ($subjectId <= 0) {
+        throw new InvalidArgumentException('db_create_session: subject_id must be positive');
+    }
+    db_ensure_sessions_table();
+    $raw = random_bytes(32);
+    $stmt = getDB()->prepare("
+        INSERT INTO sessions (session_id, subject_type, subject_id, expires_at)
+        VALUES (:sid, :st, :si, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+    ");
+    $stmt->bindValue(':sid', $raw, PDO::PARAM_LOB);
+    $stmt->bindValue(':st', $subjectType);
+    $stmt->bindValue(':si', $subjectId, PDO::PARAM_INT);
+    $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
+    $stmt->execute();
+    return $raw;
+}
+
+/**
+ * Validate a raw session ID against the sessions table.
+ *
+ * Returns ['subject_type' => 'operator'|'admin', 'subject_id' => int] on a
+ * live (not expired) session, or null otherwise. Touches last_activity_at
+ * on a hit so the sliding-TTL semantics work without a separate write.
+ *
+ * Returning null is the sole "this cookie is no good" signal; the caller
+ * clears the cookie when it sees null. We don't distinguish expired vs
+ * unknown deliberately (no cookie fishing).
+ */
+function db_validate_session(string $rawSessionId): ?array {
+    if (strlen($rawSessionId) !== 32) return null;
+    db_ensure_sessions_table();
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT subject_type, subject_id
+        FROM sessions
+        WHERE session_id = :sid AND expires_at > NOW()
+        LIMIT 1
+    ");
+    $stmt->bindValue(':sid', $rawSessionId, PDO::PARAM_LOB);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row === false) return null;
+    // Touch last_activity_at. The ON UPDATE CURRENT_TIMESTAMP only fires
+    // when at least one column actually changes value; a plain SET
+    // last_activity_at = NOW() forces it.
+    $upd = $pdo->prepare("UPDATE sessions SET last_activity_at = NOW() WHERE session_id = :sid");
+    $upd->bindValue(':sid', $rawSessionId, PDO::PARAM_LOB);
+    $upd->execute();
+    return $row;
+}
+
+/**
+ * Fetch the instance row by primary key, including encrypted PII columns.
+ *
+ * Used by the dashboard to render the operator's own instance. The caller
+ * is responsible for decrypting `operator_email_enc` / `other_contacts_enc`
+ * via federation_pii_decrypt with the right rowContext.
+ */
+function db_get_instance_by_id(int $instanceId): ?array {
+    db_ensure_instances_table();
+    $stmt = getDB()->prepare("SELECT * FROM instances WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $instanceId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
+/**
+ * Fetch the most recent status-log entries for an instance, newest first.
+ */
+function db_get_instance_status_log(int $instanceId, int $limit = 25): array {
+    db_ensure_instance_status_log_tables();
+    $limit = max(1, min(200, $limit));
+    $stmt = getDB()->prepare("
+        SELECT action, actor, details_summary, created_at
+        FROM instance_status_log
+        WHERE instance_id = :id
+        ORDER BY id DESC
+        LIMIT {$limit}
+    ");
+    $stmt->execute([':id' => $instanceId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Destroy a session by raw ID. Returns true iff a row was deleted.
+ *
+ * Called on logout (when 2g-ii ships) and when a session is invalidated
+ * for some other reason (operator revoked, etc.).
+ */
+function db_destroy_session(string $rawSessionId): bool {
+    if (strlen($rawSessionId) !== 32) return false;
+    db_ensure_sessions_table();
+    $stmt = getDB()->prepare("DELETE FROM sessions WHERE session_id = :sid");
+    $stmt->bindValue(':sid', $rawSessionId, PDO::PARAM_LOB);
+    $stmt->execute();
+    return $stmt->rowCount() === 1;
+}

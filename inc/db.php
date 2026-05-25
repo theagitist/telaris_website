@@ -80,11 +80,25 @@ const PROJECT_INFO_COLUMNS = [
     'verify_heading_invalid', 'verify_body_invalid',
     'verify_heading_missing', 'verify_body_missing',
     'verify_heading_instance_missing', 'verify_body_instance_missing',
+    'verify_heading_not_eligible', 'verify_body_not_eligible',
     'verify_label_name', 'verify_label_hostname', 'verify_label_status',
     'verify_status_pending', 'verify_status_verified', 'verify_status_published',
     'verify_status_rejected', 'verify_status_blacklisted', 'verify_status_outdated',
     'verify_status_withdrawn', 'verify_status_revoked',
     'verify_back_home',
+    // Operator dashboard (2h, 2026-05-25).
+    'dashboard_title', 'dashboard_lead',
+    'dashboard_section_summary',
+    'dashboard_label_name', 'dashboard_label_url', 'dashboard_label_hostname',
+    'dashboard_label_status', 'dashboard_label_locale', 'dashboard_label_created',
+    'dashboard_section_contacts', 'dashboard_label_email', 'dashboard_label_other_contacts',
+    'dashboard_section_galaxies', 'dashboard_galaxies_none', 'dashboard_galaxies_count_fmt',
+    'dashboard_galaxies_rescan_note',
+    'dashboard_section_history', 'dashboard_history_none',
+    'dashboard_edit_pending',
+    'dashboard_login_title', 'dashboard_login_lead', 'dashboard_login_sent',
+    'dashboard_login_email_label', 'dashboard_login_button',
+    'dashboard_login_rate_limited', 'dashboard_login_invalid_email',
 ];
 
 function db_ensure_project_info(): void {

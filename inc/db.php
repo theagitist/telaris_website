@@ -133,6 +133,15 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_contacts_err_csrf', 'dashboard_contacts_err_instance_missing',
     'dashboard_contacts_err_too_many', 'dashboard_contacts_err_service_invalid',
     'dashboard_contacts_err_user_id_invalid', 'dashboard_contacts_err_db',
+    // 2o-ii Dashboard email-change flow.
+    'dashboard_email_change_heading', 'dashboard_email_change_help',
+    'dashboard_email_change_new_label', 'dashboard_email_change_new_placeholder',
+    'dashboard_email_change_send_button', 'dashboard_email_change_sent',
+    'dashboard_email_change_pending_help', 'dashboard_email_change_cancel_button',
+    'dashboard_email_change_cancelled', 'dashboard_email_change_confirmed',
+    'dashboard_email_change_err_csrf', 'dashboard_email_change_err_instance_missing',
+    'dashboard_email_change_err_email_invalid', 'dashboard_email_change_err_email_unchanged',
+    'dashboard_email_change_err_email_taken', 'dashboard_email_change_err_db',
     // 2l Contact + Governance static pages.
     'footer_contact', 'footer_governance',
     'contact_title', 'contact_lead',

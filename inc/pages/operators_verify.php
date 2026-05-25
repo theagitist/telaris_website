@@ -60,19 +60,43 @@ if ($rawParam === '') {
         $purpose = (string)($consume['purpose'] ?? 'operator');
         if ($purpose === 'operator') {
             $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        } elseif ($purpose === 'email-change') {
+            $instance = db_get_instance_by_pending_email_lookup_hash($consume['email_lookup_hash']);
         }
     } elseif ($consume['status'] === 'already_consumed') {
         // Re-click on a burned token. No session minted (preserves single-use).
         $purpose = (string)($consume['purpose'] ?? 'operator');
         if ($purpose === 'operator') {
             $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        } elseif ($purpose === 'email-change') {
+            $instance = db_get_instance_by_pending_email_lookup_hash($consume['email_lookup_hash']);
         }
         $state = 'already_used';
     } else { // 'consumed', fresh
         $consumeFresh = true;
         $purpose = (string)($consume['purpose'] ?? 'operator');
 
-        if ($purpose === 'admin') {
+        if ($purpose === 'email-change') {
+            // Email-change confirmation: the token's lookup hash is the NEW
+            // email's hash. Find the instance via pending_email_lookup_hash,
+            // promote the change, redirect to /dashboard.
+            $instance = db_get_instance_by_pending_email_lookup_hash($consume['email_lookup_hash']);
+            if ($instance === null) {
+                // Pending row was cancelled or already promoted in a race.
+                $state = 'instance_missing';
+            } else {
+                $ok = db_promote_email_change((int)$instance['id']);
+                if (!$ok) {
+                    error_log('verify: db_promote_email_change failed for instance ' . $instance['id']);
+                    $state = 'invalid';
+                } else {
+                    $localePrefix = in_array((string)$instance['locale'], ['es', 'pt', 'fr'], true) ? '/' . $instance['locale'] : '';
+                    header('Location: ' . $localePrefix . '/dashboard?email_changed=1');
+                    http_response_code(303);
+                    return;
+                }
+            }
+        } elseif ($purpose === 'admin') {
             // Admin sign-in path: gate on registry_admins membership.
             $admin = db_get_admin_by_email_lookup_hash($consume['email_lookup_hash']);
             if ($admin === null) {

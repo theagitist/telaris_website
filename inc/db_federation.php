@@ -116,6 +116,21 @@ function db_ensure_instances_table(): void {
         if (is_string($colInfo) && strpos($colInfo, "'expired'") === false) {
             $pdo->exec("ALTER TABLE instances MODIFY COLUMN admission_status ENUM('pending','verified','published','rejected','blacklisted','outdated','withdrawn','revoked','expired') NOT NULL DEFAULT 'pending'");
         }
+        // 2026-05-25 (2o-ii): three pending_email_* columns hold a proposed
+        // new operator email through the magic-link confirmation round-trip.
+        // pending_email_lookup_hash is the NEW email's lookup hash (used by
+        // the verify handler to find the row when the operator clicks the
+        // link in their new mailbox). UNIQUE prevents two operators from
+        // racing to change to the same address.
+        if (!isset($colsPresent['pending_email_enc'])) {
+            $pdo->exec("ALTER TABLE instances ADD COLUMN pending_email_enc VARBINARY(512) NULL AFTER other_contacts_enc");
+        }
+        if (!isset($colsPresent['pending_email_lookup_hash'])) {
+            $pdo->exec("ALTER TABLE instances ADD COLUMN pending_email_lookup_hash VARBINARY(32) NULL AFTER pending_email_enc");
+        }
+        if (!isset($colsPresent['pending_email_requested_at'])) {
+            $pdo->exec("ALTER TABLE instances ADD COLUMN pending_email_requested_at TIMESTAMP NULL AFTER pending_email_lookup_hash");
+        }
         $indexes = $pdo->query("
             SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instances'
@@ -123,6 +138,9 @@ function db_ensure_instances_table(): void {
         $indexNames = array_flip(array_map('strval', $indexes));
         if (!isset($indexNames['uniq_label'])) {
             $pdo->exec("ALTER TABLE instances ADD UNIQUE KEY uniq_label (label)");
+        }
+        if (!isset($indexNames['uniq_pending_email_lookup'])) {
+            $pdo->exec("ALTER TABLE instances ADD UNIQUE KEY uniq_pending_email_lookup (pending_email_lookup_hash)");
         }
     } catch (PDOException $e) {
         error_log('db_ensure_instances_table: ' . $e->getMessage());
@@ -201,6 +219,15 @@ function db_ensure_magic_link_tokens_table(): void {
         ")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('purpose', array_map('strval', $cols), true)) {
             $pdo->exec("ALTER TABLE magic_link_tokens ADD COLUMN purpose ENUM('operator','admin') NOT NULL DEFAULT 'operator' AFTER email_lookup_hash");
+        }
+        // 2026-05-25 (2o-ii): purpose ENUM grows 'email-change' for operator-
+        // initiated email-address changes confirmed via the new mailbox.
+        $purposeInfo = $pdo->query("
+            SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'magic_link_tokens' AND COLUMN_NAME = 'purpose'
+        ")->fetchColumn();
+        if (is_string($purposeInfo) && strpos($purposeInfo, "'email-change'") === false) {
+            $pdo->exec("ALTER TABLE magic_link_tokens MODIFY COLUMN purpose ENUM('operator','admin','email-change') NOT NULL DEFAULT 'operator'");
         }
     } catch (PDOException $e) {
         error_log('db_ensure_magic_link_tokens_table: ' . $e->getMessage());
@@ -528,8 +555,8 @@ function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3
     if (strlen($emailLookupHash) !== 32) {
         throw new InvalidArgumentException('db_create_magic_link_token: lookup hash must be 32 bytes');
     }
-    if (!in_array($purpose, ['operator', 'admin'], true)) {
-        throw new InvalidArgumentException('db_create_magic_link_token: purpose must be operator|admin');
+    if (!in_array($purpose, ['operator', 'admin', 'email-change'], true)) {
+        throw new InvalidArgumentException('db_create_magic_link_token: purpose must be operator|admin|email-change');
     }
     db_ensure_magic_link_tokens_table();
     $raw = random_bytes(32);
@@ -914,6 +941,105 @@ function db_get_instance_by_id(int $instanceId): ?array {
     $stmt->execute([':id' => $instanceId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row === false ? null : $row;
+}
+
+/**
+ * Find an instance row whose pending_email_lookup_hash matches. Used by the
+ * verify handler to dispatch purpose='email-change' magic-link consumes
+ * (the token's lookup hash is the NEW email's hash; the canonical
+ * operator_email_lookup_hash still points at the OLD email until promotion).
+ */
+function db_get_instance_by_pending_email_lookup_hash(string $hash): ?array {
+    if (strlen($hash) !== 32) return null;
+    db_ensure_instances_table();
+    $stmt = getDB()->prepare("SELECT * FROM instances WHERE pending_email_lookup_hash = :h LIMIT 1");
+    $stmt->bindValue(':h', $hash, PDO::PARAM_LOB);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
+/**
+ * Atomically promote a pending email change to canonical. Decrypts the
+ * pending email under the OLD row context, re-encrypts the email and any
+ * other PII (other_contacts) under the NEW row context (derived from the
+ * new email's lookup hash), updates the canonical columns, and clears the
+ * pending_* columns. Logs the change with actor='operator'.
+ *
+ * Returns true on success. On any error (PII decrypt failure, write
+ * conflict, etc.) rolls back and returns false.
+ */
+function db_promote_email_change(int $instanceId): bool {
+    db_ensure_instances_table();
+    db_ensure_instance_status_log_tables();
+    require_once __DIR__ . '/federation/pii.php';
+    $pdo = getDB();
+    try {
+        $pdo->beginTransaction();
+        $sel = $pdo->prepare("
+            SELECT operator_email_enc, operator_email_lookup_hash, other_contacts_enc,
+                   pending_email_enc, pending_email_lookup_hash
+            FROM instances WHERE id = :id FOR UPDATE
+        ");
+        $sel->execute([':id' => $instanceId]);
+        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        if ($row === false
+            || empty($row['pending_email_enc'])
+            || empty($row['pending_email_lookup_hash'])
+        ) {
+            $pdo->rollBack();
+            return false;
+        }
+        $oldContext = federation_row_context_for_instance((string)$row['operator_email_lookup_hash']);
+        $newContext = federation_row_context_for_instance((string)$row['pending_email_lookup_hash']);
+
+        // Decrypt the pending email under OLD context + 'pending_email' info.
+        $newEmail = federation_pii_decrypt((string)$row['pending_email_enc'], $oldContext, 'pending_email');
+
+        // Re-encrypt under NEW context + 'email' info (canonical column name).
+        $newEmailEnc = federation_pii_encrypt($newEmail, $newContext, 'email');
+
+        // Re-encrypt other_contacts under NEW context (its row context also
+        // changed because it's tied to the operator_email_lookup_hash).
+        $newOtherEnc = null;
+        if (!empty($row['other_contacts_enc'])) {
+            $contactsJson = federation_pii_decrypt((string)$row['other_contacts_enc'], $oldContext, 'other_contacts');
+            $newOtherEnc = federation_pii_encrypt($contactsJson, $newContext, 'other_contacts');
+        }
+
+        $upd = $pdo->prepare("
+            UPDATE instances
+            SET operator_email_enc = :email_enc,
+                operator_email_lookup_hash = :lookup,
+                other_contacts_enc = :other_enc,
+                pending_email_enc = NULL,
+                pending_email_lookup_hash = NULL,
+                pending_email_requested_at = NULL
+            WHERE id = :id
+        ");
+        $upd->bindValue(':email_enc', $newEmailEnc, PDO::PARAM_LOB);
+        $upd->bindValue(':lookup', (string)$row['pending_email_lookup_hash'], PDO::PARAM_LOB);
+        if ($newOtherEnc !== null) {
+            $upd->bindValue(':other_enc', $newOtherEnc, PDO::PARAM_LOB);
+        } else {
+            $upd->bindValue(':other_enc', null, PDO::PARAM_NULL);
+        }
+        $upd->bindValue(':id', $instanceId, PDO::PARAM_INT);
+        $upd->execute();
+
+        $log = $pdo->prepare("
+            INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+            VALUES (:id, 'operator', 'edit', 'operator email changed via dashboard (magic-link confirmed)')
+        ");
+        $log->execute([':id' => $instanceId]);
+
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('db_promote_email_change: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /**

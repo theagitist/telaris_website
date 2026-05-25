@@ -66,6 +66,187 @@ if ($method === 'POST'
 }
 
 // -----------------------------------------------------------------------
+// POST action=request_email_change: operator requests a new email. Validates,
+// encrypts the new email into pending_email_enc, stores pending_email_*
+// columns, mints a purpose='email-change' magic-link token tied to the new
+// email's lookup hash, sends the link to the NEW mailbox.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'request_email_change'
+    && $session !== null
+    && $session['subject_type'] === 'operator'
+) {
+    $emailChangeErrorKey = '';
+    if (!pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $emailChangeErrorKey = 'csrf';
+    } else {
+        $instance = db_get_instance_by_id($session['subject_id']);
+        if ($instance === null) {
+            $emailChangeErrorKey = 'instance_missing';
+        } else {
+            $newEmail = trim((string)($_POST['new_email'] ?? ''));
+            if ($newEmail === '' || !filter_var($newEmail, FILTER_VALIDATE_EMAIL) || strlen($newEmail) > 254) {
+                $emailChangeErrorKey = 'email_invalid';
+            } else {
+                $newLookupHash = federation_pii_lookup_hash($newEmail);
+                if (hash_equals((string)$instance['operator_email_lookup_hash'], $newLookupHash)) {
+                    $emailChangeErrorKey = 'email_unchanged';
+                } else {
+                    // Reject if the new email collides with another instance's
+                    // canonical operator_email_lookup_hash or another instance's
+                    // pending_email_lookup_hash. Self-pending is fine (operator
+                    // is replacing their own prior pending change).
+                    $pdo = getDB();
+                    $conflict = $pdo->prepare("
+                        SELECT id FROM instances
+                        WHERE id <> :self AND (
+                            operator_email_lookup_hash = :h
+                            OR pending_email_lookup_hash = :h
+                        ) LIMIT 1
+                    ");
+                    $conflict->bindValue(':self', (int)$instance['id'], PDO::PARAM_INT);
+                    $conflict->bindValue(':h', $newLookupHash, PDO::PARAM_LOB);
+                    $conflict->execute();
+                    if ($conflict->fetchColumn() !== false) {
+                        $emailChangeErrorKey = 'email_taken';
+                    } else {
+                        try {
+                            $oldContext = federation_row_context_for_instance((string)$instance['operator_email_lookup_hash']);
+                            $pendingEnc = federation_pii_encrypt($newEmail, $oldContext, 'pending_email');
+                            $pdo->beginTransaction();
+                            $upd = $pdo->prepare("
+                                UPDATE instances
+                                SET pending_email_enc = :enc,
+                                    pending_email_lookup_hash = :hash,
+                                    pending_email_requested_at = NOW()
+                                WHERE id = :id
+                            ");
+                            $upd->bindValue(':enc', $pendingEnc, PDO::PARAM_LOB);
+                            $upd->bindValue(':hash', $newLookupHash, PDO::PARAM_LOB);
+                            $upd->bindValue(':id', (int)$instance['id'], PDO::PARAM_INT);
+                            $upd->execute();
+                            $log = $pdo->prepare("
+                                INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+                                VALUES (:id, 'operator', 'email_change_requested', 'operator requested email change via dashboard; confirmation pending in new mailbox')
+                            ");
+                            $log->execute([':id' => (int)$instance['id']]);
+                            $tokenRaw = db_create_magic_link_token($newLookupHash, 86400, 'email-change');
+                            $pdo->commit();
+
+                            $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
+                            $emailLocale = in_array((string)$instance['locale'], ['en', 'es', 'pt', 'fr'], true) ? (string)$instance['locale'] : 'en';
+                            $instanceLabel = (string)$instance['label'];
+                            $emailBodies = [
+                                'en' => [
+                                    'subject' => 'Confirm your new Pluriverse email',
+                                    'body' => "Hello,\n\n"
+                                            . "Someone signed in to the Pluriverse dashboard for the instance\n"
+                                            . "\"{$instanceLabel}\" and requested to change the operator email to\n"
+                                            . "this address. Open the link below within 24 hours to confirm:\n\n"
+                                            . "  {$tokenUrl}\n\n"
+                                            . "If you did not request this change, you can safely ignore this\n"
+                                            . "email; the change will not take effect without a click.\n\n"
+                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                ],
+                                'es' => [
+                                    'subject' => 'Confirma tu nuevo correo de la Pluriverse',
+                                    'body' => "Hola,\n\n"
+                                            . "Alguien inició sesión en el panel de la Pluriverse de la instancia\n"
+                                            . "\"{$instanceLabel}\" y solicitó cambiar el correo de operación a esta\n"
+                                            . "dirección. Abre el enlace de abajo dentro de las próximas 24 horas\n"
+                                            . "para confirmar:\n\n"
+                                            . "  {$tokenUrl}\n\n"
+                                            . "Si no solicitaste este cambio, puedes ignorar este correo; el\n"
+                                            . "cambio no se aplicará sin un clic.\n\n"
+                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                ],
+                                'pt' => [
+                                    'subject' => 'Confirme seu novo email da Pluriverse',
+                                    'body' => "Olá,\n\n"
+                                            . "Alguém entrou no painel da Pluriverse da instância \"{$instanceLabel}\"\n"
+                                            . "e solicitou mudar o email de operação para este endereço. Abra o\n"
+                                            . "link abaixo nas próximas 24 horas para confirmar:\n\n"
+                                            . "  {$tokenUrl}\n\n"
+                                            . "Se você não solicitou esta mudança, pode ignorar este email; a\n"
+                                            . "mudança não terá efeito sem um clique.\n\n"
+                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                ],
+                                'fr' => [
+                                    'subject' => 'Confirme ton nouveau courriel Pluriverse',
+                                    'body' => "Bonjour,\n\n"
+                                            . "Quelqu'un s'est connecté au tableau de bord Pluriverse de l'instance\n"
+                                            . "\"{$instanceLabel}\" et a demandé à changer le courriel d'opération\n"
+                                            . "pour cette adresse. Ouvre le lien ci-dessous dans les 24 heures\n"
+                                            . "qui viennent pour confirmer :\n\n"
+                                            . "  {$tokenUrl}\n\n"
+                                            . "Si tu n'as pas demandé ce changement, tu peux ignorer ce courriel ;\n"
+                                            . "le changement ne prendra pas effet sans un clic.\n\n"
+                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                ],
+                            ];
+                            $tpl = $emailBodies[$emailLocale];
+                            require_once __DIR__ . '/../mail.php';
+                            pluriverse_send_mail($newEmail, $tpl['subject'], $tpl['body']);
+                        } catch (Throwable $e) {
+                            if ($pdo->inTransaction()) $pdo->rollBack();
+                            error_log('dashboard request_email_change: ' . $e->getMessage());
+                            $emailChangeErrorKey = 'db_error';
+                        }
+                    }
+                }
+            }
+        }
+    }
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    $qs = $emailChangeErrorKey === '' ? '?email_change_requested=1' : '?email_change_error=' . urlencode($emailChangeErrorKey);
+    header('Location: ' . $localePrefix . '/dashboard' . $qs);
+    http_response_code(303);
+    return;
+}
+
+// -----------------------------------------------------------------------
+// POST action=cancel_email_change: operator cancels a pending email change.
+// Clears the pending_* columns. Doesn't invalidate the token (it will just
+// fail to find a row on consume); the operator can also let it 24h-expire.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'cancel_email_change'
+    && $session !== null
+    && $session['subject_type'] === 'operator'
+) {
+    if (pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $instance = db_get_instance_by_id($session['subject_id']);
+        if ($instance !== null && !empty($instance['pending_email_lookup_hash'])) {
+            $pdo = getDB();
+            try {
+                $pdo->beginTransaction();
+                $upd = $pdo->prepare("
+                    UPDATE instances
+                    SET pending_email_enc = NULL,
+                        pending_email_lookup_hash = NULL,
+                        pending_email_requested_at = NULL
+                    WHERE id = :id
+                ");
+                $upd->execute([':id' => (int)$instance['id']]);
+                $log = $pdo->prepare("
+                    INSERT INTO instance_status_log (instance_id, actor, action, details_summary)
+                    VALUES (:id, 'operator', 'email_change_cancelled', 'operator cancelled the pending email change via dashboard')
+                ");
+                $log->execute([':id' => (int)$instance['id']]);
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('dashboard cancel_email_change: ' . $e->getMessage());
+            }
+        }
+    }
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    header('Location: ' . $localePrefix . '/dashboard?email_change_cancelled=1');
+    http_response_code(303);
+    return;
+}
+
+// -----------------------------------------------------------------------
 // POST action=edit_contacts: operator edits other_contacts (the array of
 // {service, user_id} entries on the encrypted side). No identity ceremony
 // — service handles are pure editorial. Re-encrypt with the existing
@@ -382,6 +563,65 @@ if ($session !== null && $session['subject_type'] === 'operator') {
               <dt><?= h(info('dashboard_label_email')) ?></dt>
               <dd><?= h($emailDisplay) ?></dd>
             </dl>
+
+            <?php
+            $emailChangeRequested = isset($_GET['email_change_requested']);
+            $emailChangeCancelled = isset($_GET['email_change_cancelled']);
+            $emailChangeErrorKey = isset($_GET['email_change_error']) ? (string)$_GET['email_change_error'] : '';
+            $emailChangeErrorMap = [
+                'csrf' => 'dashboard_email_change_err_csrf',
+                'instance_missing' => 'dashboard_email_change_err_instance_missing',
+                'email_invalid' => 'dashboard_email_change_err_email_invalid',
+                'email_unchanged' => 'dashboard_email_change_err_email_unchanged',
+                'email_taken' => 'dashboard_email_change_err_email_taken',
+                'db_error' => 'dashboard_email_change_err_db',
+            ];
+            $hasPendingEmail = !empty($instance['pending_email_lookup_hash']);
+            ?>
+            <h3 class="dashboard-section-h3"><?= h(info('dashboard_email_change_heading')) ?></h3>
+            <?php if (isset($_GET['email_changed'])): ?>
+              <div class="dashboard-callout dashboard-callout-ok">
+                <p><?= h(info('dashboard_email_change_confirmed')) ?></p>
+              </div>
+            <?php endif; ?>
+            <?php if ($emailChangeRequested): ?>
+              <div class="dashboard-callout dashboard-callout-ok">
+                <p><?= h(info('dashboard_email_change_sent')) ?></p>
+              </div>
+            <?php endif; ?>
+            <?php if ($emailChangeCancelled): ?>
+              <div class="dashboard-callout dashboard-callout-ok">
+                <p><?= h(info('dashboard_email_change_cancelled')) ?></p>
+              </div>
+            <?php endif; ?>
+            <?php if ($emailChangeErrorKey !== '' && isset($emailChangeErrorMap[$emailChangeErrorKey])): ?>
+              <div class="dashboard-callout dashboard-callout-error">
+                <p><?= h(info($emailChangeErrorMap[$emailChangeErrorKey])) ?></p>
+              </div>
+            <?php endif; ?>
+            <?php if ($hasPendingEmail): ?>
+              <p class="dashboard-help"><?= h(info('dashboard_email_change_pending_help')) ?>
+                <?php if (!empty($instance['pending_email_requested_at'])): ?>
+                  <time datetime="<?= h((string)$instance['pending_email_requested_at']) ?>"><?= h((string)$instance['pending_email_requested_at']) ?></time>
+                <?php endif; ?>
+              </p>
+              <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-email-cancel-form">
+                <?= pluriverse_csrf_field() ?>
+                <input type="hidden" name="action" value="cancel_email_change">
+                <button type="submit"><?= h(info('dashboard_email_change_cancel_button')) ?></button>
+              </form>
+            <?php else: ?>
+              <p class="dashboard-help"><?= h(info('dashboard_email_change_help')) ?></p>
+              <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-email-change-form">
+                <?= pluriverse_csrf_field() ?>
+                <input type="hidden" name="action" value="request_email_change">
+                <label for="dashboard-new-email"><?= h(info('dashboard_email_change_new_label')) ?></label>
+                <input type="email" id="dashboard-new-email" name="new_email" required maxlength="254"
+                       autocomplete="email" inputmode="email"
+                       placeholder="<?= h(info('dashboard_email_change_new_placeholder')) ?>">
+                <button type="submit"><?= h(info('dashboard_email_change_send_button')) ?></button>
+              </form>
+            <?php endif; ?>
 
             <?php
             $contactsEdited = isset($_GET['contacts_edited']);

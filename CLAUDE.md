@@ -164,7 +164,9 @@ Design at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation
 
 **JWS-signing follow-up DROPPED 2026-05-25**: the v10 plan doesn't actually require coord-signed wrappers for peers.json / blacklist.json, and key-events.json already carries inner JWS-signed payloads via `signed_payload`. Reconsider only if a peer-to-peer cache-forwarding scenario surfaces.
 
-**What's still ahead**: PII edit on the dashboard. Splits into two chunks: `other_contacts` (straightforward re-encrypt, ~1h) and `operator_email` (needs a `purpose='email-change'` magic-link flow because the email is the operator's identity, ~3h). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
+**2o-i shipped 2026-05-25** (`f774ab9`): operator edit for `other_contacts` (the encrypted contact-handles array, up to 8 `{service, user_id}` entries). Inline JS for add/remove rows; server-side validation mirrors apply_handler; re-encrypt with the same per-row HKDF-derived key; UPDATE + status_log INSERT in one transaction. 14 new chrome keys × 4 locales. The stale `dashboard_label_other_contacts` chrome key was dropped (its display site is replaced by `dashboard_other_contacts_heading` + `dashboard_other_contacts_help`).
+
+**What's still ahead**: 2o-ii `operator_email` edit, which needs a `purpose='email-change'` magic-link flow because the email is the operator's identity (~3h work). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
 
 ## License
 

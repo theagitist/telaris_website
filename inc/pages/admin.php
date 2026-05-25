@@ -289,17 +289,52 @@ if ($method === 'POST') {
                     $tokenRaw = db_create_magic_link_token($lookupHash, 86400, 'admin');
                     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 
-                    // Admin emails ship in EN for now (admin chrome doesn't
-                    // yet have a per-admin locale preference).
-                    $subject = 'Sign in to the Pluriverse admin';
-                    $body = "Hello {$admin['display_name']},\n\n"
-                          . "Open the link below to sign in to the Pluriverse admin surface.\n"
-                          . "The link is single-use and expires in 24 hours.\n\n"
-                          . "  {$tokenUrl}\n\n"
-                          . "If you did not request a sign-in, you can safely ignore this email.\n\n"
-                          . "Pluriverse - https://www.telaris.ca/\n";
+                    // No per-admin locale preference yet; use the page locale
+                    // (where the sign-in was requested).
+                    $emailLocale = in_array($pluriverseLocale, ['en', 'es', 'pt', 'fr'], true) ? $pluriverseLocale : 'en';
+                    $emailBodies = [
+                        'en' => [
+                            'subject' => 'Sign in to the Pluriverse admin',
+                            'body' => "Hello {$admin['display_name']},\n\n"
+                                    . "Open the link below to sign in to the Pluriverse admin surface.\n"
+                                    . "The link is single-use and expires in 24 hours.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "If you did not request a sign-in, you can safely ignore this email.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'es' => [
+                            'subject' => 'Inicia sesión en la administración de la Pluriverse',
+                            'body' => "Hola {$admin['display_name']},\n\n"
+                                    . "Abre el enlace de abajo para iniciar sesión en el panel de\n"
+                                    . "administración de la Pluriverse. El enlace es de un solo uso y\n"
+                                    . "caduca en 24 horas.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'pt' => [
+                            'subject' => 'Entrar na administração da Pluriverse',
+                            'body' => "Olá {$admin['display_name']},\n\n"
+                                    . "Abra o link abaixo para entrar no painel de administração da\n"
+                                    . "Pluriverse. O link é de uso único e expira em 24 horas.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Se você não solicitou entrar, pode ignorar este email.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'fr' => [
+                            'subject' => 'Connecte-toi à l\'administration de la Pluriverse',
+                            'body' => "Bonjour {$admin['display_name']},\n\n"
+                                    . "Ouvre le lien ci-dessous pour te connecter au panneau\n"
+                                    . "d'administration de la Pluriverse. Le lien est à usage unique et\n"
+                                    . "expire dans 24 heures.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                    ];
+                    $tpl = $emailBodies[$emailLocale];
                     require_once __DIR__ . '/../mail.php';
-                    pluriverse_send_mail($emailInput, $subject, $body);
+                    pluriverse_send_mail($emailInput, $tpl['subject'], $tpl['body']);
                 }
                 $loginSent = true;
             } catch (Throwable $e) {

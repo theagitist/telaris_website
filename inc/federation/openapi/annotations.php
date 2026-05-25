@@ -50,7 +50,20 @@ use OpenApi\Attributes as OA;
         new OA\Tag(name: 'pluriverse-public', description: 'Public read endpoints (no signature required).'),
         new OA\Tag(name: 'pluriverse-meta', description: 'Protocol metadata and discovery.'),
         new OA\Tag(name: 'pluriverse-operators', description: 'Operator-facing endpoints (application, auth, dashboard).'),
-    ]
+    ],
+    components: new OA\Components(
+        securitySchemes: [
+            new OA\SecurityScheme(
+                securityScheme: 'httpSignature',
+                type: 'http',
+                scheme: 'signature',
+                description: 'RFC 9421 HTTP Message Signatures. Sign with the instance\'s '
+                    . 'pluriverse.key (Ed25519); set keyid to "<hostname>:<fingerprint>", '
+                    . 'alg to "ed25519", tag to the per-endpoint tag named in that '
+                    . 'endpoint\'s description.'
+            ),
+        ]
+    )
 )]
 final class OpenApiDocument {}
 
@@ -163,50 +176,6 @@ final class ContactEntrySchema {}
 )]
 final class ApplicationRequestSchema {}
 
-#[OA\Schema(
-    schema: 'CheckNameResponse',
-    description: 'Response from GET /api/pluriverse/operators/check-name.',
-    required: ['name', 'available'],
-    properties: [
-        new OA\Property(property: 'name', type: 'string'),
-        new OA\Property(property: 'available', type: 'boolean'),
-        new OA\Property(property: 'reason', type: 'string', enum: ['invalid', 'error'], description: 'Present only when available=false for non-uniqueness reasons.', nullable: true),
-    ]
-)]
-final class CheckNameResponseSchema {}
-
-#[OA\Schema(
-    schema: 'GalaxiesProxyRequest',
-    description: 'Body of POST /api/pluriverse/operators/list-galaxies.',
-    required: ['url'],
-    properties: [
-        new OA\Property(property: 'url', type: 'string', format: 'uri', example: 'https://mocambos.example.com'),
-    ]
-)]
-final class GalaxiesProxyRequestSchema {}
-
-#[OA\Schema(
-    schema: 'GalaxyEntry',
-    description: 'One galaxy returned by the proxy.',
-    required: ['slug'],
-    properties: [
-        new OA\Property(property: 'slug', type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,127}$'),
-        new OA\Property(property: 'name', type: 'string', maxLength: 255),
-        new OA\Property(property: 'tagline', type: 'string', maxLength: 512),
-    ]
-)]
-final class GalaxyEntrySchema {}
-
-#[OA\Schema(
-    schema: 'GalaxiesProxyResponse',
-    description: 'Response from POST /api/pluriverse/operators/list-galaxies. Filtered relay of the instance\'s /api/pluriverse/galaxies.json.',
-    required: ['protocol_version', 'galaxies'],
-    properties: [
-        new OA\Property(property: 'protocol_version', type: 'string'),
-        new OA\Property(property: 'galaxies', type: 'array', items: new OA\Items(ref: '#/components/schemas/GalaxyEntry')),
-    ]
-)]
-final class GalaxiesProxyResponseSchema {}
 
 #[OA\Schema(
     schema: 'ApplicationResponse',
@@ -224,19 +193,30 @@ final class ApplicationResponseSchema {}
 #[OA\Post(
     path: '/api/pluriverse/operators/apply',
     operationId: 'submitApplication',
-    summary: 'Operator submits an application to join the Pluriverse.',
-    description: 'Accepts an applicant\'s instance description, fetches its /api/pluriverse/identity '
-        . 'envelope to verify it self-identifies as a Telaris instance, captures the public key + '
-        . 'fingerprint, encrypts the operator email and any secondary contacts at rest, inserts a '
-        . 'pending row, mints a one-hour single-use magic-link token, and emails the verification '
-        . 'URL to the operator. The pending row auto-expires after 48 hours if the magic link is '
-        . 'never followed. Rate limit 5 req/hour/IP.',
+    summary: 'Operator instance submits an application to join the Pluriverse.',
+    description: 'Signed-only intake. The request MUST carry an RFC 9421 HTTP Signature '
+        . 'produced by the instance\'s pluriverse.key with keyid '
+        . '"<hostname>:<fingerprint>" and tag "pluriverse-apply". The Pluriverse fetches '
+        . 'https://<hostname>/api/pluriverse/identity to obtain the public key, recomputes '
+        . 'the fingerprint, and verifies the signature against the body. On success the '
+        . 'Pluriverse encrypts the operator email and any secondary contacts at rest, '
+        . 'inserts a pending instances row, mints a one-hour single-use magic-link token, '
+        . 'and emails the verification URL to the operator. Pending rows auto-expire after '
+        . '48 hours if the magic link is never followed. There is no public web form; '
+        . 'operators submit via their own instance\'s admin "Publish to Pluriverse" action. '
+        . 'Rate limit 20 req/hour/IP.',
     tags: ['pluriverse-operators'],
+    security: [['httpSignature' => []]],
     requestBody: new OA\RequestBody(
         required: true,
         content: new OA\JsonContent(ref: '#/components/schemas/ApplicationRequest')
     ),
     responses: [
+        new OA\Response(
+            response: 401,
+            description: 'Missing or invalid HTTP Signature.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
         new OA\Response(
             response: 201,
             description: 'Application received; check email for verification link.',
@@ -276,76 +256,6 @@ final class ApplicationResponseSchema {}
 )]
 final class SubmitApplicationEndpoint {}
 
-#[OA\Get(
-    path: '/api/pluriverse/operators/check-name',
-    operationId: 'checkName',
-    summary: 'Probe availability of an instance Name.',
-    description: 'Returns whether the supplied Name (DB column `label`) is currently free. '
-        . 'One indexed SELECT per call. Always 200 even when the name is invalid or taken; '
-        . 'the `available` boolean carries the answer. Rate-limited 60 req/min/IP. '
-        . 'Used by the operator-application form\'s async name-availability indicator.',
-    tags: ['pluriverse-operators'],
-    parameters: [
-        new OA\Parameter(name: 'n', in: 'query', required: true, schema: new OA\Schema(type: 'string', minLength: 1, maxLength: 255)),
-    ],
-    responses: [
-        new OA\Response(
-            response: 200,
-            description: 'Availability result.',
-            content: new OA\JsonContent(ref: '#/components/schemas/CheckNameResponse')
-        ),
-        new OA\Response(
-            response: 429,
-            description: 'Rate limit exceeded.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-        ),
-    ]
-)]
-final class CheckNameEndpoint {}
-
-#[OA\Post(
-    path: '/api/pluriverse/operators/list-galaxies',
-    operationId: 'listGalaxiesProxy',
-    summary: 'Server-side proxy that fetches an instance\'s public galaxies listing.',
-    description: 'Used by the apply form\'s "Load galaxies" button so the browser does not need a '
-        . 'cross-origin request to an arbitrary instance. The Pluriverse fetches '
-        . '<url>/api/pluriverse/galaxies.json over HTTPS (5s connect / 10s total timeout, no '
-        . 'redirect follow, 512 KB body cap) and relays the parsed list. Rate-limited '
-        . '20 req/hour/IP.',
-    tags: ['pluriverse-operators'],
-    requestBody: new OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(ref: '#/components/schemas/GalaxiesProxyRequest')
-    ),
-    responses: [
-        new OA\Response(
-            response: 200,
-            description: 'Filtered galaxies listing from the instance.',
-            content: new OA\JsonContent(ref: '#/components/schemas/GalaxiesProxyResponse')
-        ),
-        new OA\Response(
-            response: 400,
-            description: 'Body missing or not JSON.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-        ),
-        new OA\Response(
-            response: 413,
-            description: 'Request body exceeds 2 KB.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-        ),
-        new OA\Response(
-            response: 422,
-            description: 'URL invalid, instance unreachable, or galaxies endpoint missing.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-        ),
-        new OA\Response(
-            response: 429,
-            description: 'Rate limit exceeded.',
-            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
-        ),
-    ]
-)]
-final class ListGalaxiesProxyEndpoint {}
 
 #[OA\Get(
     path: '/api/pluriverse/openapi.json',

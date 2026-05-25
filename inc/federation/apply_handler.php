@@ -4,36 +4,54 @@ declare(strict_types=1);
 /**
  * POST /api/pluriverse/operators/apply
  *
- * Operator-application intake. Accepts a JSON body describing the
- * applicant's instance, fetches the instance's identity envelope to confirm
- * it self-identifies as a Telaris instance, captures its Ed25519 public key,
- * PII-encrypts the operator email + optional secondary contacts, inserts a
- * pending row into `instances`, mints a magic-link token, and emails the
- * verification URL to the applicant.
+ * Signed-only operator-application intake. The /apply page form was retired
+ * 2026-05-24 in favour of an instance-side admin action: an authenticated
+ * operator clicks "Publish to Pluriverse" on their own Telaris instance, the
+ * instance pre-populates URL / email / galaxies from local state, the
+ * operator confirms the Name, and the instance signs the request with its
+ * pluriverse.key (RFC 9421) and posts it here.
  *
- * Spec: P2P federation plan v10 § 126 + the Stage 2 application surface
- * design note (vault). Verification of the magic link itself is in 2g-i.
+ * Why signed-only:
+ *   - Identity comes for free: the Pluriverse fetches the signing
+ *     instance's /api/pluriverse/identity, captures the public key, and
+ *     verifies the request body against that key. The signer IS the
+ *     operator of the instance at <keyid hostname>.
+ *   - No spam vector: an attacker would need to stand up a real Telaris
+ *     instance at a publicly-resolvable HTTPS URL and forfeit a
+ *     pluriverse.key to it. That is expensive enough that the
+ *     unauthenticated form was a worse threat surface.
+ *   - No cross-origin proxy endpoints needed: the instance has its own
+ *     galaxies / email / URL locally.
+ *
+ * Verification flow per request:
+ *   1. Parse the Signature-Input header (sig1 label) to extract the keyid.
+ *      keyid format: "<hostname>:<fingerprint>" (see instance-side
+ *      bin/init-identity --check and inc/federation/identity.php).
+ *   2. Fetch https://<hostname>/api/pluriverse/identity, validate
+ *      kind=telaris-instance, recompute fingerprint, confirm match against
+ *      the keyid's fingerprint (defence against a stale key claim).
+ *   3. Run federation_http_sig_verify against the body using the
+ *      identity's public_key. Expected tag: pluriverse-apply.
+ *   4. Process the body (PII encryption, DB insert, magic-link mint, ack
+ *      email) just like the previous public-form path did.
  *
  * Errors use RFC 9457 Problem Details via federation_router_problem.
  */
 
-// The /api/pluriverse/* router short-circuits in index.php BEFORE the page
-// bootstrap that loads config.php + inc/db.php (the identity endpoint
-// does not need them). This handler is DB-heavy, so bring up the DB layer
-// explicitly. config.php already chains into inc/db.php.
 require_once dirname(__DIR__, 2) . '/config.php';
 require_once __DIR__ . '/identity_client.php';
+require_once __DIR__ . '/http_sig.php';
 
 // -----------------------------------------------------------------------
-// Rate limit: 5 requests per hour per source IP (APCu best-effort; nginx
-// limit_req is the load-bearing layer in production).
+// Rate limit: 20 req/hour/IP (signed endpoint; gentler than the old
+// anonymous 5/hour because the trust model is stronger).
 // -----------------------------------------------------------------------
 if (function_exists('apcu_inc')) {
     $rateIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '-';
     $bucket = 'pluriverse_apply:' . date('YmdH') . ':' . $rateIp;
     $success = false;
     $count = apcu_inc($bucket, 1, $success, 3700);
-    if ($count !== false && (int)$count > 5) {
+    if ($count !== false && (int)$count > 20) {
         federation_router_problem(
             429,
             'rate_limited',
@@ -45,7 +63,8 @@ if (function_exists('apcu_inc')) {
 }
 
 // -----------------------------------------------------------------------
-// Parse + validate JSON body.
+// Read the body once. Needed both for signature verification (content
+// digest) and for JSON parsing.
 // -----------------------------------------------------------------------
 $raw = file_get_contents('php://input');
 if (!is_string($raw) || $raw === '') {
@@ -56,6 +75,106 @@ if (strlen($raw) > 16384) {
     federation_router_problem(413, 'body_too_large', 'Request body exceeds 16 KB.', '/api/pluriverse/operators/apply');
     return;
 }
+
+// -----------------------------------------------------------------------
+// Step 1: extract keyid from Signature-Input before we know the public key.
+// -----------------------------------------------------------------------
+$sigInput = $_SERVER['HTTP_SIGNATURE_INPUT'] ?? '';
+$sigValue = $_SERVER['HTTP_SIGNATURE'] ?? '';
+if ($sigInput === '' || $sigValue === '') {
+    federation_router_problem(
+        401,
+        'signature_required',
+        'POST /api/pluriverse/operators/apply requires an RFC 9421 HTTP Signature from your instance\'s pluriverse.key. Submit via your instance\'s admin "Publish to Pluriverse" action.',
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+[$inputLabel, $inputRest] = federation_http_sig_split_label($sigInput);
+if ($inputLabel !== 'sig1') {
+    federation_router_problem(401, 'invalid_signature', 'Unsupported Signature-Input label.', '/api/pluriverse/operators/apply');
+    return;
+}
+$parsed = federation_http_sig_parse_inner_list($inputRest);
+if ($parsed === null) {
+    federation_router_problem(401, 'invalid_signature', 'Malformed Signature-Input inner list.', '/api/pluriverse/operators/apply');
+    return;
+}
+[, $sigParams] = $parsed;
+$keyid = isset($sigParams['keyid']) && is_string($sigParams['keyid']) ? $sigParams['keyid'] : '';
+if ($keyid === '' || strpos($keyid, ':') === false) {
+    federation_router_problem(401, 'invalid_keyid', 'Signature keyid must be "<hostname>:<fingerprint>".', '/api/pluriverse/operators/apply');
+    return;
+}
+[$signerHostname, $signerFingerprint] = explode(':', $keyid, 2);
+$signerHostname = strtolower(trim($signerHostname));
+$signerFingerprint = trim($signerFingerprint);
+if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $signerHostname) || strlen($signerHostname) > 255) {
+    federation_router_problem(401, 'invalid_keyid', 'Signature keyid hostname is malformed.', '/api/pluriverse/operators/apply');
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Step 2: fetch the instance's identity envelope to obtain the public key.
+// federation_fetch_identity already validates kind=telaris-instance,
+// protocol_version, and recomputes the fingerprint.
+// -----------------------------------------------------------------------
+try {
+    $identity = federation_fetch_identity('https://' . $signerHostname . '/api/pluriverse/identity');
+} catch (FederationIdentityFetchError $e) {
+    federation_router_problem(
+        422,
+        'identity_unverifiable',
+        'Could not verify the signing instance: ' . $e->getMessage(),
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+if (!hash_equals($identity['public_key_fingerprint'], $signerFingerprint)) {
+    federation_router_problem(
+        401,
+        'fingerprint_mismatch',
+        "The instance at {$signerHostname} currently publishes a key with fingerprint {$identity['public_key_fingerprint']}, not the {$signerFingerprint} in the request keyid. If you rotated, sign with the new key.",
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Step 3: run RFC 9421 verify with the captured public key.
+// -----------------------------------------------------------------------
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$verifyRequest = [
+    'method' => 'POST',
+    'target_uri' => $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'www.telaris.ca') . ($_SERVER['REQUEST_URI'] ?? '/api/pluriverse/operators/apply'),
+    'headers' => [
+        'signature'       => $sigValue,
+        'signature-input' => $sigInput,
+        'host'            => $_SERVER['HTTP_HOST'] ?? '',
+        'date'            => $_SERVER['HTTP_DATE'] ?? '',
+        'content-type'    => $_SERVER['CONTENT_TYPE'] ?? '',
+        'content-length'  => $_SERVER['CONTENT_LENGTH'] ?? (string)strlen($raw),
+        'content-digest'  => $_SERVER['HTTP_CONTENT_DIGEST'] ?? '',
+    ],
+    'body' => $raw,
+];
+$verify = federation_http_sig_verify($verifyRequest, $identity['public_key'], [
+    'expected_tag' => 'pluriverse-apply',
+]);
+if (!$verify['valid']) {
+    federation_router_problem(
+        401,
+        'signature_invalid',
+        'Signature verification failed: ' . $verify['reason'],
+        '/api/pluriverse/operators/apply'
+    );
+    return;
+}
+
+// -----------------------------------------------------------------------
+// Step 4: parse + validate the JSON body. The signer is now established;
+// the body fields can be trusted to have come from that instance.
+// -----------------------------------------------------------------------
 try {
     $body = json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
 } catch (JsonException $e) {
@@ -74,9 +193,8 @@ if (!preg_match('#^https://#', $url) || filter_var($url, FILTER_VALIDATE_URL) ==
     $errors[] = 'url must be a valid https:// URL';
 }
 
-// Derive hostname from the URL host component. Form callers do not
-// send hostname any more; API callers may still supply it explicitly
-// and we will respect / cross-check that value against the URL host.
+// Hostname is the signer-keyid hostname. The body MAY echo it for clarity;
+// if it does, it must match the signer.
 $urlHost = '';
 if ($url !== '') {
     $parsed = parse_url($url);
@@ -84,24 +202,10 @@ if ($url !== '') {
         $urlHost = strtolower($parsed['host']);
     }
 }
-$hostnameRaw = isset($body['hostname']) ? trim((string)$body['hostname']) : '';
-$hostname = $hostnameRaw !== '' ? strtolower($hostnameRaw) : $urlHost;
-if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $hostname) || strlen($hostname) < 4 || strlen($hostname) > 255) {
-    $errors[] = 'url must include a valid hostname (a-z0-9 . -), 4..255 chars';
+if ($urlHost !== '' && $urlHost !== $signerHostname) {
+    $errors[] = "url host '{$urlHost}' does not match the signer hostname '{$signerHostname}'";
 }
-
-// pluriverse_endpoint is now optional. When the operator omits it we
-// derive `<url>/api/pluriverse/identity`, which is where every Telaris
-// instance serves the envelope by convention. The form no longer asks
-// for it; the API still accepts an explicit value for the rare case of
-// an instance running the federation surface under a non-default path.
-$endpoint = trim((string)($body['pluriverse_endpoint'] ?? ''));
-if ($endpoint === '' && $url !== '' && preg_match('#^https://#', $url)) {
-    $endpoint = rtrim($url, '/') . '/api/pluriverse/identity';
-}
-if ($endpoint === '' || !preg_match('#^https://#', $endpoint) || filter_var($endpoint, FILTER_VALIDATE_URL) === false) {
-    $errors[] = 'pluriverse_endpoint must be a valid https:// URL (omit to default to <url>/api/pluriverse/identity)';
-}
+$hostname = $signerHostname;
 
 $operatorEmail = trim((string)($body['operator_email'] ?? ''));
 if (!filter_var($operatorEmail, FILTER_VALIDATE_EMAIL) || strlen($operatorEmail) > 254) {
@@ -124,7 +228,7 @@ if (!is_array($publishableSlugs)) {
     $publishableSlugs = [];
 } else {
     if (count($publishableSlugs) === 0) {
-        $errors[] = 'publishable_slugs must include at least one slug; load galaxies from your instance and pick at least one';
+        $errors[] = 'publishable_slugs must include at least one slug; pick at least one galaxy in your instance admin';
     }
     foreach ($publishableSlugs as $i => $s) {
         if (!is_string($s) || !preg_match('/^[a-z0-9][a-z0-9-]{0,127}$/', $s)) {
@@ -132,13 +236,6 @@ if (!is_array($publishableSlugs)) {
         }
     }
 }
-
-// Bridges intentionally not collected on the apply form: the operator
-// surface for bridge configuration is admin-mediated and bridge-specific.
-// Keeping the column on the schema so admin can set it later. Accepting
-// the field in the API body for forward-compat and CLI tooling, but
-// silently ignoring anything an applicant submits.
-$bridges = [];
 
 $otherContacts = $body['other_contacts'] ?? [];
 if (!is_array($otherContacts)) {
@@ -180,20 +277,8 @@ if ($errors !== []) {
     return;
 }
 
-// If hostname was supplied explicitly (API caller, not the form), the
-// URL host must equal the declared hostname.
-if ($hostnameRaw !== '' && $urlHost !== $hostname) {
-    federation_router_problem(422, 'hostname_url_mismatch', 'hostname does not match the host in url', '/api/pluriverse/operators/apply');
-    return;
-}
-
 // -----------------------------------------------------------------------
-// Existing-application check. Apply once is the rule for v1; an operator
-// who wants to change instance can do that from /dashboard after they
-// finish verification. Three uniqueness keys to honour: hostname, email,
-// and the operator-chosen Name (DB column `label`). One SELECT covers
-// all three; we post-process the matched row to emit a specific code
-// per clash so the form can highlight the right field.
+// Conflict check. Same one-SELECT-three-keys probe as the old form path.
 // -----------------------------------------------------------------------
 try {
     $pdo = getDB();
@@ -233,49 +318,18 @@ try {
 }
 
 // -----------------------------------------------------------------------
-// Identity fetch + cross-check. The Pluriverse fetches the instance's
-// /api/pluriverse/identity endpoint, confirms kind=telaris-instance, and
-// captures the public key + fingerprint. Any failure here is 422
-// (unprocessable applicant) rather than 5xx (the Pluriverse is fine).
-// -----------------------------------------------------------------------
-require_once __DIR__ . '/identity_client.php';
-try {
-    $identity = federation_fetch_identity($endpoint);
-} catch (FederationIdentityFetchError $e) {
-    federation_router_problem(
-        422,
-        'identity_unverifiable',
-        'Could not verify the supplied pluriverse_endpoint: ' . $e->getMessage(),
-        '/api/pluriverse/operators/apply'
-    );
-    return;
-}
-
-// Hostname-of-record cross-check: the identity envelope's hostname should
-// match the applicant's declared hostname. Lenient (case-insensitive).
-if (strtolower($identity['hostname']) !== strtolower($hostname)) {
-    federation_router_problem(
-        422,
-        'hostname_identity_mismatch',
-        "Declared hostname '{$hostname}' does not match identity envelope hostname '{$identity['hostname']}'",
-        '/api/pluriverse/operators/apply'
-    );
-    return;
-}
-
-// -----------------------------------------------------------------------
 // Insert + mint magic link + send acknowledgement.
 // -----------------------------------------------------------------------
 try {
     $instanceId = db_insert_instance_application([
         'hostname' => $hostname,
         'url' => $url,
-        'pluriverse_endpoint' => $endpoint,
+        'pluriverse_endpoint' => 'https://' . $signerHostname . '/api/pluriverse/identity',
         'operator_email' => $operatorEmail,
         'label' => $label,
         'editorial_framing' => $editorialFraming,
         'publishable_slugs' => $publishableSlugs,
-        'bridges' => $bridges,
+        'bridges' => [],
         'other_contacts' => $otherContacts,
     ], $identity);
 } catch (Throwable $e) {
@@ -289,8 +343,6 @@ try {
     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 } catch (Throwable $e) {
     error_log("apply: magic-link mint failed (instance id={$instanceId}): " . $e->getMessage());
-    // Row inserted; operator can request a fresh link via the (yet-to-ship)
-    // /api/pluriverse/operators/request-magic-link endpoint in 2g-i.
     $tokenUrl = null;
 }
 
@@ -305,19 +357,14 @@ if ($tokenUrl !== null) {
               . "know when your instance is published in the Pluriverse.\n\n"
               . "If you did not submit this application, you can ignore this email; the\n"
               . "pending record will be removed automatically within 48 hours.\n\n"
-              . "Pluriverse · https://www.telaris.ca/\n";
+              . "Pluriverse - https://www.telaris.ca/\n";
     try {
         pluriverse_send_mail($operatorEmail, $subject, $bodyText);
     } catch (Throwable $e) {
         error_log("apply: ack mail to {$operatorEmail} failed (instance id={$instanceId}): " . $e->getMessage());
-        // Row + token persist; operator can request a fresh link in 2g-i.
     }
 }
 
-// -----------------------------------------------------------------------
-// 201 Created. We do NOT echo the magic-link in the response (only the
-// inbox sees it); we do not echo any PII either.
-// -----------------------------------------------------------------------
 http_response_code(201);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');

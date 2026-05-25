@@ -15,17 +15,23 @@ $instances = pluriverse_instances($pluriverseLocale);
   <p class="page-eyebrow"><?= h(info('instance_title')) ?></p>
   <h1 class="page-title"><?= h(info('instance_title')) ?></h1>
   <p class="page-lead"><?= h(info('instance_lead')) ?></p>
+<?php if ($instances !== []): ?>
   <ul class="instance-list">
 <?php foreach ($instances as $inst): ?>
     <li class="instance-list-item" style="--c:<?= h($inst['color']) ?>">
       <span class="dot" aria-hidden="true"></span>
       <div>
-        <a class="instance-url" href="<?= h($inst['url']) ?>" target="_blank" rel="noopener noreferrer"><?= h($inst['host']) ?> &rarr;</a>
+        <a class="instance-url" href="<?= h($inst['url']) ?>" target="_blank" rel="noopener noreferrer"><?= h($inst['label']) ?> &rarr;</a>
+<?php if ($inst['host'] !== '' && $inst['host'] !== $inst['label']): ?>
+        <p class="instance-host"><code><?= h($inst['host']) ?></code></p>
+<?php endif; ?>
+<?php if ($inst['caption'] !== ''): ?>
         <p class="instance-caption"><?= h($inst['caption']) ?></p>
-        <div class="instance-tags"><?php foreach ($inst['tags'] as $tag): ?><span class="instance-tag"><?= h($tag) ?></span><?php endforeach; ?></div>
+<?php endif; ?>
       </div>
     </li>
 <?php endforeach; ?>
   </ul>
+<?php endif; ?>
 </main>
 <?php require __DIR__ . '/../partials/footer.php'; ?>

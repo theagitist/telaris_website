@@ -213,39 +213,51 @@ function pluriverse_docs(string $locale): array {
     return $out;
 }
 
+/**
+ * Live list of federated instances published in the Pluriverse.
+ *
+ * Reads instances WHERE admission_status='published', ordered with the
+ * is_highlighted rows first, then by label alphabetically. Editorial framing
+ * is stored as a single string per row (the operator chose its language at
+ * apply time); no per-locale framing variants exist on the schema, so the
+ * $locale parameter is ignored for now.
+ *
+ * Color is derived from a stable hash of the hostname against a small
+ * palette so each instance renders with a consistent accent without a
+ * dedicated column.
+ *
+ * @return list<array{host:string,label:string,url:string,caption:string,color:string,is_highlighted:bool,tags:list<string>}>
+ */
 function pluriverse_instances(string $locale): array {
-    $base = [
-        'telaris.polivoxia.ca' => ['url' => 'https://telaris.polivoxia.ca', 'host' => 'telaris.polivoxia.ca', 'color' => '#7dd3fc'],
-        'starmaps.polivoxia.ca' => ['url' => 'https://starmaps.polivoxia.ca', 'host' => 'starmaps.polivoxia.ca', 'color' => '#86efac'],
-        'telaris.baobaxia.net' => ['url' => 'https://telaris.baobaxia.net', 'host' => 'telaris.baobaxia.net', 'color' => '#fdba74'],
-    ];
-    $i18n = [
-        'en' => [
-            'telaris.polivoxia.ca' => ['caption' => 'Polivoxia production. The first Telaris instance in continuous use, hosted by Adri M. (UBC GRSJ) at Polivoxia.', 'tags' => ['production', 'english']],
-            'starmaps.polivoxia.ca' => ['caption' => 'Polivoxia development. The source-of-truth working instance where new features and editorial work are validated before reaching production.', 'tags' => ['development', 'english']],
-            'telaris.baobaxia.net' => ['caption' => 'Baobáxia / Mocambos. A Telaris instance hosted alongside the Mocambos quilombola community archive, in dialogue with the Baobáxia tradition of communal digital archiving.', 'tags' => ['community', 'portuguese']],
-        ],
-        'es' => [
-            'telaris.polivoxia.ca' => ['caption' => 'Polivoxia producción. La primera instancia de Telaris en uso continuo, alojada por Adri M. (UBC GRSJ) en Polivoxia.', 'tags' => ['producción', 'inglés']],
-            'starmaps.polivoxia.ca' => ['caption' => 'Polivoxia desarrollo. La instancia de trabajo fuente-de-verdad donde se validan nuevas funcionalidades y trabajo editorial antes de llegar a producción.', 'tags' => ['desarrollo', 'inglés']],
-            'telaris.baobaxia.net' => ['caption' => 'Baobáxia / Mocambos. Una instancia de Telaris alojada junto al archivo comunitario quilombola Mocambos, en diálogo con la tradición Baobáxia del archivo digital comunitario.', 'tags' => ['comunidad', 'portugués']],
-        ],
-        'pt' => [
-            'telaris.polivoxia.ca' => ['caption' => 'Polivoxia produção. A primeira instância de Telaris em uso contínuo, hospedada por Adri M. (UBC GRSJ) na Polivoxia.', 'tags' => ['produção', 'inglês']],
-            'starmaps.polivoxia.ca' => ['caption' => 'Polivoxia desenvolvimento. A instância de trabalho que serve como fonte-de-verdade onde novas funcionalidades e trabalho editorial são validados antes de chegar à produção.', 'tags' => ['desenvolvimento', 'inglês']],
-            'telaris.baobaxia.net' => ['caption' => 'Baobáxia / Mocambos. Uma instância de Telaris hospedada junto ao arquivo comunitário quilombola Mocambos, em diálogo com a tradição Baobáxia de arquivo digital comunitário.', 'tags' => ['comunidade', 'português']],
-        ],
-        'fr' => [
-            'telaris.polivoxia.ca' => ['caption' => 'Polivoxia production. La première instance Telaris en usage continu, hébergée par Adri M. (UBC GRSJ) chez Polivoxia.', 'tags' => ['production', 'anglais']],
-            'starmaps.polivoxia.ca' => ['caption' => "Polivoxia développement. L'instance de travail source-de-vérité où nouvelles fonctionnalités et travail éditorial sont validés avant d'atteindre la production.", 'tags' => ['développement', 'anglais']],
-            'telaris.baobaxia.net' => ['caption' => "Baobáxia / Mocambos. Une instance Telaris hébergée aux côtés de l'archive communautaire quilombola Mocambos, en dialogue avec la tradition Baobáxia de l'archivage numérique communautaire.", 'tags' => ['communauté', 'portugais']],
-        ],
-    ];
-    $rows = $i18n[$locale] ?? $i18n['en'];
+    try {
+        $pdo = getDB();
+        if (function_exists('db_ensure_instances_table')) {
+            db_ensure_instances_table();
+        }
+        $rows = $pdo->query("
+            SELECT label, hostname, url, editorial_framing, is_highlighted
+            FROM instances
+            WHERE admission_status = 'published'
+            ORDER BY is_highlighted DESC, label
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        error_log('pluriverse_instances: ' . $e->getMessage());
+        return [];
+    }
+    $palette = ['#7dd3fc', '#86efac', '#fdba74', '#fda4af', '#c4b5fd', '#fcd34d'];
     $out = [];
-    foreach ($base as $key => $shared) {
-        $row = $rows[$key] ?? $i18n['en'][$key];
-        $out[] = array_merge($shared, $row);
+    foreach ($rows as $row) {
+        $host = (string)($row['hostname'] ?? '');
+        $idx = $host === '' ? 0 : abs(crc32($host)) % count($palette);
+        $out[] = [
+            'host' => $host,
+            'label' => (string)($row['label'] ?? $host),
+            'url' => (string)($row['url'] ?? ''),
+            'caption' => (string)($row['editorial_framing'] ?? ''),
+            'color' => $palette[$idx],
+            'is_highlighted' => (bool)($row['is_highlighted'] ?? false),
+            'tags' => [],
+        ];
     }
     return $out;
 }

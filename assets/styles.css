@@ -366,11 +366,23 @@ h1.page-title {
   outline: none;
 }
 
+.instance-list-item .instance-host {
+  font-size: 0.72rem;
+  color: var(--dim);
+  margin: 0.15rem 0 0;
+  letter-spacing: 0.02em;
+}
+.instance-list-item .instance-host code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.05rem 0.4rem;
+  border-radius: 2px;
+}
+
 .instance-list-item .instance-caption {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.6;
   color: var(--dim);
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
   max-width: 56ch;
 }
 

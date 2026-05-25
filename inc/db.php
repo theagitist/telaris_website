@@ -108,6 +108,11 @@ const PROJECT_INFO_COLUMNS = [
     'admin_login_title', 'admin_login_lead', 'admin_login_sent',
     'admin_login_email_label', 'admin_login_button',
     'admin_login_rate_limited', 'admin_login_invalid_email',
+    // 2i-ii admin actions (publish / reject / blacklist / unpublish / reinstate).
+    'admin_col_actions', 'admin_actions_help',
+    'admin_btn_publish', 'admin_btn_reject', 'admin_btn_blacklist', 'admin_btn_unpublish', 'admin_btn_reinstate',
+    'admin_confirm_action_fmt',
+    'admin_flash_transition_ok_fmt', 'admin_flash_csrf_err', 'admin_flash_transition_err',
 ];
 
 function db_ensure_project_info(): void {

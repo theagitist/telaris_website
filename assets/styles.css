@@ -825,3 +825,39 @@ table.admin-instances code {
 .admin-instance-row-expired td:nth-child(3),
 .admin-instance-row-withdrawn td:nth-child(3),
 .admin-instance-row-outdated td:nth-child(3) { color: rgba(180, 180, 180, 0.78); }
+
+.admin-row-actions {
+  white-space: nowrap;
+}
+.admin-row-actions form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.admin-action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  padding: 0.25rem 0.55rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--fg, #fff);
+  cursor: pointer;
+}
+.admin-action-btn:hover,
+.admin-action-btn:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+.admin-action-publish    { border-color: rgba(140, 220, 150, 0.45); }
+.admin-action-publish:hover    { background: rgba(140, 220, 150, 0.12); }
+.admin-action-reject     { border-color: rgba(230, 130, 130, 0.45); }
+.admin-action-reject:hover     { background: rgba(230, 130, 130, 0.12); }
+.admin-action-blacklist  { border-color: rgba(230, 130, 130, 0.45); }
+.admin-action-blacklist:hover  { background: rgba(230, 130, 130, 0.18); }
+.admin-action-unpublish  { border-color: rgba(220, 180, 100, 0.45); }
+.admin-action-unpublish:hover  { background: rgba(220, 180, 100, 0.12); }
+.admin-action-reinstate  { border-color: rgba(140, 200, 220, 0.45); }
+.admin-action-reinstate:hover  { background: rgba(140, 200, 220, 0.12); }
+.admin-no-actions {
+  color: var(--fg-muted, rgba(255, 255, 255, 0.4));
+}

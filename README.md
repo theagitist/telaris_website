@@ -4,7 +4,7 @@ Source for the Pluriverse website at <https://www.telaris.ca>. PHP 8.3 + MySQL, 
 
 ## Pages
 
-Six pages × four locales = 24 URLs, served by one front controller.
+Eight pages × four locales = 32 URLs, served by one front controller.
 
 | Page | EN | ES | PT | FR |
 |---|---|---|---|---|
@@ -12,6 +12,8 @@ Six pages × four locales = 24 URLs, served by one front controller.
 | Documentation | `/documentation/` | `/es/documentation/` | `/pt/documentation/` | `/fr/documentation/` |
 | Instances | `/instances/` | `/es/instances/` | `/pt/instances/` | `/fr/instances/` |
 | Manifest | `/manifest/` | `/es/manifest/` | `/pt/manifest/` | `/fr/manifest/` |
+| Contact | `/contact/` | `/es/contact/` | `/pt/contact/` | `/fr/contact/` |
+| Governance | `/governance/` | `/es/governance/` | `/pt/governance/` | `/fr/governance/` |
 | Privacy | `/privacy/` | `/es/privacy/` | `/pt/privacy/` | `/fr/privacy/` |
 | Terms | `/terms/` | `/es/terms/` | `/pt/terms/` | `/fr/terms/` |
 
@@ -28,7 +30,7 @@ PHP 8.3 + MySQL, mirroring the Telaris instance pattern:
 - **`inc/bootstrap.php`** — common page bootstrap (config + db + schema ensure + locale resolve + project_info load). Every page request_onces this once.
 - **`inc/content.php`** — markdown renderer (league/commonmark) with the same Obsidian-callout transformer the docs PDFs use. Renders to cached HTML keyed by `(slug, locale, source_mtime)`.
 - **`inc/partials/`** — head/navbar and footer.
-- **`inc/pages/`** — six page handlers: `home`, `documentation`, `instances`, `manifest`, `privacy`, `terms`.
+- **`inc/pages/`** — eight public page handlers (`home`, `documentation`, `instances`, `manifest`, `contact`, `governance`, `privacy`, `terms`) plus the operator surface (`dashboard`, `admin`, `operators_verify`).
 - **`index.php`** — front controller. Bootstrap → handler dispatch.
 
 Long-form pages (Manifest, Privacy, Terms) render their prose at request time from the documentation repo at `~/apps/telaris/documentation/src/<slug>[-locale]/01-<slug>.md`. The same files build the downloadable PDFs in `docs/`. Cache invalidates automatically when the source mtime changes.

@@ -41,7 +41,7 @@ Migrated from Python-built static HTML on 2026-05-24 (5 commits on `main`, `02cc
 
 ## URLs
 
-Six pages × four locales = 24 routes. URL slugs stay English across locales; only navbar labels and content are localized.
+Eight pages × four locales = 32 routes. URL slugs stay English across locales; only navbar labels and content are localized.
 
 | Page | EN | ES | PT | FR |
 |---|---|---|---|---|
@@ -49,6 +49,8 @@ Six pages × four locales = 24 routes. URL slugs stay English across locales; on
 | Documentation | `/documentation/` | `/es/documentation/` | `/pt/documentation/` | `/fr/documentation/` |
 | Instances | `/instances/` | `/es/instances/` | `/pt/instances/` | `/fr/instances/` |
 | Manifest | `/manifest/` | `/es/manifest/` | `/pt/manifest/` | `/fr/manifest/` |
+| Contact | `/contact/` | `/es/contact/` | `/pt/contact/` | `/fr/contact/` |
+| Governance | `/governance/` | `/es/governance/` | `/pt/governance/` | `/fr/governance/` |
 | Privacy | `/privacy/` | `/es/privacy/` | `/pt/privacy/` | `/fr/privacy/` |
 | Terms | `/terms/` | `/es/terms/` | `/pt/terms/` | `/fr/terms/` |
 
@@ -146,13 +148,17 @@ Page routes (front controller; locale-prefixed `/es/`, `/pt/`, `/fr/` variants e
 | `/operators/verify-magic-link?t=…` | Magic-link consume; branches on token `purpose` ∈ `{operator, admin}` |
 | `/dashboard` | Operator self-service: read-only own-instance view + CSRF-protected logout. Sign-in via magic-link request from a non-authenticated GET. |
 | `/admin` | Pluriverse admin: read-only instance list + per-row transition actions (publish, reject, blacklist, unpublish, reinstate). CSRF-protected. Admin sign-in via magic-link request. |
-| `/`, `/documentation/`, `/instances/`, `/manifest/`, `/privacy/`, `/terms/` | Public site pages (unchanged from the PHP migration) |
+| `/`, `/documentation/`, `/instances/`, `/manifest/`, `/privacy/`, `/terms/`, `/contact/`, `/governance/` | Public site pages (locale-prefixed `/es/`, `/pt/`, `/fr/` variants for each) |
 
 Composer runtime deps (all installed): `league/commonmark ^2.7`, `zircote/swagger-php ^6.1`, `phpmailer/phpmailer ^7.1`.
 
 Design at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation/Stage 2 application surface design.md`. Cycle record at [[project-telaris-federation-stage-2-active]] in memory.
 
-**What's still ahead**: 2k i18n sweep (admin sign-in email + a couple of operator-facing strings still EN-only), 2l `/contact` + `/governance` static pages, JWS-signed envelopes for the three public reads (gated on stages 3+ peer verifier), dashboard edit + withdraw (operator-side mutations on their own row). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
+**2k shipped 2026-05-25** (`0059fa2`): the apply-ack email and the admin sign-in email moved from EN-only to inline 4-locale dicts (operator locale comes from the application payload; admin locale from the page locale, since registry_admins has no locale field yet). Adversarial second-pass scan confirmed no further user-facing EN-only chrome on the Pluriverse pages or partials. RFC 9457 problem-detail strings on the API surface stay EN as technical prose (code is locale-invariant; instance-side admin UI translates its own surface).
+
+**2l shipped 2026-05-25** (`534f9a7`): `/contact` (source code, admin email, security disclosures) and `/governance` (admission, removal/blacklist/appeals, forking the Pluriverse) as static front-controller pages, 4 locales each. 16 new chrome keys × 4 locales = 64 strings. Three sections per page; section bodies stored as markdown in db_defaults and rendered through league/commonmark at request time. Footer grows two links; navbar unchanged.
+
+**What's still ahead**: JWS-signed envelopes for the three public reads (peers.json / blacklist.json / key-events.json, gated on stages 3+ peer verifier), dashboard edit + withdraw (operator-side mutations on their own row, the deferred half of 2h), HEAD method on the API router. Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
 
 ## License
 

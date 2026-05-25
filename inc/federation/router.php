@@ -22,14 +22,19 @@ if ($path === '') $path = '/';
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
+// HEAD is allowed on every unauthenticated GET route (cheap probing for
+// monitoring + cache validation). Signed GET endpoints stay GET-only
+// because RFC 9421 covers @method in the signature base — letting HEAD
+// in would require instances to sign HEAD requests explicitly, which is
+// out of scope for monitoring tools.
 $routes = [
-    '/api/pluriverse/identity' => ['methods' => ['GET'], 'handler' => __DIR__ . '/identity_handler.php'],
-    '/api/pluriverse/openapi.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/openapi_handler.php'],
+    '/api/pluriverse/identity' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/identity_handler.php'],
+    '/api/pluriverse/openapi.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/openapi_handler.php'],
     '/api/pluriverse/operators/apply' => ['methods' => ['POST'], 'handler' => __DIR__ . '/apply_handler.php'],
     '/api/pluriverse/operators/status' => ['methods' => ['GET'], 'handler' => __DIR__ . '/status_handler.php'],
-    '/api/pluriverse/peers.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/peers_handler.php'],
-    '/api/pluriverse/blacklist.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/blacklist_handler.php'],
-    '/api/pluriverse/key-events.json' => ['methods' => ['GET'], 'handler' => __DIR__ . '/key_events_handler.php'],
+    '/api/pluriverse/peers.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/peers_handler.php'],
+    '/api/pluriverse/blacklist.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/blacklist_handler.php'],
+    '/api/pluriverse/key-events.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/key_events_handler.php'],
 ];
 
 if (!isset($routes[$path])) {
@@ -51,6 +56,19 @@ if (!in_array($method, $route['methods'], true)) {
         $method . ' is not allowed on ' . $path . '; allowed: ' . implode(', ', $route['methods']),
         $path
     );
+    return;
+}
+
+// For HEAD requests, run the GET handler with output buffering, then
+// drop the body and emit Content-Length so the response is bit-identical
+// in headers to the GET response (RFC 9110 §9.3.2).
+if ($method === 'HEAD') {
+    ob_start();
+    require $route['handler'];
+    $body = ob_get_clean();
+    if (!headers_sent()) {
+        header('Content-Length: ' . strlen($body));
+    }
     return;
 }
 

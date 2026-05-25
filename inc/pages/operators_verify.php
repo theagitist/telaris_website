@@ -4,28 +4,31 @@ declare(strict_types=1);
 /**
  * GET /operators/verify-magic-link?t=<base64url-token>
  *
- * Single endpoint for all magic-link consumes. Two callers:
+ * Single endpoint for all magic-link consumes. Three callers:
  *
- *   - Apply ack email (2f-iii): "confirm your join request".
- *   - Dashboard sign-in email (2h): "sign in to your dashboard".
+ *   - Apply ack email (2f-iii): purpose='operator', "confirm your join request"
+ *   - Dashboard sign-in email (2h): purpose='operator', "sign in to your dashboard"
+ *   - Admin sign-in email (2i-i): purpose='admin', "sign in to /admin"
  *
- * The endpoint doesn't distinguish them: it consumes the token, looks up the
- * instance, and decides what to do based on the instance's admission_status.
+ * The token row carries the purpose; the verify handler dispatches:
  *
- *   pending  → transition to verified, create session, redirect to /dashboard
- *   verified | published | outdated | withdrawn
- *            → create session, redirect to /dashboard
- *   rejected | blacklisted | revoked
- *            → no session, render the not-eligible message
+ *   purpose='admin'
+ *     - lookup registry_admins by email_lookup_hash (active only)
+ *     - mint admin session, redirect to /admin
+ *     - not found → render not_eligible (admin row missing or deactivated)
+ *
+ *   purpose='operator' (default; backward-compatible for pre-2i-i tokens)
+ *     - existing flow: pending→verified transition, mint operator session,
+ *       redirect to /dashboard; rejected/blacklisted/revoked → not_eligible
  *
  * Single-use rule: a session is only minted on a *fresh* consume. An
  * already_consumed token (re-click, replay) yields the "link already used"
- * message even if the instance is past pending; the operator must request
- * a new sign-in link from /dashboard to obtain a session.
+ * message even if the instance is past pending; the subject must request
+ * a new sign-in link to obtain a session.
  *
  * Error states (rendered with HTTP 410): expired, invalid (malformed or
  * unknown), missing (no `t` param), instance_missing (consumed but the row
- * is gone), not_eligible (status blocks dashboard access).
+ * is gone), not_eligible (status or admin-active blocks access).
  */
 
 require_once __DIR__ . '/../db_federation.php';
@@ -42,6 +45,7 @@ $tokenBytes = federation_token_url_decode($rawParam);
 $state = 'invalid';
 $instance = null;
 $consumeFresh = false;
+$purpose = 'operator';
 
 if ($rawParam === '') {
     $state = 'missing';
@@ -53,49 +57,81 @@ if ($rawParam === '') {
         $state = 'invalid';
     } elseif ($consume['status'] === 'expired') {
         $state = 'expired';
-        $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        $purpose = (string)($consume['purpose'] ?? 'operator');
+        if ($purpose === 'operator') {
+            $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        }
     } elseif ($consume['status'] === 'already_consumed') {
         // Re-click on a burned token. No session minted (preserves single-use).
-        $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        $purpose = (string)($consume['purpose'] ?? 'operator');
+        if ($purpose === 'operator') {
+            $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+        }
         $state = 'already_used';
     } else { // 'consumed', fresh
         $consumeFresh = true;
-        $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
-        if ($instance === null) {
-            $state = 'instance_missing';
-        } elseif ($instance['admission_status'] === 'pending') {
-            $ok = db_transition_instance_admission(
-                (int)$instance['id'],
-                'pending',
-                'verified',
-                'operator',
-                'email verified via magic link'
-            );
-            if ($ok) {
-                $instance['admission_status'] = 'verified';
-                $state = 'verified';
+        $purpose = (string)($consume['purpose'] ?? 'operator');
+
+        if ($purpose === 'admin') {
+            // Admin sign-in path: gate on registry_admins membership.
+            $admin = db_get_admin_by_email_lookup_hash($consume['email_lookup_hash']);
+            if ($admin === null) {
+                // Token was minted (so the lookup hash existed in the
+                // admins table at that time) but the row is gone or
+                // deactivated. Either way: refuse.
+                $state = 'not_eligible';
             } else {
-                // Lost the race against a parallel transition; refetch and
-                // continue as if we'd seen the post-transition state.
-                $refresh = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
-                $instance = $refresh ?? $instance;
-                $state = ($instance['admission_status'] !== 'pending') ? 'verified' : 'invalid';
+                try {
+                    $rawSession = db_create_session('admin', (int)$admin['id']);
+                    pluriverse_session_set_cookie($rawSession);
+                    // Use the URL-derived locale; admins don't yet have a
+                    // stored locale preference.
+                    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+                    header('Location: ' . $localePrefix . '/admin');
+                    http_response_code(303);
+                    return;
+                } catch (Throwable $e) {
+                    error_log('verify: admin session create failed (admin ' . $admin['id'] . '): ' . $e->getMessage());
+                    $state = 'invalid';
+                }
             }
-        } else {
-            // Fresh consume on an already-past-pending instance. This is the
-            // dashboard sign-in case: token proves email ownership, grant
-            // session.
-            $state = 'verified';
+        } else { // operator
+            $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+            if ($instance === null) {
+                $state = 'instance_missing';
+            } elseif ($instance['admission_status'] === 'pending') {
+                $ok = db_transition_instance_admission(
+                    (int)$instance['id'],
+                    'pending',
+                    'verified',
+                    'operator',
+                    'email verified via magic link'
+                );
+                if ($ok) {
+                    $instance['admission_status'] = 'verified';
+                    $state = 'verified';
+                } else {
+                    // Lost the race against a parallel transition; refetch.
+                    $refresh = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+                    $instance = $refresh ?? $instance;
+                    $state = ($instance['admission_status'] !== 'pending') ? 'verified' : 'invalid';
+                }
+            } else {
+                // Fresh consume on an already-past-pending instance.
+                // Dashboard sign-in case: grant session.
+                $state = 'verified';
+            }
         }
     }
 }
 
 // -----------------------------------------------------------------------
-// On a fresh consume into a session-eligible state, mint the session and
-// redirect to /dashboard. The cookie is set in the same response.
+// On a fresh OPERATOR consume into a session-eligible state, mint the
+// session and redirect to /dashboard. Admin redirect already returned
+// above; this only fires for purpose=operator.
 // -----------------------------------------------------------------------
 $sessionEligibleStates = ['verified', 'published', 'outdated', 'withdrawn'];
-if ($consumeFresh && $state === 'verified' && $instance !== null) {
+if ($consumeFresh && $purpose === 'operator' && $state === 'verified' && $instance !== null) {
     if (in_array((string)$instance['admission_status'], $sessionEligibleStates, true)) {
         try {
             $rawSession = db_create_session('operator', (int)$instance['id']);
@@ -110,8 +146,7 @@ if ($consumeFresh && $state === 'verified' && $instance !== null) {
             // Fall through and render the success page without a session.
         }
     } else {
-        // Fresh consume but instance is rejected/blacklisted/revoked. The
-        // operator authenticated, but the Pluriverse won't let them in.
+        // Fresh consume but instance is rejected/blacklisted/revoked.
         $state = 'not_eligible';
     }
 }

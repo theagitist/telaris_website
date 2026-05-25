@@ -48,6 +48,7 @@ $pageHandlers = [
     'privacy' => 'privacy',
     'terms' => 'terms',
     'dashboard' => 'dashboard',
+    'admin' => 'admin',
 ];
 
 $handler = $pageHandlers[$pluriversePage] ?? null;

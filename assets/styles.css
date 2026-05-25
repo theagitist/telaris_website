@@ -777,3 +777,51 @@ body.home footer.site-footer {
   background: rgba(255, 255, 255, 0.07);
   color: var(--fg, #fff);
 }
+
+/* -----------------------------------------------------------------------
+   /admin, Pluriverse admin landing.
+   2i-i, 2026-05-25.
+   ----------------------------------------------------------------------- */
+.page-admin {
+  max-width: 960px;
+  margin: 0 auto;
+}
+table.admin-instances {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+}
+table.admin-instances th,
+table.admin-instances td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+table.admin-instances th {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.55));
+  font-weight: normal;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+table.admin-instances time {
+  font-size: 0.78rem;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.62));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+table.admin-instances code {
+  font-size: 0.85em;
+}
+.admin-instance-row-pending td:nth-child(3),
+.admin-instance-row-verified td:nth-child(3) { color: rgba(255, 210, 110, 0.92); }
+.admin-instance-row-published td:nth-child(3) { color: rgba(140, 220, 150, 0.92); }
+.admin-instance-row-rejected td:nth-child(3),
+.admin-instance-row-blacklisted td:nth-child(3),
+.admin-instance-row-revoked td:nth-child(3) { color: rgba(230, 130, 130, 0.92); }
+.admin-instance-row-expired td:nth-child(3),
+.admin-instance-row-withdrawn td:nth-child(3),
+.admin-instance-row-outdated td:nth-child(3) { color: rgba(180, 180, 180, 0.78); }

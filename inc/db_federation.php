@@ -181,15 +181,27 @@ function db_ensure_magic_link_tokens_table(): void {
     if ($checked) return;
     $checked = true;
     try {
-        getDB()->exec("
+        $pdo = getDB();
+        $pdo->exec("
             CREATE TABLE IF NOT EXISTS magic_link_tokens (
                 token_hash VARBINARY(32) PRIMARY KEY,
                 email_lookup_hash VARBINARY(32) NOT NULL,
+                purpose ENUM('operator','admin') NOT NULL DEFAULT 'operator',
                 expires_at TIMESTAMP NOT NULL,
                 consumed_at TIMESTAMP NULL,
                 INDEX idx_email_expires (email_lookup_hash, expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        // 2026-05-25: purpose column distinguishes operator-side magic links
+        // (apply ack + dashboard sign-in) from admin-side (/admin sign-in).
+        // Idempotent migration for installs that landed before 2i-i.
+        $cols = $pdo->query("
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'magic_link_tokens'
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('purpose', array_map('strval', $cols), true)) {
+            $pdo->exec("ALTER TABLE magic_link_tokens ADD COLUMN purpose ENUM('operator','admin') NOT NULL DEFAULT 'operator' AFTER email_lookup_hash");
+        }
     } catch (PDOException $e) {
         error_log('db_ensure_magic_link_tokens_table: ' . $e->getMessage());
     }
@@ -512,19 +524,23 @@ function db_insert_instance_application(array $application, array $identity): in
  * The verify endpoint (2g-i) hashes the received URL parameter the same way
  * and matches against token_hash, then sets consumed_at on first success.
  */
-function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3600): string {
+function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3600, string $purpose = 'operator'): string {
     if (strlen($emailLookupHash) !== 32) {
         throw new InvalidArgumentException('db_create_magic_link_token: lookup hash must be 32 bytes');
+    }
+    if (!in_array($purpose, ['operator', 'admin'], true)) {
+        throw new InvalidArgumentException('db_create_magic_link_token: purpose must be operator|admin');
     }
     db_ensure_magic_link_tokens_table();
     $raw = random_bytes(32);
     $tokenHash = hash('sha256', $raw, true);
     $stmt = getDB()->prepare("
-        INSERT INTO magic_link_tokens (token_hash, email_lookup_hash, expires_at)
-        VALUES (:th, :lh, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+        INSERT INTO magic_link_tokens (token_hash, email_lookup_hash, purpose, expires_at)
+        VALUES (:th, :lh, :p, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
     ");
     $stmt->bindValue(':th', $tokenHash, PDO::PARAM_LOB);
     $stmt->bindValue(':lh', $emailLookupHash, PDO::PARAM_LOB);
+    $stmt->bindValue(':p', $purpose);
     $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
     $stmt->execute();
     return $raw;
@@ -575,7 +591,7 @@ function db_consume_magic_link_token(string $rawToken): ?array {
     try {
         $pdo->beginTransaction();
         $sel = $pdo->prepare("
-            SELECT email_lookup_hash, expires_at, consumed_at
+            SELECT email_lookup_hash, purpose, expires_at, consumed_at
             FROM magic_link_tokens
             WHERE token_hash = :th
             FOR UPDATE
@@ -588,13 +604,14 @@ function db_consume_magic_link_token(string $rawToken): ?array {
             return null;
         }
         $emailLookupHash = (string)$row['email_lookup_hash'];
+        $purpose = (string)($row['purpose'] ?? 'operator');
         if ($row['consumed_at'] !== null) {
             $pdo->rollBack();
-            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash];
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
         }
         if (strtotime((string)$row['expires_at']) < time()) {
             $pdo->rollBack();
-            return ['status' => 'expired', 'email_lookup_hash' => $emailLookupHash];
+            return ['status' => 'expired', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
         }
         $upd = $pdo->prepare("
             UPDATE magic_link_tokens SET consumed_at = NOW()
@@ -604,10 +621,10 @@ function db_consume_magic_link_token(string $rawToken): ?array {
         $upd->execute();
         if ($upd->rowCount() !== 1) {
             $pdo->rollBack();
-            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash];
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
         }
         $pdo->commit();
-        return ['status' => 'consumed', 'email_lookup_hash' => $emailLookupHash];
+        return ['status' => 'consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('db_consume_magic_link_token: ' . $e->getMessage());
@@ -856,6 +873,39 @@ function db_delete_instance(int $instanceId): bool {
     $stmt = getDB()->prepare("DELETE FROM instances WHERE id = :id");
     $stmt->execute([':id' => $instanceId]);
     return $stmt->rowCount() === 1;
+}
+
+/**
+ * Fetch an active admin row by operator_email_lookup_hash (used to gate
+ * /admin sign-in: only emails on the registry_admins roster can mint an
+ * admin session). Inactive admins (is_active = FALSE) are excluded so
+ * deactivating an admin immediately blocks further sign-ins.
+ */
+function db_get_admin_by_email_lookup_hash(string $lookupHash): ?array {
+    if (strlen($lookupHash) !== 32) return null;
+    db_ensure_registry_admins_table();
+    $stmt = getDB()->prepare("
+        SELECT id, display_name, is_active
+        FROM registry_admins
+        WHERE email_lookup_hash = :lh AND is_active = TRUE
+        LIMIT 1
+    ");
+    $stmt->bindValue(':lh', $lookupHash, PDO::PARAM_LOB);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
+/**
+ * Fetch an admin row by primary key. Used when an admin session resolves
+ * (subject_type = 'admin', subject_id = id) to render the admin landing.
+ */
+function db_get_admin_by_id(int $id): ?array {
+    db_ensure_registry_admins_table();
+    $stmt = getDB()->prepare("SELECT id, display_name, is_active, created_at FROM registry_admins WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
 }
 
 function db_get_instance_by_id(int $instanceId): ?array {

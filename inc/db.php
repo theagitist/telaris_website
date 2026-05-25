@@ -100,6 +100,14 @@ const PROJECT_INFO_COLUMNS = [
     'dashboard_login_email_label', 'dashboard_login_button',
     'dashboard_login_rate_limited', 'dashboard_login_invalid_email',
     'dashboard_logout_button',
+    // Pluriverse admin (2i-i, 2026-05-25).
+    'admin_title', 'admin_lead_signed_in_as_fmt',
+    'admin_section_instances', 'admin_instances_none', 'admin_instances_total_fmt',
+    'admin_col_name', 'admin_col_hostname', 'admin_col_status', 'admin_col_locale', 'admin_col_created',
+    'admin_actions_pending',
+    'admin_login_title', 'admin_login_lead', 'admin_login_sent',
+    'admin_login_email_label', 'admin_login_button',
+    'admin_login_rate_limited', 'admin_login_invalid_email',
 ];
 
 function db_ensure_project_info(): void {

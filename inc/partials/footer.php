@@ -12,7 +12,7 @@ global $pluriverseLocale;
 $includeBg = $includeBg ?? false;
 ?>
 
-<footer class="site-footer"><span class="dot" aria-hidden="true"></span><span class="status"><?= h(info('footer_status')) ?></span><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('privacy', $pluriverseLocale)) ?>"><?= h(info('footer_privacy')) ?></a><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('terms', $pluriverseLocale)) ?>"><?= h(info('footer_terms')) ?></a></footer>
+<footer class="site-footer"><span class="dot" aria-hidden="true"></span><span class="status"><?= h(info('footer_status')) ?></span><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('contact', $pluriverseLocale)) ?>"><?= h(info('footer_contact')) ?></a><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('governance', $pluriverseLocale)) ?>"><?= h(info('footer_governance')) ?></a><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('privacy', $pluriverseLocale)) ?>"><?= h(info('footer_privacy')) ?></a><span class="sep" aria-hidden="true">·</span><a href="<?= h(pluriverse_locale_url('terms', $pluriverseLocale)) ?>"><?= h(info('footer_terms')) ?></a></footer>
 <?php if ($includeBg): ?>
 <script src="/assets/bg.js"></script>
 <?php endif; ?>

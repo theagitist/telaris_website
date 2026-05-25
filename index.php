@@ -47,6 +47,8 @@ $pageHandlers = [
     'manifest' => 'manifest',
     'privacy' => 'privacy',
     'terms' => 'terms',
+    'contact' => 'contact',
+    'governance' => 'governance',
     'dashboard' => 'dashboard',
     'admin' => 'admin',
 ];

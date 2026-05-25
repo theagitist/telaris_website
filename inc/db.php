@@ -113,6 +113,16 @@ const PROJECT_INFO_COLUMNS = [
     'admin_btn_publish', 'admin_btn_reject', 'admin_btn_blacklist', 'admin_btn_unpublish', 'admin_btn_reinstate',
     'admin_confirm_action_fmt',
     'admin_flash_transition_ok_fmt', 'admin_flash_csrf_err', 'admin_flash_transition_err',
+    // 2l Contact + Governance static pages.
+    'footer_contact', 'footer_governance',
+    'contact_title', 'contact_lead',
+    'contact_section_repos_title', 'contact_section_repos_body',
+    'contact_section_admin_title', 'contact_section_admin_body',
+    'contact_section_security_title', 'contact_section_security_body',
+    'governance_title', 'governance_lead',
+    'governance_section_admission_title', 'governance_section_admission_body',
+    'governance_section_lifecycle_title', 'governance_section_lifecycle_body',
+    'governance_section_fork_title', 'governance_section_fork_body',
 ];
 
 function db_ensure_project_info(): void {

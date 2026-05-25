@@ -113,6 +113,10 @@ const PROJECT_INFO_COLUMNS = [
     'admin_btn_publish', 'admin_btn_reject', 'admin_btn_blacklist', 'admin_btn_unpublish', 'admin_btn_reinstate',
     'admin_confirm_action_fmt',
     'admin_flash_transition_ok_fmt', 'admin_flash_csrf_err', 'admin_flash_transition_err',
+    // 2m-i Dashboard withdraw action.
+    'dashboard_section_withdraw', 'dashboard_withdraw_help',
+    'dashboard_withdraw_button', 'dashboard_withdraw_confirm',
+    'dashboard_withdraw_success', 'dashboard_withdraw_error',
     // 2l Contact + Governance static pages.
     'footer_contact', 'footer_governance',
     'contact_title', 'contact_lead',

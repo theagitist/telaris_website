@@ -65,6 +65,48 @@ if ($method === 'POST'
     return;
 }
 
+// -----------------------------------------------------------------------
+// POST action=withdraw: operator-initiated withdrawal. Transitions the
+// instance to 'withdrawn' (one atomic step), logs it, destroys the session.
+// Reversible: re-applying from the instance admin panel will drop the
+// withdrawn row inline (same-operator semantics, like 'expired').
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'withdraw'
+    && $session !== null
+    && $session['subject_type'] === 'operator'
+) {
+    $withdrawOk = false;
+    $withdrawTried = false;
+    if (pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $instance = db_get_instance_by_id($session['subject_id']);
+        if ($instance !== null) {
+            $withdrawableFrom = ['pending', 'verified', 'published', 'outdated'];
+            $current = (string)$instance['admission_status'];
+            if (in_array($current, $withdrawableFrom, true)) {
+                $withdrawTried = true;
+                $withdrawOk = db_transition_instance_admission(
+                    (int)$instance['id'],
+                    $current,
+                    'withdrawn',
+                    'operator',
+                    'operator withdrew via dashboard'
+                );
+            }
+        }
+        if ($withdrawOk) {
+            db_destroy_session($session['session_id']);
+            pluriverse_session_clear_cookie();
+            pluriverse_current_session_invalidate();
+        }
+    }
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    $qs = $withdrawOk ? '?withdrawn=1' : ($withdrawTried ? '?withdraw_error=1' : '');
+    header('Location: ' . $localePrefix . '/dashboard' . $qs);
+    http_response_code(303);
+    return;
+}
+
 // Re-read session after a possible logout above (the static cache was
 // invalidated). $session and the rest of the handler need the fresh state.
 $session = pluriverse_current_session();
@@ -211,6 +253,18 @@ if ($session !== null && $session['subject_type'] === 'operator') {
 
           <p class="dashboard-footer-note"><?= h(info('dashboard_edit_pending')) ?></p>
 
+          <?php if (in_array((string)$instance['admission_status'], ['pending', 'verified', 'published', 'outdated'], true)): ?>
+          <section class="dashboard-section dashboard-section-withdraw">
+            <h2><?= h(info('dashboard_section_withdraw')) ?></h2>
+            <p class="dashboard-help"><?= h(info('dashboard_withdraw_help')) ?></p>
+            <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-withdraw-form" onsubmit="return confirm(<?= h(json_encode(info('dashboard_withdraw_confirm'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>);">
+              <?= pluriverse_csrf_field() ?>
+              <input type="hidden" name="action" value="withdraw">
+              <button type="submit" class="dashboard-btn-destructive"><?= h(info('dashboard_withdraw_button')) ?></button>
+            </form>
+          </section>
+          <?php endif; ?>
+
           <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-logout-form">
             <?= pluriverse_csrf_field() ?>
             <input type="hidden" name="action" value="logout">
@@ -323,6 +377,17 @@ require __DIR__ . '/../partials/head.php';
 <main class="page page-dashboard-login">
   <h1 class="page-title"><?= h(info('dashboard_login_title')) ?></h1>
   <p class="page-lead"><?= h(info('dashboard_login_lead')) ?></p>
+
+<?php if (isset($_GET['withdrawn'])): ?>
+  <div class="dashboard-callout dashboard-callout-ok">
+    <p><?= h(info('dashboard_withdraw_success')) ?></p>
+  </div>
+<?php endif; ?>
+<?php if (isset($_GET['withdraw_error'])): ?>
+  <div class="dashboard-callout dashboard-callout-error">
+    <p><?= h(info('dashboard_withdraw_error')) ?></p>
+  </div>
+<?php endif; ?>
 
 <?php if ($loginSent): ?>
   <div class="dashboard-callout dashboard-callout-ok">

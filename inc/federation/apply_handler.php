@@ -281,9 +281,9 @@ if ($errors !== []) {
 
 // -----------------------------------------------------------------------
 // Sweep stale-pending rows past their 24h verify window into 'expired',
-// then run the conflict check. An expired prior attempt for the same
-// hostname/email is replaced (delete + insert) so the operator can
-// re-join without admin intervention.
+// then run the conflict check. An expired-or-withdrawn prior attempt for
+// the same hostname/email is replaced (delete + insert) so the operator
+// can re-join without admin intervention.
 // -----------------------------------------------------------------------
 try {
     $pdo = getDB();
@@ -292,9 +292,9 @@ try {
     $emailLookupHash = federation_pii_lookup_hash($operatorEmail);
 
     // Look for any existing row matching by hostname OR email OR label.
-    // If matches are 'expired' AND share both hostname and email (i.e.
-    // the same operator's prior attempt), drop them and continue. Any
-    // non-expired collision is still a 409.
+    // If matches are 'expired' or 'withdrawn' AND share both hostname and
+    // email (i.e. the same operator's prior attempt), drop them and
+    // continue. Any other collision is still a 409.
     $stmt = $pdo->prepare("
         SELECT id, admission_status, hostname, operator_email_lookup_hash, label
         FROM instances
@@ -306,18 +306,20 @@ try {
     $stmt->execute();
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $reapplyableStatuses = ['expired', 'withdrawn'];
     foreach ($matches as $row) {
         $sameHost = strcasecmp((string)$row['hostname'], $hostname) === 0;
         $sameEmail = hash_equals((string)$row['operator_email_lookup_hash'], $emailLookupHash);
         $sameLabel = strcasecmp((string)$row['label'], $label) === 0;
-        if ($row['admission_status'] === 'expired' && $sameHost && $sameEmail) {
-            // Same operator's expired prior attempt. Drop it (and its log
-            // rows via FK cascade) so the new INSERT below can land.
+        if (in_array((string)$row['admission_status'], $reapplyableStatuses, true) && $sameHost && $sameEmail) {
+            // Same operator's expired or withdrawn prior attempt. Drop it
+            // (and its log rows via FK cascade) so the new INSERT below
+            // can land.
             db_delete_instance((int)$row['id']);
             continue;
         }
-        // Live conflict (any non-expired status, or expired but a label-only
-        // collision from a different operator). Return 409.
+        // Live conflict (any other status, or expired/withdrawn but a
+        // label-only collision from a different operator). Return 409.
         $code = 'application_exists';
         $detail = "An application is already on file for this hostname, email, or name (status: {$row['admission_status']}).";
         if ($sameHost) {

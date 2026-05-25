@@ -166,7 +166,11 @@ Design at `~/apps/obsidian/Academia/Projects/Telaris/Architecture/P2P federation
 
 **2o-i shipped 2026-05-25** (`f774ab9`): operator edit for `other_contacts` (the encrypted contact-handles array, up to 8 `{service, user_id}` entries). Inline JS for add/remove rows; server-side validation mirrors apply_handler; re-encrypt with the same per-row HKDF-derived key; UPDATE + status_log INSERT in one transaction. 14 new chrome keys × 4 locales. The stale `dashboard_label_other_contacts` chrome key was dropped (its display site is replaced by `dashboard_other_contacts_heading` + `dashboard_other_contacts_help`).
 
-**What's still ahead**: 2o-ii `operator_email` edit, which needs a `purpose='email-change'` magic-link flow because the email is the operator's identity (~3h work). Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
+**2o-ii shipped 2026-05-25** (`76ce5e3`): operator email-change flow. Three new `pending_email_*` columns on `instances` (one of them `UNIQUE` on the new lookup hash) hold the proposed new address through the magic-link round-trip. `magic_link_tokens.purpose` ENUM grows `email-change`. POST `action=request_email_change` validates the new address, encrypts it under the OLD row context with column-info `pending_email`, stores the pending row, mints a `purpose='email-change'` token tied to the NEW lookup hash, and emails the link to the NEW mailbox. The verify endpoint, on `purpose='email-change'`, calls a new `db_promote_email_change` helper that decrypts the pending email under the OLD context, re-encrypts it (and the existing `other_contacts`) under the NEW context (row context tied to `operator_email_lookup_hash`), swaps the canonical columns atomically, and clears pending. POST `action=cancel_email_change` clears pending columns. 16 new chrome keys × 4 locales.
+
+**The operator dashboard is now functionally complete**: an operator can edit everything they submitted at apply time (label, framing, locale, other_contacts, email) and withdraw / re-apply.
+
+**What's still ahead**: Stages 3+ (instance pulls peers.json, verifies, mirrors published galaxies, three-round handshake, content-addressable media, JWS publish events, key-events push channel) are the big remaining federation arc.
 
 ## License
 

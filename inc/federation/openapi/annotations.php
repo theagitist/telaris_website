@@ -161,7 +161,7 @@ final class ContactEntrySchema {}
         . 'identity envelope at the supplied pluriverse_endpoint (or the conventional <url>/api/pluriverse/identity '
         . 'if omitted) and captures the public key itself, so the form does NOT collect public_key. '
         . 'Fingerprint cross-check is performed locally.',
-    required: ['url', 'operator_email', 'label', 'publishable_slugs'],
+    required: ['url', 'operator_email', 'label'],
     properties: [
         new OA\Property(property: 'hostname', type: 'string', minLength: 4, maxLength: 255, pattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$', example: 'mocambos.example.com', description: 'OPTIONAL. Derived from url\'s host component when omitted (the form does not collect it). If supplied explicitly it must match the URL host.'),
         new OA\Property(property: 'url', type: 'string', format: 'uri', example: 'https://mocambos.example.com', description: 'Canonical https:// URL of the instance.'),
@@ -169,7 +169,7 @@ final class ContactEntrySchema {}
         new OA\Property(property: 'operator_email', type: 'string', format: 'email', maxLength: 254, description: 'Magic-link target. PII-encrypted at rest.'),
         new OA\Property(property: 'label', type: 'string', minLength: 1, maxLength: 255, example: 'Mocambos archive', description: 'Operator-chosen Name (DB column kept as `label` for historical reasons). UNIQUE across all instances, case-insensitive; check availability via /api/pluriverse/operators/check-name before submitting to avoid the 409 on conflict.'),
         new OA\Property(property: 'editorial_framing', type: 'string', maxLength: 2000, description: 'Short prose describing the instance\'s editorial focus. Optional.'),
-        new OA\Property(property: 'publishable_slugs', type: 'array', minItems: 1, items: new OA\Items(type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,127}$'), description: 'Galaxy slugs the operator commits to publishing through the Pluriverse. At least one is required; the form picks these from the live list returned by the instance\'s /api/pluriverse/galaxies.json.'),
+        new OA\Property(property: 'publishable_slugs', type: 'array', items: new OA\Items(type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,127}$'), description: 'Snapshot of the galaxy slugs on the signing instance at apply time. The instance posts every galaxy it has (anti-siloing); an empty array is allowed and means the operator registered the instance before adding content. New galaxies are picked up by the Pluriverse rescan mechanism (stage 2j+) as they appear on the instance.'),
         new OA\Property(property: 'other_contacts', type: 'array', maxItems: 8, items: new OA\Items(ref: '#/components/schemas/ContactEntry'), description: 'Secondary contact channels. Optional. PII-encrypted at rest.'),
         new OA\Property(property: 'locale', type: 'string', enum: ['en', 'es', 'pt', 'fr'], description: 'Locale of the submission, used for the acknowledgement email. Defaults to en.'),
     ]

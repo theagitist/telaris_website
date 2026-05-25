@@ -222,14 +222,16 @@ if (mb_strlen($editorialFraming) > 2000) {
     $errors[] = 'editorial_framing exceeds 2000 chars';
 }
 
+// Anti-siloing rule (v10 plan + operator directive 2026-05-25): the federation
+// publishes every galaxy the instance has, no per-galaxy opt-out. Empty list
+// is allowed at apply time; new galaxies will be picked up by the
+// Pluriverse-side rescan mechanism (stage 2j+) as they appear on the
+// instance.
 $publishableSlugs = $body['publishable_slugs'] ?? [];
 if (!is_array($publishableSlugs)) {
     $errors[] = 'publishable_slugs must be an array';
     $publishableSlugs = [];
 } else {
-    if (count($publishableSlugs) === 0) {
-        $errors[] = 'publishable_slugs must include at least one slug; pick at least one galaxy in your instance admin';
-    }
     foreach ($publishableSlugs as $i => $s) {
         if (!is_string($s) || !preg_match('/^[a-z0-9][a-z0-9-]{0,127}$/', $s)) {
             $errors[] = "publishable_slugs[{$i}] must be a kebab-case slug 1..128 chars";

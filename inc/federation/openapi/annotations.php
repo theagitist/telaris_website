@@ -257,6 +257,106 @@ final class ApplicationResponseSchema {}
 final class SubmitApplicationEndpoint {}
 
 
+#[OA\Schema(
+    schema: 'RelayRequest',
+    description: 'Body of POST /api/pluriverse/relay. A Telaris instance posts an opaque JWS '
+        . 'envelope it has already signed with its own pluriverse.key; the Pluriverse forwards '
+        . 'that JWS unchanged to the recipient instance\'s /api/pluriverse/messages, wrapped in '
+        . 'a fresh outer HTTP Signature signed by the coord key.',
+    required: ['recipient_hostname', 'envelope'],
+    properties: [
+        new OA\Property(property: 'recipient_hostname', type: 'string', minLength: 4, maxLength: 255, pattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$', example: 'telaris.polivoxia.ca', description: 'Hostname of the target instance. Must be a published peer.'),
+        new OA\Property(property: 'envelope', type: 'string', maxLength: 65536, description: 'JWS Compact Serialization (header.payload.signature) signed by the sender\'s instance key. The Pluriverse forwards this byte-identically; no re-signing at the JWS layer.'),
+    ]
+)]
+final class RelayRequestSchema {}
+
+#[OA\Schema(
+    schema: 'RelayResponse',
+    description: 'Successful response from POST /api/pluriverse/relay (HTTP 202).',
+    required: ['status', 'recipient_hostname', 'message'],
+    properties: [
+        new OA\Property(property: 'status', type: 'string', enum: ['delivered']),
+        new OA\Property(property: 'recipient_hostname', type: 'string'),
+        new OA\Property(property: 'message', type: 'string'),
+    ]
+)]
+final class RelayResponseSchema {}
+
+#[OA\Post(
+    path: '/api/pluriverse/relay',
+    operationId: 'forwardRelay',
+    summary: 'Forward a signed first-contact JWS through the Pluriverse to a peer.',
+    description: 'The relay enables an instance A to reach an instance B before any direct '
+        . 'peer-to-peer trust has been established. A signs the request with its own '
+        . 'pluriverse.key (RFC 9421, keyid "<hostname>:<fingerprint>", tag = tel-relay) and '
+        . 'posts {recipient_hostname, envelope}. The Pluriverse verifies A\'s outer HTTP '
+        . 'signature, confirms both A and B are published peers, decodes the JWS header + '
+        . 'payload to confirm inner kid and recipient_host line up with the outer claims '
+        . '(no signature verification, since that is B\'s responsibility), and forwards the JWS '
+        . 'unchanged to https://<B>/api/pluriverse/messages with a coord-signed outer '
+        . 'HTTP Signature (tag = tel-relay). A notification email goes to B\'s operator with '
+        . 'a deep link to their admin Pluriverse panel; the email carries only public '
+        . 'directory metadata (sender hostname + label), never the message body or routing '
+        . 'identifiers. On transient downstream failure the relay returns 502 and A\'s '
+        . 'dispatcher retries from its side. Rate limit 60 req/hour/IP.',
+    tags: ['pluriverse-peers'],
+    security: [['httpSignature' => []]],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/RelayRequest')
+    ),
+    responses: [
+        new OA\Response(
+            response: 202,
+            description: 'JWS forwarded to recipient; notification email queued.',
+            content: new OA\JsonContent(ref: '#/components/schemas/RelayResponse')
+        ),
+        new OA\Response(
+            response: 400,
+            description: 'Body malformed, envelope malformed, or inner-outer routing claims mismatch.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 401,
+            description: 'Missing, malformed, or invalid HTTP Signature.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 403,
+            description: 'Signer or recipient is in the directory but not published.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 404,
+            description: 'Signer or recipient is not in the Pluriverse directory.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 413,
+            description: 'Body or envelope exceeds size cap (80 KB body / 64 KB envelope).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 429,
+            description: 'Rate limit exceeded (60 req/hour/IP).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 502,
+            description: 'Downstream POST to the recipient instance failed; the caller\'s dispatcher should retry.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 503,
+            description: 'Pluriverse coordination key not loaded; relay temporarily unavailable.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+    ]
+)]
+final class ForwardRelayEndpoint {}
+
+
 #[OA\Get(
     path: '/api/pluriverse/openapi.json',
     operationId: 'getOpenApiSpec',

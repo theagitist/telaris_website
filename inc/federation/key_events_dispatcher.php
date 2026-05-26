@@ -195,7 +195,9 @@ function key_events_dispatcher_http_post(string $targetUri, string $body, string
     if ($status >= 200 && $status < 300) {
         return [true, $status, null];
     }
-    $err = $cerr !== '' ? $cerr : ('http_' . $status);
+    // Return only the transport-level error (curl) here; advance() composes
+    // the final "http_<status> ..." string so the HTTP status isn't doubled.
+    $err = $cerr !== '' ? $cerr : null;
     return [false, $status > 0 ? $status : null, $err];
 }
 
@@ -228,10 +230,10 @@ function key_events_dispatcher_advance(int $keyEventId, int $instanceId, string 
     $countStmt->execute([':k' => $keyEventId, ':i' => $instanceId]);
     $current = (int)$countStmt->fetchColumn();
     $next = $current + 1;
-    $errClipped = $error !== null ? substr((string)$error, 0, 1023) : null;
-    if ($httpStatus !== null && $errClipped !== null) {
-        $errClipped = substr('http_' . $httpStatus . ' ' . $errClipped, 0, 1023);
-    }
+    $parts = [];
+    if ($httpStatus !== null) $parts[] = 'http_' . $httpStatus;
+    if ($error !== null && $error !== '') $parts[] = (string)$error;
+    $errClipped = $parts === [] ? null : substr(implode(' ', $parts), 0, 1023);
 
     if ($finalState === 'given_up') {
         $stmt = $pdo->prepare("

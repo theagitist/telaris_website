@@ -1,0 +1,64 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * bin/key-events-dispatch: drain the key-event push queue (stage 4h).
+ *
+ * Reads `key_event_push_attempts` rows whose delivery_status is pending or
+ * failed AND whose next_attempt_at is past, signs each as a coord HTTP-Sig
+ * POST, and ships to <peer>/api/pluriverse/key-events-push. Per-row state
+ * advances per the standard backoff schedule (1m / 5m / 30m / 2h / 6h /
+ * 12h / 24h, give up at attempt 7).
+ *
+ * Idempotent. Safe to run from cron. Suggested cadence: every minute.
+ * Self-bounded to 50 rows per invocation so a flood cannot pin the worker.
+ *
+ * Usage:
+ *   php bin/key-events-dispatch              # process one batch
+ *   php bin/key-events-dispatch --status     # show queue snapshot
+ *   php bin/key-events-dispatch --batch=10   # explicit batch size
+ *
+ * Spec: P2P federation plan v10 § Key management → Push channel.
+ */
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "Refusing to run outside CLI.\n");
+    exit(1);
+}
+
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/inc/db.php';
+require_once dirname(__DIR__) . '/inc/db_federation.php';
+require_once dirname(__DIR__) . '/inc/federation/key_events_dispatcher.php';
+
+$opts = ['status' => false, 'batch' => null];
+foreach (array_slice($argv, 1) as $a) {
+    if ($a === '--status') { $opts['status'] = true; continue; }
+    if (str_starts_with($a, '--batch=')) { $opts['batch'] = (int)substr($a, 8); continue; }
+    fwrite(STDERR, "Unknown flag: {$a}\nUsage: bin/key-events-dispatch [--status] [--batch=N]\n");
+    exit(2);
+}
+
+if ($opts['status']) {
+    $snap = key_events_dispatcher_queue_snapshot();
+    if ($snap['by_state'] === []) {
+        echo "No key-event push attempts on file.\n";
+        exit(0);
+    }
+    echo "Key-event push queue:\n";
+    foreach (['pending', 'delivered', 'failed', 'given_up'] as $state) {
+        if (isset($snap['by_state'][$state])) {
+            printf("  %-10s %d\n", $state, $snap['by_state'][$state]);
+        }
+    }
+    printf("  %-10s %d\n", 'overdue', $snap['overdue']);
+    if ($snap['head_of_line_seconds'] !== null) {
+        printf("  head-of-line wait: %d second(s)\n", $snap['head_of_line_seconds']);
+    }
+    exit(0);
+}
+
+$summary = key_events_dispatcher_process_batch($opts['batch'] ?? KEY_EVENTS_DISPATCH_BATCH_SIZE);
+echo json_encode(['ok' => true, 'dispatch' => $summary], JSON_UNESCAPED_SLASHES) . "\n";
+exit(0);

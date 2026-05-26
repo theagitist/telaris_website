@@ -78,6 +78,8 @@ $vhostSrc = $root . '/etc/nginx/www.telaris.ca.conf.sample';
 $vhostDst = '/etc/nginx/sites-available/' . $siteName . '.conf';
 $vhostLink = '/etc/nginx/sites-enabled/' . $siteName . '.conf';
 $configPath = $root . '/config.php';
+$keyEventsCronSrc = $root . '/etc/cron.d/key-events-dispatch.sample';
+$keyEventsCronDst = '/etc/cron.d/pluriverse-key-events-dispatch-' . $siteName;
 
 // ---------------------------------------------------------------------------
 // Tasks.
@@ -166,6 +168,60 @@ $tasks[] = (function() use ($vhostDst, $vhostLink) {
         return ['ok' => true, 'detail' => "linked {$vhostLink} → {$vhostDst}"];
     };
     return ['name' => 'vhost enabled', 'status' => 'missing', 'detail' => "{$vhostLink} missing", 'fix' => $fix];
+})();
+
+// 4c. Key-events push dispatcher cron (federation stage 4h).
+// Drops a per-site /etc/cron.d/pluriverse-key-events-dispatch-<site> with
+// the every-minute drainer. Substitutes __SITE_ROOT__ for the absolute
+// site root. cron picks up changes to /etc/cron.d/ files automatically;
+// no daemon reload required.
+$tasks[] = (function() use ($keyEventsCronSrc, $keyEventsCronDst, $root) {
+    if (!file_exists($keyEventsCronSrc)) {
+        return ['name' => 'key-events-dispatch cron', 'status' => 'error', 'detail' => "repo source missing at {$keyEventsCronSrc}", 'fix' => null];
+    }
+    if (!file_exists('/etc/cron.d')) {
+        return ['name' => 'key-events-dispatch cron', 'status' => 'error', 'detail' => '/etc/cron.d does not exist; cron not installed', 'fix' => null];
+    }
+    if (!file_exists($root . '/bin/key-events-dispatch')) {
+        return ['name' => 'key-events-dispatch cron', 'status' => 'error', 'detail' => "{$root}/bin/key-events-dispatch does not exist (federation stage 4h not yet deployed?)", 'fix' => null];
+    }
+    $template = file_get_contents($keyEventsCronSrc);
+    $canonical = str_replace('__SITE_ROOT__', $root, $template);
+    $installed = file_exists($keyEventsCronDst) ? file_get_contents($keyEventsCronDst) : '';
+    if ($installed === $canonical) {
+        return ['name' => 'key-events-dispatch cron', 'status' => 'ok', 'detail' => "matches {$keyEventsCronDst}", 'fix' => null];
+    }
+    $fix = function() use ($keyEventsCronDst, $canonical) {
+        if (is_link($keyEventsCronDst)) {
+            return ['ok' => false, 'detail' => "{$keyEventsCronDst} is a symlink; refusing to write through it (unlink first if intentional)"];
+        }
+        if (file_exists($keyEventsCronDst)) {
+            $real = realpath($keyEventsCronDst);
+            if ($real === false || !str_starts_with($real, '/etc/cron.d/')) {
+                return ['ok' => false, 'detail' => "{$keyEventsCronDst} resolves outside /etc/cron.d/ (real='{$real}'); refusing to write"];
+            }
+        }
+        $tmp = $keyEventsCronDst . '.new.' . posix_getpid();
+        if (file_put_contents($tmp, $canonical) === false) {
+            return ['ok' => false, 'detail' => "could not write to {$tmp}"];
+        }
+        // /etc/cron.d files must be 0644, owned by root, with no group write.
+        // cron silently ignores files outside that profile.
+        @chmod($tmp, 0644);
+        @chown($tmp, 'root');
+        @chgrp($tmp, 'root');
+        if (!rename($tmp, $keyEventsCronDst)) {
+            @unlink($tmp);
+            return ['ok' => false, 'detail' => "could not move {$tmp} to {$keyEventsCronDst}"];
+        }
+        return ['ok' => true, 'detail' => "wrote {$keyEventsCronDst} (cron picks up automatically)"];
+    };
+    return [
+        'name' => 'key-events-dispatch cron',
+        'status' => file_exists($keyEventsCronDst) ? 'mismatch' : 'missing',
+        'detail' => file_exists($keyEventsCronDst) ? "{$keyEventsCronDst} differs from canonical" : "{$keyEventsCronDst} does not exist",
+        'fix' => $fix,
+    ];
 })();
 
 // 5. config.php perms: 0640, group www-data, owner in allowlist (root or

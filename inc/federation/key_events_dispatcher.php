@@ -165,7 +165,7 @@ function key_events_dispatcher_http_post(string $targetUri, string $body, string
     $signed = federation_http_sig_sign(
         ['method' => 'POST', 'target_uri' => $targetUri, 'headers' => $headers, 'body' => $body],
         $secret,
-        ['keyid' => $keyid, 'tag' => $tag]
+        ['keyid' => $keyid, 'tag' => $tag, 'nonce' => federation_http_sig_generate_nonce()]
     );
     $headers['Content-Digest'] = $signed['content_digest'] ?? federation_http_sig_content_digest($body);
     $headers['Content-Length'] = (string)strlen($body);

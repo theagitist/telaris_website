@@ -338,7 +338,7 @@ $downstreamHeaders = [
 $signed = federation_http_sig_sign(
     ['method' => 'POST', 'target_uri' => $downstreamUrl, 'headers' => $downstreamHeaders, 'body' => $downstreamBody],
     $coordSecret,
-    ['keyid' => $coordKeyid, 'tag' => 'tel-relay']
+    ['keyid' => $coordKeyid, 'tag' => 'tel-relay', 'nonce' => federation_http_sig_generate_nonce()]
 );
 $downstreamHeaders['Content-Digest'] = $signed['content_digest'] ?? federation_http_sig_content_digest($downstreamBody);
 $downstreamHeaders['Content-Length'] = (string)strlen($downstreamBody);

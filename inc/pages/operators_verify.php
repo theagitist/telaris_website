@@ -46,6 +46,8 @@ $state = 'invalid';
 $instance = null;
 $consumeFresh = false;
 $purpose = 'operator';
+$chooserNeeded = false;       // 2p: operator-scoped link + >1 instance
+$chooserEmailHash = '';       // email lookup hash to seed the chooser session
 
 if ($rawParam === '') {
     $state = 'missing';
@@ -76,11 +78,15 @@ if ($rawParam === '') {
         $consumeFresh = true;
         $purpose = (string)($consume['purpose'] ?? 'operator');
 
+        $tokenInstanceId = $consume['instance_id'] ?? null;
+
         if ($purpose === 'email-change') {
             // Email-change confirmation: the token's lookup hash is the NEW
-            // email's hash. Find the instance via pending_email_lookup_hash,
-            // promote the change, redirect to /dashboard.
-            $instance = db_get_instance_by_pending_email_lookup_hash($consume['email_lookup_hash']);
+            // email's hash. Prefer the instance_id the token carries (2p);
+            // fall back to the pending-hash lookup for pre-2p tokens.
+            $instance = $tokenInstanceId !== null
+                ? db_get_instance_by_id($tokenInstanceId)
+                : db_get_instance_by_pending_email_lookup_hash($consume['email_lookup_hash']);
             if ($instance === null) {
                 // Pending row was cancelled or already promoted in a race.
                 $state = 'instance_missing';
@@ -120,8 +126,27 @@ if ($rawParam === '') {
                 }
             }
         } else { // operator
-            $instance = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
-            if ($instance === null) {
+            // 2p: instance-scoped link (apply ack, or single-instance
+            // sign-in) resolves directly by id. An operator-scoped link
+            // (instance_id NULL, dashboard sign-in) resolves all instances
+            // for the email: 0 -> missing, 1 -> that one, >1 -> chooser.
+            if ($tokenInstanceId !== null) {
+                $instance = db_get_instance_by_id($tokenInstanceId);
+            } else {
+                $all = db_get_instances_by_email_lookup_hash($consume['email_lookup_hash']);
+                if (count($all) === 0) {
+                    $instance = null;
+                } elseif (count($all) === 1) {
+                    $instance = db_get_instance_by_id((int)$all[0]['id']);
+                } else {
+                    $chooserNeeded = true;
+                    $chooserEmailHash = (string)$consume['email_lookup_hash'];
+                }
+            }
+
+            if ($chooserNeeded) {
+                // Resolved below (mint chooser session + redirect).
+            } elseif ($instance === null) {
                 $state = 'instance_missing';
             } elseif ($instance['admission_status'] === 'pending') {
                 $ok = db_transition_instance_admission(
@@ -136,7 +161,7 @@ if ($rawParam === '') {
                     $state = 'verified';
                 } else {
                     // Lost the race against a parallel transition; refetch.
-                    $refresh = db_get_instance_by_email_lookup_hash($consume['email_lookup_hash']);
+                    $refresh = db_get_instance_by_id((int)$instance['id']);
                     $instance = $refresh ?? $instance;
                     $state = ($instance['admission_status'] !== 'pending') ? 'verified' : 'invalid';
                 }
@@ -146,6 +171,25 @@ if ($rawParam === '') {
                 $state = 'verified';
             }
         }
+    }
+}
+
+// -----------------------------------------------------------------------
+// 2p: fresh operator consume that resolved to multiple instances. Mint a
+// short-lived chooser session and send the operator to /dashboard, which
+// renders the instance picker.
+// -----------------------------------------------------------------------
+if ($consumeFresh && $purpose === 'operator' && $chooserNeeded && $chooserEmailHash !== '') {
+    try {
+        $rawSession = db_create_chooser_session($chooserEmailHash);
+        pluriverse_session_set_cookie($rawSession);
+        $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+        header('Location: ' . $localePrefix . '/dashboard');
+        http_response_code(303);
+        return;
+    } catch (Throwable $e) {
+        error_log('verify: chooser session create failed: ' . $e->getMessage());
+        $state = 'invalid';
     }
 }
 

@@ -291,17 +291,18 @@ try {
     db_expire_stale_pending_instances();
     $emailLookupHash = federation_pii_lookup_hash($operatorEmail);
 
-    // Look for any existing row matching by hostname OR email OR label.
-    // If matches are 'expired' or 'withdrawn' AND share both hostname and
-    // email (i.e. the same operator's prior attempt), drop them and
-    // continue. Any other collision is still a 409.
+    // Look for any existing row matching by hostname OR label. Operator email
+    // is NOT a conflict key (2p: one operator may run multiple instances under
+    // the same email). The instance's true identity is its hostname; the label
+    // is its unique public directory name. A prior expired/withdrawn attempt
+    // for the SAME hostname is the same instance re-applying and is dropped so
+    // the new INSERT lands. Any other live collision is a 409.
     $stmt = $pdo->prepare("
-        SELECT id, admission_status, hostname, operator_email_lookup_hash, label
+        SELECT id, admission_status, hostname, label
         FROM instances
-        WHERE hostname = :hostname OR operator_email_lookup_hash = :lookup OR label = :label
+        WHERE hostname = :hostname OR label = :label
     ");
     $stmt->bindValue(':hostname', $hostname);
-    $stmt->bindValue(':lookup', $emailLookupHash, PDO::PARAM_LOB);
     $stmt->bindValue(':label', $label);
     $stmt->execute();
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -309,25 +310,21 @@ try {
     $reapplyableStatuses = ['expired', 'withdrawn'];
     foreach ($matches as $row) {
         $sameHost = strcasecmp((string)$row['hostname'], $hostname) === 0;
-        $sameEmail = hash_equals((string)$row['operator_email_lookup_hash'], $emailLookupHash);
         $sameLabel = strcasecmp((string)$row['label'], $label) === 0;
-        if (in_array((string)$row['admission_status'], $reapplyableStatuses, true) && $sameHost && $sameEmail) {
-            // Same operator's expired or withdrawn prior attempt. Drop it
+        if (in_array((string)$row['admission_status'], $reapplyableStatuses, true) && $sameHost) {
+            // Same instance's expired or withdrawn prior attempt. Drop it
             // (and its log rows via FK cascade) so the new INSERT below
             // can land.
             db_delete_instance((int)$row['id']);
             continue;
         }
         // Live conflict (any other status, or expired/withdrawn but a
-        // label-only collision from a different operator). Return 409.
+        // label-only collision from a different instance). Return 409.
         $code = 'application_exists';
-        $detail = "An application is already on file for this hostname, email, or name (status: {$row['admission_status']}).";
+        $detail = "An application is already on file for this hostname or name (status: {$row['admission_status']}).";
         if ($sameHost) {
             $code = 'hostname_taken';
             $detail = "An application for hostname '{$hostname}' is already on file (status: {$row['admission_status']}).";
-        } elseif ($sameEmail) {
-            $code = 'email_taken';
-            $detail = "An application from this email address is already on file (status: {$row['admission_status']}).";
         } elseif ($sameLabel) {
             $code = 'name_taken';
             $detail = "The name '{$label}' is already taken by another instance. Pick a different name.";
@@ -364,7 +361,7 @@ try {
 }
 
 try {
-    $tokenRaw = db_create_magic_link_token($emailLookupHash, 86400);
+    $tokenRaw = db_create_magic_link_token($emailLookupHash, 86400, 'operator', $instanceId);
     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 } catch (Throwable $e) {
     error_log("apply: magic-link mint failed (instance id={$instanceId}): " . $e->getMessage());

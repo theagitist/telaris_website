@@ -78,7 +78,7 @@ function pluriverse_session_read_cookie(): string {
  * Call pluriverse_current_session_invalidate() after destroying a session
  * (e.g. on logout) so the cache reflects the new state.
  *
- * @return array{subject_type:string, subject_id:int, csrf_token:string, session_id:string}|null
+ * @return array{subject_type:string, subject_id:int, csrf_token:string, session_id:string, chooser_email_hash:?string}|null
  */
 function pluriverse_current_session(): ?array {
     if (array_key_exists('__pluriverse_current_session', $GLOBALS)) {
@@ -98,6 +98,8 @@ function pluriverse_current_session(): ?array {
         'subject_type' => (string)$session['subject_type'],
         'subject_id' => (int)$session['subject_id'],
         'csrf_token' => (string)$session['csrf_token'],
+        'chooser_email_hash' => isset($session['chooser_email_hash']) && $session['chooser_email_hash'] !== null
+            ? (string)$session['chooser_email_hash'] : null,
         'session_id' => $raw,
     ];
 }

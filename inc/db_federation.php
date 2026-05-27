@@ -82,7 +82,7 @@ function db_ensure_instances_table(): void {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY uniq_hostname (hostname),
-                UNIQUE KEY uniq_operator_email_lookup (operator_email_lookup_hash),
+                INDEX idx_operator_email_lookup (operator_email_lookup_hash),
                 UNIQUE KEY uniq_label (label)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
@@ -139,8 +139,28 @@ function db_ensure_instances_table(): void {
         if (!isset($indexNames['uniq_label'])) {
             $pdo->exec("ALTER TABLE instances ADD UNIQUE KEY uniq_label (label)");
         }
-        if (!isset($indexNames['uniq_pending_email_lookup'])) {
-            $pdo->exec("ALTER TABLE instances ADD UNIQUE KEY uniq_pending_email_lookup (pending_email_lookup_hash)");
+        // 2026-05-26 (2p): one operator email may run multiple instances, so
+        // the operator-email and pending-email lookup hashes are no longer
+        // UNIQUE. Hostname and label stay unique (one instance per hostname;
+        // distinct public directory names). Drop the old UNIQUE keys if a
+        // pre-2p install created them, replacing each with a plain index so
+        // lookups stay fast. Fresh installs (above) never created them as
+        // UNIQUE; this only rewrites legacy shape.
+        if (isset($indexNames['uniq_operator_email_lookup'])) {
+            $pdo->exec("ALTER TABLE instances DROP INDEX uniq_operator_email_lookup");
+            if (!isset($indexNames['idx_operator_email_lookup'])) {
+                $pdo->exec("ALTER TABLE instances ADD INDEX idx_operator_email_lookup (operator_email_lookup_hash)");
+            }
+        } elseif (!isset($indexNames['idx_operator_email_lookup'])) {
+            $pdo->exec("ALTER TABLE instances ADD INDEX idx_operator_email_lookup (operator_email_lookup_hash)");
+        }
+        if (isset($indexNames['uniq_pending_email_lookup'])) {
+            $pdo->exec("ALTER TABLE instances DROP INDEX uniq_pending_email_lookup");
+            if (!isset($indexNames['idx_pending_email_lookup'])) {
+                $pdo->exec("ALTER TABLE instances ADD INDEX idx_pending_email_lookup (pending_email_lookup_hash)");
+            }
+        } elseif (!isset($indexNames['idx_pending_email_lookup'])) {
+            $pdo->exec("ALTER TABLE instances ADD INDEX idx_pending_email_lookup (pending_email_lookup_hash)");
         }
     } catch (PDOException $e) {
         error_log('db_ensure_instances_table: ' . $e->getMessage());
@@ -205,6 +225,7 @@ function db_ensure_magic_link_tokens_table(): void {
                 token_hash VARBINARY(32) PRIMARY KEY,
                 email_lookup_hash VARBINARY(32) NOT NULL,
                 purpose ENUM('operator','admin') NOT NULL DEFAULT 'operator',
+                instance_id INT UNSIGNED NULL,
                 expires_at TIMESTAMP NOT NULL,
                 consumed_at TIMESTAMP NULL,
                 INDEX idx_email_expires (email_lookup_hash, expires_at)
@@ -229,6 +250,13 @@ function db_ensure_magic_link_tokens_table(): void {
         if (is_string($purposeInfo) && strpos($purposeInfo, "'email-change'") === false) {
             $pdo->exec("ALTER TABLE magic_link_tokens MODIFY COLUMN purpose ENUM('operator','admin','email-change') NOT NULL DEFAULT 'operator'");
         }
+        // 2026-05-26 (2p): instance_id binds a token to a specific instance.
+        // NULL means "operator-scoped" (dashboard sign-in for an email that
+        // runs more than one instance); the verify flow then routes to the
+        // instance chooser. Apply-ack and email-change tokens always carry it.
+        if (!in_array('instance_id', array_map('strval', $cols), true)) {
+            $pdo->exec("ALTER TABLE magic_link_tokens ADD COLUMN instance_id INT UNSIGNED NULL AFTER purpose");
+        }
     } catch (PDOException $e) {
         error_log('db_ensure_magic_link_tokens_table: ' . $e->getMessage());
     }
@@ -243,9 +271,10 @@ function db_ensure_sessions_table(): void {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id VARBINARY(32) PRIMARY KEY,
-                subject_type ENUM('operator','admin') NOT NULL,
+                subject_type ENUM('operator','admin','operator-chooser') NOT NULL,
                 subject_id INT UNSIGNED NOT NULL,
                 csrf_token VARBINARY(32) NULL,
+                chooser_email_hash VARBINARY(32) NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP NOT NULL,
@@ -260,6 +289,21 @@ function db_ensure_sessions_table(): void {
         ")->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('csrf_token', array_map('strval', $cols), true)) {
             $pdo->exec("ALTER TABLE sessions ADD COLUMN csrf_token VARBINARY(32) NULL AFTER subject_id");
+        }
+        // 2026-05-26 (2p): the instance chooser. When a magic-link sign-in
+        // resolves to an email that runs more than one instance, we mint a
+        // short-lived 'operator-chooser' session holding the email's lookup
+        // hash; the dashboard renders a picker and binds the session to the
+        // chosen instance (subject_type -> 'operator', subject_id -> instance).
+        $subjInfo = $pdo->query("
+            SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sessions' AND COLUMN_NAME = 'subject_type'
+        ")->fetchColumn();
+        if (is_string($subjInfo) && strpos($subjInfo, "'operator-chooser'") === false) {
+            $pdo->exec("ALTER TABLE sessions MODIFY COLUMN subject_type ENUM('operator','admin','operator-chooser') NOT NULL");
+        }
+        if (!in_array('chooser_email_hash', array_map('strval', $cols), true)) {
+            $pdo->exec("ALTER TABLE sessions ADD COLUMN chooser_email_hash VARBINARY(32) NULL AFTER csrf_token");
         }
     } catch (PDOException $e) {
         error_log('db_ensure_sessions_table: ' . $e->getMessage());
@@ -551,7 +595,7 @@ function db_insert_instance_application(array $application, array $identity): in
  * The verify endpoint (2g-i) hashes the received URL parameter the same way
  * and matches against token_hash, then sets consumed_at on first success.
  */
-function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3600, string $purpose = 'operator'): string {
+function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3600, string $purpose = 'operator', ?int $instanceId = null): string {
     if (strlen($emailLookupHash) !== 32) {
         throw new InvalidArgumentException('db_create_magic_link_token: lookup hash must be 32 bytes');
     }
@@ -562,12 +606,17 @@ function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3
     $raw = random_bytes(32);
     $tokenHash = hash('sha256', $raw, true);
     $stmt = getDB()->prepare("
-        INSERT INTO magic_link_tokens (token_hash, email_lookup_hash, purpose, expires_at)
-        VALUES (:th, :lh, :p, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+        INSERT INTO magic_link_tokens (token_hash, email_lookup_hash, purpose, instance_id, expires_at)
+        VALUES (:th, :lh, :p, :iid, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
     ");
     $stmt->bindValue(':th', $tokenHash, PDO::PARAM_LOB);
     $stmt->bindValue(':lh', $emailLookupHash, PDO::PARAM_LOB);
     $stmt->bindValue(':p', $purpose);
+    if ($instanceId === null) {
+        $stmt->bindValue(':iid', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':iid', $instanceId, PDO::PARAM_INT);
+    }
     $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
     $stmt->execute();
     return $raw;
@@ -618,7 +667,7 @@ function db_consume_magic_link_token(string $rawToken): ?array {
     try {
         $pdo->beginTransaction();
         $sel = $pdo->prepare("
-            SELECT email_lookup_hash, purpose, expires_at, consumed_at
+            SELECT email_lookup_hash, purpose, instance_id, expires_at, consumed_at
             FROM magic_link_tokens
             WHERE token_hash = :th
             FOR UPDATE
@@ -632,13 +681,14 @@ function db_consume_magic_link_token(string $rawToken): ?array {
         }
         $emailLookupHash = (string)$row['email_lookup_hash'];
         $purpose = (string)($row['purpose'] ?? 'operator');
+        $instanceId = $row['instance_id'] !== null ? (int)$row['instance_id'] : null;
         if ($row['consumed_at'] !== null) {
             $pdo->rollBack();
-            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose, 'instance_id' => $instanceId];
         }
         if (strtotime((string)$row['expires_at']) < time()) {
             $pdo->rollBack();
-            return ['status' => 'expired', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
+            return ['status' => 'expired', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose, 'instance_id' => $instanceId];
         }
         $upd = $pdo->prepare("
             UPDATE magic_link_tokens SET consumed_at = NOW()
@@ -648,10 +698,10 @@ function db_consume_magic_link_token(string $rawToken): ?array {
         $upd->execute();
         if ($upd->rowCount() !== 1) {
             $pdo->rollBack();
-            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
+            return ['status' => 'already_consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose, 'instance_id' => $instanceId];
         }
         $pdo->commit();
-        return ['status' => 'consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose];
+        return ['status' => 'consumed', 'email_lookup_hash' => $emailLookupHash, 'purpose' => $purpose, 'instance_id' => $instanceId];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('db_consume_magic_link_token: ' . $e->getMessage());
@@ -680,6 +730,40 @@ function db_get_instance_by_email_lookup_hash(string $lookupHash): ?array {
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row === false ? null : $row;
+}
+
+/**
+ * All instances operated by one email lookup hash (2p: an operator may run
+ * several). Optionally restrict to session-eligible statuses so the chooser
+ * never lists an instance the operator can't actually sign in to.
+ *
+ * @return list<array{id:int,hostname:string,url:string,label:string,locale:string,admission_status:string}>
+ */
+function db_get_instances_by_email_lookup_hash(string $lookupHash, bool $sessionEligibleOnly = true): array {
+    if (strlen($lookupHash) !== 32) return [];
+    db_ensure_instances_table();
+    $sql = "SELECT id, hostname, url, label, locale, admission_status
+            FROM instances
+            WHERE operator_email_lookup_hash = :lh";
+    if ($sessionEligibleOnly) {
+        $sql .= " AND admission_status IN ('verified','published','outdated','withdrawn')";
+    }
+    $sql .= " ORDER BY label ASC";
+    $stmt = getDB()->prepare($sql);
+    $stmt->bindValue(':lh', $lookupHash, PDO::PARAM_LOB);
+    $stmt->execute();
+    $out = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $out[] = [
+            'id' => (int)$r['id'],
+            'hostname' => (string)$r['hostname'],
+            'url' => (string)$r['url'],
+            'label' => (string)$r['label'],
+            'locale' => (string)$r['locale'],
+            'admission_status' => (string)$r['admission_status'],
+        ];
+    }
+    return $out;
 }
 
 /**
@@ -791,6 +875,60 @@ function db_create_session(string $subjectType, int $subjectId, int $ttlSeconds 
 }
 
 /**
+ * Mint a short-lived 'operator-chooser' session (2p). Used when a magic-link
+ * sign-in resolves to an email running multiple instances: the operator has
+ * proven control of the email but not yet picked which instance to manage.
+ * subject_id is 0 (unbound); the email hash rides in chooser_email_hash. The
+ * dashboard renders the picker and calls db_bind_chooser_session on pick.
+ *
+ * Short TTL (15 min default) because it's a transient pre-pick state.
+ */
+function db_create_chooser_session(string $emailLookupHash, int $ttlSeconds = 900): string {
+    if (strlen($emailLookupHash) !== 32) {
+        throw new InvalidArgumentException('db_create_chooser_session: email lookup hash must be 32 bytes');
+    }
+    db_ensure_sessions_table();
+    $raw = random_bytes(32);
+    $csrf = random_bytes(32);
+    $stmt = getDB()->prepare("
+        INSERT INTO sessions (session_id, subject_type, subject_id, csrf_token, chooser_email_hash, expires_at)
+        VALUES (:sid, 'operator-chooser', 0, :csrf, :ceh, DATE_ADD(NOW(), INTERVAL :ttl SECOND))
+    ");
+    $stmt->bindValue(':sid', $raw, PDO::PARAM_LOB);
+    $stmt->bindValue(':csrf', $csrf, PDO::PARAM_LOB);
+    $stmt->bindValue(':ceh', $emailLookupHash, PDO::PARAM_LOB);
+    $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
+    $stmt->execute();
+    return $raw;
+}
+
+/**
+ * Bind an 'operator-chooser' session to a chosen instance (2p). Upgrades the
+ * row in place to a normal operator session: subject_type -> 'operator',
+ * subject_id -> $instanceId, chooser_email_hash cleared, expiry extended to
+ * the standard operator TTL. The instance MUST belong to the session's
+ * chooser_email_hash (verified by the caller) before this is called.
+ *
+ * Returns true on a successful bind (the row was an operator-chooser session
+ * for this session_id), false otherwise.
+ */
+function db_bind_chooser_session(string $rawSessionId, int $instanceId, int $ttlSeconds = 1209600): bool {
+    if (strlen($rawSessionId) !== 32 || $instanceId <= 0) return false;
+    db_ensure_sessions_table();
+    $stmt = getDB()->prepare("
+        UPDATE sessions
+        SET subject_type = 'operator', subject_id = :iid, chooser_email_hash = NULL,
+            expires_at = DATE_ADD(NOW(), INTERVAL :ttl SECOND)
+        WHERE session_id = :sid AND subject_type = 'operator-chooser'
+    ");
+    $stmt->bindValue(':iid', $instanceId, PDO::PARAM_INT);
+    $stmt->bindValue(':ttl', $ttlSeconds, PDO::PARAM_INT);
+    $stmt->bindValue(':sid', $rawSessionId, PDO::PARAM_LOB);
+    $stmt->execute();
+    return $stmt->rowCount() === 1;
+}
+
+/**
  * Validate a raw session ID against the sessions table.
  *
  * Returns ['subject_type' => 'operator'|'admin', 'subject_id' => int] on a
@@ -806,7 +944,7 @@ function db_validate_session(string $rawSessionId): ?array {
     db_ensure_sessions_table();
     $pdo = getDB();
     $stmt = $pdo->prepare("
-        SELECT subject_type, subject_id, csrf_token
+        SELECT subject_type, subject_id, csrf_token, chooser_email_hash
         FROM sessions
         WHERE session_id = :sid AND expires_at > NOW()
         LIMIT 1

@@ -130,7 +130,7 @@ if ($method === 'POST'
                                 VALUES (:id, 'operator', 'email_change_requested', 'operator requested email change via dashboard; confirmation pending in new mailbox')
                             ");
                             $log->execute([':id' => (int)$instance['id']]);
-                            $tokenRaw = db_create_magic_link_token($newLookupHash, 86400, 'email-change');
+                            $tokenRaw = db_create_magic_link_token($newLookupHash, 86400, 'email-change', (int)$instance['id']);
                             $pdo->commit();
 
                             $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
@@ -468,6 +468,92 @@ if ($method === 'POST'
 // Re-read session after a possible logout above (the static cache was
 // invalidated). $session and the rest of the handler need the fresh state.
 $session = pluriverse_current_session();
+
+// -----------------------------------------------------------------------
+// 2p: POST action=choose_instance from the instance chooser. Binds the
+// operator-chooser session to the picked instance (which must belong to
+// the session's chooser_email_hash). CSRF-protected.
+// -----------------------------------------------------------------------
+if ($method === 'POST'
+    && (string)($_POST['action'] ?? '') === 'choose_instance'
+    && $session !== null
+    && $session['subject_type'] === 'operator-chooser'
+) {
+    if (pluriverse_csrf_verify($_POST['csrf'] ?? null)) {
+        $chosenId = (int)($_POST['instance_id'] ?? 0);
+        $emailHash = (string)($session['chooser_email_hash'] ?? '');
+        $eligible = $emailHash !== '' ? db_get_instances_by_email_lookup_hash($emailHash) : [];
+        $ok = false;
+        foreach ($eligible as $inst) {
+            if ((int)$inst['id'] === $chosenId) { $ok = true; break; }
+        }
+        if ($ok && db_bind_chooser_session($session['session_id'], $chosenId)) {
+            pluriverse_current_session_invalidate();
+        }
+    }
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    header('Location: ' . $localePrefix . '/dashboard');
+    http_response_code(303);
+    return;
+}
+
+// -----------------------------------------------------------------------
+// 2p: render the instance chooser for an operator-chooser session. Lists
+// every instance the verified email operates; picking one binds the
+// session and reloads into that instance's dashboard.
+// -----------------------------------------------------------------------
+if ($session !== null && $session['subject_type'] === 'operator-chooser') {
+    $emailHash = (string)($session['chooser_email_hash'] ?? '');
+    $chooserInstances = $emailHash !== '' ? db_get_instances_by_email_lookup_hash($emailHash) : [];
+    if (count($chooserInstances) <= 1) {
+        // Degenerate: 0 or 1 instance (state changed since the link was
+        // minted). Bind to the single one if present, else drop the
+        // chooser session back to the login form.
+        if (count($chooserInstances) === 1) {
+            db_bind_chooser_session($session['session_id'], (int)$chooserInstances[0]['id']);
+        } else {
+            db_destroy_session($session['session_id']);
+            pluriverse_session_clear_cookie();
+        }
+        pluriverse_current_session_invalidate();
+        $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+        header('Location: ' . $localePrefix . '/dashboard');
+        http_response_code(303);
+        return;
+    }
+    $pageTitle = info('dashboard_chooser_title');
+    $bodyClass = 'page-dashboard page-dashboard-chooser';
+    require __DIR__ . '/../partials/head.php';
+    ?>
+<main class="page page-dashboard-chooser">
+  <h1 class="page-title"><?= h(info('dashboard_chooser_title')) ?></h1>
+  <p class="page-lead"><?= h(info('dashboard_chooser_lead')) ?></p>
+  <ul class="dashboard-chooser-list">
+<?php foreach ($chooserInstances as $inst): ?>
+    <li class="dashboard-chooser-item">
+      <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-chooser-form">
+        <?= pluriverse_csrf_field() ?>
+        <input type="hidden" name="action" value="choose_instance">
+        <input type="hidden" name="instance_id" value="<?= (int)$inst['id'] ?>">
+        <button type="submit" class="dashboard-chooser-button">
+          <span class="dashboard-chooser-label"><?= h((string)$inst['label']) ?></span>
+          <span class="dashboard-chooser-host"><code><?= h((string)$inst['hostname']) ?></code></span>
+          <span class="dashboard-chooser-status"><?= h(info('verify_status_' . $inst['admission_status'])) ?></span>
+        </button>
+      </form>
+    </li>
+<?php endforeach; ?>
+  </ul>
+  <form method="post" action="<?= h($pluriversePrefix . '/dashboard') ?>" class="dashboard-logout-form">
+    <?= pluriverse_csrf_field() ?>
+    <input type="hidden" name="action" value="logout">
+    <button type="submit"><?= h(info('dashboard_chooser_signout')) ?></button>
+  </form>
+</main>
+<?php
+    require __DIR__ . '/../partials/footer.php';
+    return;
+}
 
 // -----------------------------------------------------------------------
 // Authenticated view.
@@ -850,21 +936,28 @@ if ($method === 'POST') {
         } else {
             try {
                 $lookupHash = federation_pii_lookup_hash($emailInput);
-                $instance = db_get_instance_by_email_lookup_hash($lookupHash);
-                if ($instance !== null && in_array((string)$instance['admission_status'], ['verified', 'published', 'outdated', 'withdrawn'], true)) {
-                    $tokenRaw = db_create_magic_link_token($lookupHash, 86400);
+                // 2p: an email may operate several instances. A single match
+                // mints an instance-scoped link (lands directly); multiple
+                // matches mint an operator-scoped link (NULL instance_id) that
+                // lands on the chooser.
+                $instances = db_get_instances_by_email_lookup_hash($lookupHash);
+                if (count($instances) >= 1) {
+                    $single = count($instances) === 1;
+                    $boundInstanceId = $single ? (int)$instances[0]['id'] : null;
+                    $tokenRaw = db_create_magic_link_token($lookupHash, 86400, 'operator', $boundInstanceId);
                     $tokenUrl = 'https://www.telaris.ca/operators/verify-magic-link?t=' . federation_token_url_encode($tokenRaw);
 
-                    // Use the operator's stored locale for the email body.
-                    $emailLocale = (string)$instance['locale'];
+                    // Locale: the single instance's, or the first match's.
+                    $emailLocale = (string)$instances[0]['locale'];
                     if (!in_array($emailLocale, ['en', 'es', 'pt', 'fr'], true)) $emailLocale = 'en';
+                    $label = (string)$instances[0]['label'];
 
-                    $emailBodies = [
+                    $singleBodies = [
                         'en' => [
                             'subject' => 'Sign in to your Pluriverse dashboard',
                             'body' => "Hello,\n\n"
                                     . "Open the link below to sign in to your Pluriverse dashboard for the\n"
-                                    . "instance \"{$instance['label']}\". The link is single-use and expires\n"
+                                    . "instance \"{$label}\". The link is single-use and expires\n"
                                     . "in 24 hours.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "If you did not request a sign-in, you can safely ignore this email.\n\n"
@@ -874,7 +967,7 @@ if ($method === 'POST') {
                             'subject' => 'Inicia sesión en tu panel de la Pluriverse',
                             'body' => "Hola,\n\n"
                                     . "Abre el enlace siguiente para iniciar sesión en tu panel de la\n"
-                                    . "Pluriverse para la instancia \"{$instance['label']}\". El enlace es de\n"
+                                    . "Pluriverse para la instancia \"{$label}\". El enlace es de\n"
                                     . "un solo uso y caduca en 24 horas.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
@@ -884,7 +977,7 @@ if ($method === 'POST') {
                             'subject' => 'Entrar no seu painel da Pluriverse',
                             'body' => "Olá,\n\n"
                                     . "Abra o link abaixo para entrar no seu painel da Pluriverse para a\n"
-                                    . "instância \"{$instance['label']}\". O link é de uso único e expira em\n"
+                                    . "instância \"{$label}\". O link é de uso único e expira em\n"
                                     . "24 horas.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Se você não solicitou entrar, pode ignorar este email.\n\n"
@@ -894,14 +987,60 @@ if ($method === 'POST') {
                             'subject' => 'Connecte-toi à ton tableau de bord Pluriverse',
                             'body' => "Bonjour,\n\n"
                                     . "Ouvre le lien ci-dessous pour te connecter à ton tableau de bord\n"
-                                    . "Pluriverse pour l'instance \"{$instance['label']}\". Le lien est à\n"
+                                    . "Pluriverse pour l'instance \"{$label}\". Le lien est à\n"
                                     . "usage unique et expire dans 24 heures.\n\n"
                                     . "  {$tokenUrl}\n\n"
                                     . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
                                     . "Pluriverse - https://www.telaris.ca/\n",
                         ],
                     ];
-                    $tpl = $emailBodies[$emailLocale];
+                    $multiBodies = [
+                        'en' => [
+                            'subject' => 'Sign in to your Pluriverse dashboard',
+                            'body' => "Hello,\n\n"
+                                    . "Open the link below to sign in to your Pluriverse dashboard. You\n"
+                                    . "operate more than one instance under this email, so you'll choose\n"
+                                    . "which one to manage after signing in. The link is single-use and\n"
+                                    . "expires in 24 hours.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "If you did not request a sign-in, you can safely ignore this email.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'es' => [
+                            'subject' => 'Inicia sesión en tu panel de la Pluriverse',
+                            'body' => "Hola,\n\n"
+                                    . "Abre el enlace siguiente para iniciar sesión en tu panel de la\n"
+                                    . "Pluriverse. Operas más de una instancia con este correo, así que\n"
+                                    . "elegirás cuál gestionar después de iniciar sesión. El enlace es de\n"
+                                    . "un solo uso y caduca en 24 horas.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'pt' => [
+                            'subject' => 'Entrar no seu painel da Pluriverse',
+                            'body' => "Olá,\n\n"
+                                    . "Abra o link abaixo para entrar no seu painel da Pluriverse. Você\n"
+                                    . "opera mais de uma instância com este email, então vai escolher qual\n"
+                                    . "gerenciar depois de entrar. O link é de uso único e expira em\n"
+                                    . "24 horas.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Se você não solicitou entrar, pode ignorar este email.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                        'fr' => [
+                            'subject' => 'Connecte-toi à ton tableau de bord Pluriverse',
+                            'body' => "Bonjour,\n\n"
+                                    . "Ouvre le lien ci-dessous pour te connecter à ton tableau de bord\n"
+                                    . "Pluriverse. Tu gères plus d'une instance sous ce courriel ; tu\n"
+                                    . "choisiras laquelle administrer après la connexion. Le lien est à\n"
+                                    . "usage unique et expire dans 24 heures.\n\n"
+                                    . "  {$tokenUrl}\n\n"
+                                    . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
+                                    . "Pluriverse - https://www.telaris.ca/\n",
+                        ],
+                    ];
+                    $tpl = $single ? $singleBodies[$emailLocale] : $multiBodies[$emailLocale];
                     require_once __DIR__ . '/../mail.php';
                     pluriverse_send_mail($emailInput, $tpl['subject'], $tpl['body']);
                 }

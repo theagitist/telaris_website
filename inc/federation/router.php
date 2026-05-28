@@ -36,6 +36,7 @@ $routes = [
     '/api/pluriverse/blacklist.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/blacklist_handler.php'],
     '/api/pluriverse/key-events.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/key_events_handler.php'],
     '/api/pluriverse/relay' => ['methods' => ['POST'], 'handler' => __DIR__ . '/relay_handler.php'],
+    '/api/pluriverse/schema/envelope-1.0.json' => ['methods' => ['GET', 'HEAD'], 'handler' => __DIR__ . '/schema_handler.php'],
 ];
 
 if (!isset($routes[$path])) {

@@ -357,6 +357,91 @@ final class RelayResponseSchema {}
 final class ForwardRelayEndpoint {}
 
 
+#[OA\Schema(
+    schema: 'PeerBlacklistNoticeRequest',
+    description: 'Body of POST /api/pluriverse/peer-blacklist-notice. An advisory report that the '
+        . 'signing instance has locally blocked a peer. The reporter is taken from the HTTP '
+        . 'Signature keyid, never the body.',
+    required: ['blacklisted_hostname', 'category'],
+    properties: [
+        new OA\Property(property: 'blacklisted_hostname', type: 'string', minLength: 4, maxLength: 255, pattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$', example: 'spammer.example.org', description: 'Hostname of the peer the reporter blocked.'),
+        new OA\Property(property: 'blacklisted_at', type: 'string', format: 'date-time', description: 'When the reporter blocked the peer (ISO 8601).'),
+        new OA\Property(property: 'reason', type: 'string', maxLength: 800, description: 'Free-text reason recorded for admin review.'),
+        new OA\Property(property: 'category', type: 'string', enum: ['spam', 'harmful', 'legal', 'consent', 'other'], description: 'Block category.'),
+    ]
+)]
+final class PeerBlacklistNoticeRequestSchema {}
+
+#[OA\Schema(
+    schema: 'PeerBlacklistNoticeResponse',
+    description: 'Successful response from POST /api/pluriverse/peer-blacklist-notice (HTTP 202).',
+    required: ['status', 'message'],
+    properties: [
+        new OA\Property(property: 'status', type: 'string', enum: ['recorded']),
+        new OA\Property(property: 'message', type: 'string'),
+    ]
+)]
+final class PeerBlacklistNoticeResponseSchema {}
+
+#[OA\Post(
+    path: '/api/pluriverse/peer-blacklist-notice',
+    operationId: 'peerBlacklistNotice',
+    summary: 'File an advisory notice that you have locally blocked a peer.',
+    description: 'When an operator locally blocks a peer on their instance, the instance sends '
+        . 'this courtesy notice so a Pluriverse admin can review patterns. It is ADVISORY ONLY: '
+        . 'the Pluriverse records the report in its anomaly log and takes no automatic action '
+        . '(no network-wide blacklist, no propagation) from a single report. The reporter signs '
+        . 'with its own pluriverse.key (RFC 9421, keyid "<hostname>:<fingerprint>", tag = '
+        . 'tel-bl-notice) and must be a published peer; the reporter identity is taken from the '
+        . 'keyid, never the body, so an instance cannot file a report as someone else. Rate '
+        . 'limit 60 req/hour/IP and 30 req/hour per reporter.',
+    tags: ['pluriverse-peers'],
+    security: [['httpSignature' => []]],
+    requestBody: new OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(ref: '#/components/schemas/PeerBlacklistNoticeRequest')
+    ),
+    responses: [
+        new OA\Response(
+            response: 202,
+            description: 'Notice recorded for admin review.',
+            content: new OA\JsonContent(ref: '#/components/schemas/PeerBlacklistNoticeResponse')
+        ),
+        new OA\Response(
+            response: 400,
+            description: 'Body malformed or blacklisted_hostname invalid.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 401,
+            description: 'Missing, malformed, or invalid HTTP Signature.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 403,
+            description: 'Signer is in the directory but not published.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 404,
+            description: 'Signer is not in the Pluriverse directory.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 413,
+            description: 'Body exceeds the 8 KB cap.',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+        new OA\Response(
+            response: 429,
+            description: 'Rate limit exceeded (60/hour/IP or 30/hour/reporter).',
+            content: new OA\JsonContent(ref: '#/components/schemas/ProblemDetails')
+        ),
+    ]
+)]
+final class PeerBlacklistNoticeEndpoint {}
+
+
 #[OA\Get(
     path: '/api/pluriverse/openapi.json',
     operationId: 'getOpenApiSpec',

@@ -15,6 +15,9 @@
 # bin/init-pii-keys, never in source control.
 /secrets/
 
+# PHPUnit result/coverage cache (regenerated per run).
+/.phpunit.cache/
+
 # Editor / OS noise.
 *.swp
 *.swo

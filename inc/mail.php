@@ -24,6 +24,14 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 function pluriverse_send_mail(string $to, string $subject, string $body): bool {
+    // Dry-run short-circuit: when MAIL_DRY_RUN is defined and truthy (the test
+    // bootstrap defines it; production never does), log a redacted line and
+    // return without contacting any relay. Mirrors the instance-side guard so
+    // the suite can exercise mail-sending paths without delivering real mail.
+    if (defined('MAIL_DRY_RUN') && MAIL_DRY_RUN) {
+        error_log('pluriverse_send_mail: MAIL_DRY_RUN active; not sending. subject=' . $subject);
+        return true;
+    }
     foreach (['MAIL_SMTP_HOST', 'MAIL_SMTP_PORT', 'MAIL_SMTP_USER', 'MAIL_SMTP_PASS', 'MAIL_SMTP_SECURE', 'MAIL_FROM_ADDRESS'] as $required) {
         if (!defined($required)) {
             throw new RuntimeException("pluriverse_send_mail: required constant {$required} is not defined in config.php");

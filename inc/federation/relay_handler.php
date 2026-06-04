@@ -452,6 +452,7 @@ echo json_encode([
  *
  * @return array{subject:string, body:string}
  */
+if (!function_exists('relay_notification_template')) {
 function relay_notification_template(string $locale, string $senderLabel, string $senderHostname, string $adminUrl): array {
     $tpls = [
         'en' => [
@@ -512,4 +513,5 @@ function relay_notification_template(string $locale, string $senderLabel, string
         ],
     ];
     return $tpls[$locale] ?? $tpls['en'];
+}
 }

@@ -16,6 +16,8 @@ declare(strict_types=1);
  * parse both surfaces with one decoder.
  */
 
+require_once __DIR__ . '/problem.php';
+
 $path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '/';
 $path = rtrim($path, '/');
 if ($path === '') $path = '/';
@@ -77,33 +79,3 @@ if ($method === 'HEAD') {
 
 require $route['handler'];
 return;
-
-/**
- * Emit an RFC 9457 Problem Details JSON error and set headers.
- */
-function federation_router_problem(int $status, string $code, string $detail, string $instance): void {
-    http_response_code($status);
-    header('Content-Type: application/problem+json; charset=utf-8');
-    header('Cache-Control: no-store, max-age=0');
-    echo json_encode([
-        'type' => 'https://www.telaris.ca/docs/errors/' . $code,
-        'title' => match ($status) {
-            400 => 'Bad Request',
-            401 => 'Unauthorized',
-            404 => 'Not Found',
-            405 => 'Method Not Allowed',
-            409 => 'Conflict',
-            413 => 'Payload Too Large',
-            422 => 'Unprocessable Content',
-            429 => 'Too Many Requests',
-            500 => 'Internal Server Error',
-            502 => 'Bad Gateway',
-            503 => 'Service Unavailable',
-            default => 'Error',
-        },
-        'status' => $status,
-        'detail' => $detail,
-        'instance' => $instance,
-        'code' => $code,
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-}

@@ -29,3 +29,7 @@ $__telaris_test_pdo = new PDO(
     ]
 );
 pluriverse_db_reset_for_testing($__telaris_test_pdo);
+
+// Shared base class for HTTP endpoint-handler tests (lives in a subdir, so
+// PHPUnit's test-file discovery does not load it on its own).
+require __DIR__ . '/Support/PluriverseHandlerTestCase.php';

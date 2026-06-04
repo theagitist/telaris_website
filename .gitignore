@@ -17,6 +17,7 @@
 
 # PHPUnit result/coverage cache (regenerated per run).
 /.phpunit.cache/
+/.phpunit.result.cache
 
 # Editor / OS noise.
 *.swp

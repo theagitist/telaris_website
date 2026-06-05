@@ -45,12 +45,12 @@ $navItems = [
 <?php endif; ?>
 <nav class="navbar" aria-label="Site"><div class="nav-main"><?php
 $first = true;
-foreach ($navItems as [$slug, $label]):
+foreach ($navItems as [$navSlug, $navLabel]):
     if (!$first) echo '<span class="nav-sep" aria-hidden="true">·</span>';
     $first = false;
-    $active = ($slug === $pluriversePage) ? ' active' : '';
-    $href = pluriverse_locale_url($slug, $pluriverseLocale);
-    ?><a class="nav-link<?= $active ?>" href="<?= h($href) ?>"><?= h($label) ?></a><?php
+    $active = ($navSlug === $pluriversePage) ? ' active' : '';
+    $href = pluriverse_locale_url($navSlug, $pluriverseLocale);
+    ?><a class="nav-link<?= $active ?>" href="<?= h($href) ?>"><?= h($navLabel) ?></a><?php
 endforeach;
 ?><span class="nav-sep" aria-hidden="true">·</span><a class="nav-link" href="https://github.com/theagitist/telaris" target="_blank" rel="noopener noreferrer"><?= h(info('nav_source_code')) ?></a></div><div class="nav-lang" aria-label="Language"><?php
 $first = true;

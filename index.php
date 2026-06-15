@@ -44,6 +44,7 @@ $pageHandlers = [
     '' => 'home',
     'documentation' => 'documentation',
     'instances' => 'instances',
+    'changelog' => 'changelog',
     'manifest' => 'manifest',
     'privacy' => 'privacy',
     'terms' => 'terms',

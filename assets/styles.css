@@ -403,6 +403,51 @@ h1.page-title {
 }
 
 /* ---------------------------------------------------------------------------
+   Changelog. A quiet vertical timeline: each entry hangs off a left rule with
+   an accent-coloured date eyebrow, a title, and a short plain-language body.
+   Curated highlights only, newest first.
+   --------------------------------------------------------------------------- */
+
+.changelog-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 2rem;
+}
+
+.changelog-entry {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 0 0.2rem 1.4rem;
+}
+
+.changelog-entry .changelog-date {
+  font-size: 0.62rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.7;
+  margin: 0 0 0.5rem;
+}
+
+.changelog-entry .changelog-entry-title {
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--fg);
+  margin: 0 0 0.5rem;
+  text-transform: none;
+}
+
+.changelog-entry .changelog-entry-body {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--dim);
+  margin: 0;
+  max-width: 64ch;
+}
+
+/* ---------------------------------------------------------------------------
    Long-form prose surface (Manifest, Privacy, Terms). Reads like a quiet
    spec page rather than a HUD readout. Generous line-height, soft palette.
    --------------------------------------------------------------------------- */

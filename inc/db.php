@@ -60,14 +60,16 @@ const PLURIVERSE_LOCALES = ['en', 'es', 'pt', 'fr'];
 const PROJECT_INFO_COLUMNS = [
     // Page metadata.
     'html_lang', 'title_suffix', 'weaving', 'tagline_desc',
-    // Navbar (5 items including the external Source code link).
-    'nav_home', 'nav_documentation', 'nav_instances', 'nav_manifest', 'nav_source_code',
+    // Navbar (6 items including the external Source code link).
+    'nav_home', 'nav_documentation', 'nav_instances', 'nav_manifest', 'nav_changelog', 'nav_source_code',
     // Footer chrome.
     'footer_status', 'footer_privacy', 'footer_terms',
     // Documentation page.
     'doc_title', 'doc_lead', 'doc_download',
     // Instances page.
     'instance_title', 'instance_lead',
+    // Changelog page (curated, visitor-facing highlights).
+    'changelog_title', 'changelog_lead',
     // Manifest / Privacy / Terms pages.
     'manifest_title', 'manifest_lead', 'manifest_download_pdf',
     'privacy_title', 'privacy_lead', 'privacy_download_pdf',

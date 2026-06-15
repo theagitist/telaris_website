@@ -28,6 +28,7 @@ $navItems = [
     ['documentation', info('nav_documentation')],
     ['instances', info('nav_instances')],
     ['manifest', info('nav_manifest')],
+    ['changelog', info('nav_changelog')],
 ];
 ?><!doctype html>
 <html lang="<?= h($htmlLang) ?>">
@@ -36,7 +37,11 @@ $navItems = [
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= h($fullTitle) ?></title>
   <meta name="description" content="<?= h($desc) ?>">
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/assets/styles.css?v=<?= h((string)@filemtime(dirname(__DIR__, 2) . '/assets/styles.css') ?: '0') ?>">
 </head>
 <body class="<?= h($bodyClass) ?>">

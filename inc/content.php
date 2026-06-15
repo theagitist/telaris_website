@@ -229,6 +229,9 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'editor-switch',
+        'galaxy-name-in-view',
+        'two-d-zoom',
         'media-toggle',
         'self-enroll',
         'cross-galaxy-keywords',
@@ -252,6 +255,21 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'editor-switch' => [
+                'date' => 'June 2026',
+                'title' => 'Turn editing on or off, from the whole instance down to one editor',
+                'body' => 'Whoever runs an instance can now switch editing on or off at four levels: the whole instance, a cluster, a single galaxy, or one editor. This helps when an activity ends and you want to stop new changes while keeping every account and everything people made. The switches are on by default, and turning one off never deletes anything.',
+            ],
+            'galaxy-name-in-view' => [
+                'date' => 'June 2026',
+                'title' => 'The galaxy\'s name when several galaxies share a view',
+                'body' => 'When a scene holds wormholes from more than one galaxy, each wormhole now shows its galaxy\'s name alongside its own, both when you hover over it and when you open it. With a single galaxy in view nothing changes, so the name appears only when it helps tell the galaxies apart. This works in both the 3D scene and the 2D layout.',
+            ],
+            'two-d-zoom' => [
+                'date' => 'June 2026',
+                'title' => 'Zoom, pan, and see every wormhole in the 2D layout',
+                'body' => 'The flat 2D layout now lets you zoom in and out, drag to move around, and fit the whole galaxy back into view with one button. Large galaxies that used to crowd or hide wormholes now lay every tile out clearly, and choosing galaxies from the list at the bottom right dims the rest here too.',
+            ],
             'media-toggle' => [
                 'date' => 'June 2026',
                 'title' => 'Operators can switch embedded media off',
@@ -354,6 +372,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'editor-switch' => [
+                'date' => 'Junio de 2026',
+                'title' => 'Activa o desactiva la edición, desde toda la instancia hasta una sola editora',
+                'body' => 'Quien opera una instancia ahora puede activar o desactivar la edición en cuatro niveles: toda la instancia, un grupo, una sola galaxia o una editora. Es útil cuando una actividad termina y quieres detener los cambios nuevos conservando todas las cuentas y todo lo que se creó. Los controles están activados por defecto, y desactivar uno nunca borra nada.',
+            ],
+            'galaxy-name-in-view' => [
+                'date' => 'Junio de 2026',
+                'title' => 'El nombre de la galaxia cuando varias comparten una vista',
+                'body' => 'Cuando una escena reúne agujeros de gusano de más de una galaxia, cada agujero de gusano ahora muestra el nombre de su galaxia junto al propio, tanto al pasar el cursor por encima como al abrirlo. Con una sola galaxia a la vista nada cambia, así que el nombre aparece solo cuando ayuda a distinguir las galaxias. Funciona tanto en la escena en 3D como en la vista en 2D.',
+            ],
+            'two-d-zoom' => [
+                'date' => 'Junio de 2026',
+                'title' => 'Acerca, desplaza y ve todos los agujeros de gusano en la vista 2D',
+                'body' => 'La vista plana en 2D ahora permite acercar y alejar, arrastrar para moverte y volver a encuadrar toda la galaxia con un botón. Las galaxias grandes que antes amontonaban u ocultaban agujeros de gusano ahora disponen cada ficha con claridad, y elegir galaxias en la lista de abajo a la derecha también atenúa el resto aquí.',
+            ],
             'media-toggle' => [
                 'date' => 'Junio de 2026',
                 'title' => 'Quien opera puede desactivar el contenido multimedia incrustado',
@@ -456,6 +489,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'editor-switch' => [
+                'date' => 'Junho de 2026',
+                'title' => 'Ative ou desative a edição, da instância inteira até uma só editora',
+                'body' => 'Quem opera uma instância agora pode ativar ou desativar a edição em quatro níveis: a instância inteira, um grupo, uma só galáxia ou uma editora. É útil quando uma atividade termina e você quer parar as mudanças novas mantendo todas as contas e tudo o que foi criado. Os controles estão ativados por padrão, e desativar um nunca apaga nada.',
+            ],
+            'galaxy-name-in-view' => [
+                'date' => 'Junho de 2026',
+                'title' => 'O nome da galáxia quando várias compartilham uma vista',
+                'body' => 'Quando uma cena reúne buracos de minhoca de mais de uma galáxia, cada buraco de minhoca agora mostra o nome da sua galáxia junto ao próprio, tanto ao passar o cursor por cima como ao abri-lo. Com uma só galáxia à vista nada muda, então o nome aparece só quando ajuda a distinguir as galáxias. Funciona tanto na cena em 3D como na vista em 2D.',
+            ],
+            'two-d-zoom' => [
+                'date' => 'Junho de 2026',
+                'title' => 'Aproxime, desloque e veja todos os buracos de minhoca na vista 2D',
+                'body' => 'A vista plana em 2D agora permite aproximar e afastar, arrastar para se mover e reenquadrar a galáxia inteira com um botão. As galáxias grandes que antes amontoavam ou escondiam buracos de minhoca agora dispõem cada ficha com clareza, e escolher galáxias na lista no canto inferior direito também atenua o resto aqui.',
+            ],
             'media-toggle' => [
                 'date' => 'Junho de 2026',
                 'title' => 'Quem opera pode desativar o conteúdo de mídia incorporado',
@@ -558,6 +606,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'editor-switch' => [
+                'date' => 'Juin 2026',
+                'title' => "Activez ou désactivez l'édition, de l'instance entière à un seul compte",
+                'body' => "Qui exploite une instance peut désormais activer ou désactiver l'édition à quatre niveaux : l'instance entière, un groupe, une seule galaxie ou un compte d'édition. C'est utile quand une activité se termine et que l'on veut arrêter les nouveaux changements tout en gardant chaque compte et tout ce qui a été créé. Les réglages sont activés par défaut, et en désactiver un n'efface jamais rien.",
+            ],
+            'galaxy-name-in-view' => [
+                'date' => 'Juin 2026',
+                'title' => 'Le nom de la galaxie quand plusieurs partagent une vue',
+                'body' => "Quand une scène réunit des trous de ver de plus d'une galaxie, chaque trou de ver montre désormais le nom de sa galaxie à côté du sien, au survol comme à l'ouverture. Avec une seule galaxie en vue, rien ne change : le nom apparaît seulement lorsqu'il aide à distinguer les galaxies. Cela fonctionne dans la scène en 3D comme dans la vue en 2D.",
+            ],
+            'two-d-zoom' => [
+                'date' => 'Juin 2026',
+                'title' => 'Zoomez, déplacez-vous et voyez chaque trou de ver dans la vue 2D',
+                'body' => "La vue plate en 2D permet maintenant de zoomer et dézoomer, de glisser pour se déplacer et de recadrer toute la galaxie d'un bouton. Les grandes galaxies qui entassaient ou cachaient des trous de ver disposent désormais chaque tuile clairement, et choisir des galaxies dans la liste en bas à droite atténue aussi le reste ici.",
+            ],
             'media-toggle' => [
                 'date' => 'Juin 2026',
                 'title' => 'Qui exploite peut désactiver le contenu multimédia intégré',

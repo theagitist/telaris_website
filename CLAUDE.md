@@ -30,6 +30,7 @@ Migrated from Python-built static HTML on 2026-05-24 (5 commits on `main`, `02cc
 │       ├── home.php
 │       ├── documentation.php
 │       ├── instances.php
+│       ├── changelog.php      # Curated highlights from pluriverse_changelog().
 │       ├── manifest.php       # → _content_page.php with slug=manifest
 │       ├── privacy.php        # → _content_page.php with slug=privacy
 │       ├── terms.php          # → _content_page.php with slug=terms (renders docs slug "tos")
@@ -41,13 +42,14 @@ Migrated from Python-built static HTML on 2026-05-24 (5 commits on `main`, `02cc
 
 ## URLs
 
-Eight pages × four locales = 32 routes. URL slugs stay English across locales; only navbar labels and content are localized.
+Nine pages × four locales = 36 routes. URL slugs stay English across locales; only navbar labels and content are localized.
 
 | Page | EN | ES | PT | FR |
 |---|---|---|---|---|
 | Home | `/` | `/es/` | `/pt/` | `/fr/` |
 | Documentation | `/documentation/` | `/es/documentation/` | `/pt/documentation/` | `/fr/documentation/` |
 | Instances | `/instances/` | `/es/instances/` | `/pt/instances/` | `/fr/instances/` |
+| Changelog | `/changelog/` | `/es/changelog/` | `/pt/changelog/` | `/fr/changelog/` |
 | Manifest | `/manifest/` | `/es/manifest/` | `/pt/manifest/` | `/fr/manifest/` |
 | Contact | `/contact/` | `/es/contact/` | `/pt/contact/` | `/fr/contact/` |
 | Governance | `/governance/` | `/es/governance/` | `/pt/governance/` | `/fr/governance/` |
@@ -73,6 +75,16 @@ Schema migrations land via `db_ensure_*` helpers called lazily on first use. No 
 - **No em-dashes** in any text I produce (project rule).
 - **Canadian English** for any new English text (project rule).
 - **Vocabulary mapping is UI-only.** Code, DB, API keep `constellation` / `node` / `portal`; UI uses Galaxy / Wormhole / Portal (and the locale equivalents).
+
+## Changelog page (`/changelog`)
+
+Curated, visitor-facing highlights, newest first: not the full engineering CHANGELOG (that lives in the Academia vault under `Projects/Telaris/Documentation/CHANGELOG.md`). It surfaces only changes that alter what visitors, editors, or operators can do, in plain language, fully localized EN/ES/PT/FR with no English fallback.
+
+- **Chrome** (`nav_changelog`, `changelog_title`, `changelog_lead`): `project_info` columns in `PROJECT_INFO_COLUMNS` (`inc/db.php`) + a row in every locale block of `db_defaults.php`. Auto-migrated by `db_ensure_project_info()` on next page load.
+- **Entries**: `pluriverse_changelog($locale)` in `inc/content.php`, same shape as `pluriverse_docs()`. A shared `$order` list of entry keys (newest first) plus a per-locale `date` / `title` / `body` for each.
+- **Renderer**: `inc/pages/changelog.php`; routed in `index.php` (`'changelog' => 'changelog'`); navbar item in `inc/partials/head.php` (`$navItems`, placed before the external Source code link); `.changelog-list` styles in `assets/styles.css` (a vertical timeline reusing the site palette, no PDF).
+
+**To add an entry**: put a new key at the top of `$order`, then add a matching `'key' => ['date', 'title', 'body']` block in all four locale arrays. Use coarse month-year date labels anchored to real version-tag dates (`git for-each-ref --sort=creatordate refs/tags` in the instance repo at `/var/www/starmaps.polivoxia.ca`). No version numbers in the copy; use the project vocabulary (Galaxy / Wormhole and locale equivalents); no em-dashes.
 
 ## nginx
 

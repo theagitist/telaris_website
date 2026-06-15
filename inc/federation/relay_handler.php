@@ -425,7 +425,7 @@ if (is_string($recipientEmail) && $recipientEmail !== '') {
         $adminUrl
     );
     try {
-        pluriverse_send_mail($recipientEmail, $tpl['subject'], $tpl['body']);
+        pluriverse_send_mail($recipientEmail, $tpl['subject'], $tpl['body'], $tpl['html'] ?? null);
     } catch (Throwable $e) {
         error_log("relay: notification mail to operator of {$recipientHostname} failed (non-fatal): " . $e->getMessage());
     }
@@ -450,68 +450,57 @@ echo json_encode([
  * actual message rides the signed channel and is read by the recipient
  * in their own admin Pluriverse panel.
  *
- * @return array{subject:string, body:string}
+ * @return array{subject:string, body:string, html:string}
  */
 if (!function_exists('relay_notification_template')) {
 function relay_notification_template(string $locale, string $senderLabel, string $senderHostname, string $adminUrl): array {
+    require_once dirname(__DIR__) . '/email-template.php';
     $tpls = [
         'en' => [
             'subject' => 'New Pluriverse message from ' . $senderLabel,
-            'body' => "Hello,\n\n"
-                    . "The Telaris instance \"{$senderLabel}\" ({$senderHostname}) has\n"
-                    . "sent your instance a Pluriverse message. The contents are\n"
-                    . "available only in your admin Pluriverse panel; sign in to read\n"
-                    . "and decide whether to respond.\n\n"
-                    . "  {$adminUrl}\n\n"
-                    . "This email is a notification only; it does not carry the\n"
-                    . "message body, the sender's contact details, or any routing\n"
-                    . "identifiers. Those reach you through your instance's signed\n"
-                    . "federation channel.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'New Pluriverse message',
+            'paragraphs' => [
+                "The Telaris instance \"{$senderLabel}\" ({$senderHostname}) has sent your instance a Pluriverse message. The contents are available only in your admin Pluriverse panel; sign in to read it and decide whether to respond.",
+            ],
+            'cta_label' => 'Open the Pluriverse panel',
+            'note' => "This email is a notification only; it does not carry the message body, the sender's contact details, or any routing identifiers. Those reach you through your instance's signed federation channel.",
         ],
         'es' => [
             'subject' => 'Nuevo mensaje de la Pluriverse de ' . $senderLabel,
-            'body' => "Hola,\n\n"
-                    . "La instancia Telaris \"{$senderLabel}\" ({$senderHostname}) ha\n"
-                    . "enviado un mensaje de la Pluriverse a tu instancia. El contenido\n"
-                    . "solo está disponible en tu panel administrativo de la Pluriverse;\n"
-                    . "inicia sesión para leerlo y decidir si responder.\n\n"
-                    . "  {$adminUrl}\n\n"
-                    . "Este correo es solo una notificación; no incluye el cuerpo del\n"
-                    . "mensaje, los datos de contacto del remitente, ni identificadores\n"
-                    . "de enrutamiento. Esos llegan a tu instancia por el canal federado\n"
-                    . "firmado.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Nuevo mensaje de la Pluriverse',
+            'paragraphs' => [
+                "La instancia Telaris \"{$senderLabel}\" ({$senderHostname}) ha enviado un mensaje de la Pluriverse a tu instancia. El contenido solo está disponible en tu panel administrativo de la Pluriverse; inicia sesión para leerlo y decidir si responder.",
+            ],
+            'cta_label' => 'Abrir el panel de la Pluriverse',
+            'note' => 'Este correo es solo una notificación; no incluye el cuerpo del mensaje, los datos de contacto del remitente, ni identificadores de enrutamiento. Esos llegan a tu instancia por el canal federado firmado.',
         ],
         'pt' => [
             'subject' => 'Nova mensagem da Pluriverse de ' . $senderLabel,
-            'body' => "Olá,\n\n"
-                    . "A instância Telaris \"{$senderLabel}\" ({$senderHostname}) enviou\n"
-                    . "uma mensagem da Pluriverse para sua instância. O conteúdo só está\n"
-                    . "disponível no seu painel administrativo da Pluriverse; entre para\n"
-                    . "lê-la e decidir se responde.\n\n"
-                    . "  {$adminUrl}\n\n"
-                    . "Este email é apenas uma notificação; não inclui o corpo da\n"
-                    . "mensagem, os dados de contato do remetente nem identificadores\n"
-                    . "de roteamento. Esses chegam à sua instância pelo canal federado\n"
-                    . "assinado.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Nova mensagem da Pluriverse',
+            'paragraphs' => [
+                "A instância Telaris \"{$senderLabel}\" ({$senderHostname}) enviou uma mensagem da Pluriverse para sua instância. O conteúdo só está disponível no seu painel administrativo da Pluriverse; entre para lê-la e decidir se responde.",
+            ],
+            'cta_label' => 'Abrir o painel da Pluriverse',
+            'note' => 'Este email é apenas uma notificação; não inclui o corpo da mensagem, os dados de contato do remetente nem identificadores de roteamento. Esses chegam à sua instância pelo canal federado assinado.',
         ],
         'fr' => [
             'subject' => 'Nouveau message de la Pluriverse de ' . $senderLabel,
-            'body' => "Bonjour,\n\n"
-                    . "L'instance Telaris « {$senderLabel} » ({$senderHostname}) a envoyé\n"
-                    . "un message de la Pluriverse à ton instance. Le contenu n'est\n"
-                    . "disponible que dans ton panneau administratif Pluriverse ;\n"
-                    . "connecte-toi pour le lire et décider d'y répondre.\n\n"
-                    . "  {$adminUrl}\n\n"
-                    . "Ce courriel n'est qu'une notification ; il ne contient ni le\n"
-                    . "corps du message, ni les coordonnées de l'expéditeur, ni\n"
-                    . "d'identifiants de routage. Tout cela arrive à ton instance par\n"
-                    . "le canal fédéré signé.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Nouveau message de la Pluriverse',
+            'paragraphs' => [
+                "L'instance Telaris « {$senderLabel} » ({$senderHostname}) a envoyé un message de la Pluriverse à ton instance. Le contenu n'est disponible que dans ton panneau administratif Pluriverse ; connecte-toi pour le lire et décider d'y répondre.",
+            ],
+            'cta_label' => 'Ouvrir le panneau Pluriverse',
+            'note' => "Ce courriel n'est qu'une notification ; il ne contient ni le corps du message, ni les coordonnées de l'expéditeur, ni d'identifiants de routage. Tout cela arrive à ton instance par le canal fédéré signé.",
         ],
     ];
-    return $tpls[$locale] ?? $tpls['en'];
+    $t = $tpls[$locale] ?? $tpls['en'];
+    $rendered = pluriverse_email_render([
+        'heading' => $t['heading'],
+        'paragraphs' => $t['paragraphs'],
+        'cta' => ['label' => $t['cta_label'], 'url' => $adminUrl],
+        'note' => $t['note'],
+        'locale' => in_array($locale, ['en', 'es', 'pt', 'fr'], true) ? $locale : 'en',
+    ]);
+    return ['subject' => $t['subject'], 'body' => $rendered['text'], 'html' => $rendered['html']];
 }
 }

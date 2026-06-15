@@ -371,68 +371,59 @@ try {
 if ($tokenUrl !== null) {
     require_once dirname(__DIR__) . '/mail.php';
     $emailLocale = in_array($locale, ['en', 'es', 'pt', 'fr'], true) ? $locale : 'en';
+    require_once dirname(__DIR__) . '/email-template.php';
     $emailBodies = [
         'en' => [
             'subject' => 'Verify your Pluriverse join request',
-            'body' => "Hello,\n\n"
-                    . "We received your request to join the Pluriverse from the Telaris\n"
-                    . "instance at {$hostname}. Confirm your email address by visiting the\n"
-                    . "link below within the next 24 hours:\n\n"
-                    . "  {$tokenUrl}\n\n"
-                    . "After confirmation, an admin will review your request and let you\n"
-                    . "know when your instance is published in the Pluriverse.\n\n"
-                    . "If you do not confirm in that window, the request will expire and\n"
-                    . "a fresh one can be submitted from the instance admin panel.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Verify your Pluriverse join request',
+            'paragraphs' => [
+                "We received your request to join the Pluriverse from the Telaris instance at {$hostname}. Confirm your email address with the button below within the next 24 hours.",
+                'After confirmation, an admin will review your request and let you know when your instance is published in the Pluriverse.',
+            ],
+            'cta_label' => 'Confirm email',
+            'note' => 'If you do not confirm in that window, the request will expire and a fresh one can be submitted from the instance admin panel.',
         ],
         'es' => [
             'subject' => 'Verifica tu solicitud para unirte a la Pluriverse',
-            'body' => "Hola,\n\n"
-                    . "Recibimos tu solicitud para unirte a la Pluriverse desde la instancia\n"
-                    . "de Telaris en {$hostname}. Confirma tu dirección de correo visitando\n"
-                    . "el enlace de abajo dentro de las próximas 24 horas:\n\n"
-                    . "  {$tokenUrl}\n\n"
-                    . "Tras la confirmación, alguien con acceso de administración revisará\n"
-                    . "tu solicitud y te avisará cuando tu instancia esté publicada en la\n"
-                    . "Pluriverse.\n\n"
-                    . "Si no se confirma dentro de ese plazo, la solicitud caducará y se\n"
-                    . "puede enviar una nueva desde el panel de administración de la\n"
-                    . "instancia.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Verifica tu solicitud para unirte a la Pluriverse',
+            'paragraphs' => [
+                "Recibimos tu solicitud para unirte a la Pluriverse desde la instancia de Telaris en {$hostname}. Confirma tu dirección de correo con el botón de abajo dentro de las próximas 24 horas.",
+                'Tras la confirmación, alguien con acceso de administración revisará tu solicitud y te avisará cuando tu instancia esté publicada en la Pluriverse.',
+            ],
+            'cta_label' => 'Confirmar correo',
+            'note' => 'Si no se confirma dentro de ese plazo, la solicitud caducará y se puede enviar una nueva desde el panel de administración de la instancia.',
         ],
         'pt' => [
             'subject' => 'Verifique seu pedido de adesão à Pluriverse',
-            'body' => "Olá,\n\n"
-                    . "Recebemos seu pedido para participar da Pluriverse a partir da\n"
-                    . "instância de Telaris em {$hostname}. Confirme seu endereço de email\n"
-                    . "visitando o link abaixo nas próximas 24 horas:\n\n"
-                    . "  {$tokenUrl}\n\n"
-                    . "Após a confirmação, quem tem acesso de administração vai revisar\n"
-                    . "seu pedido e avisará quando sua instância estiver publicada na\n"
-                    . "Pluriverse.\n\n"
-                    . "Se não houver confirmação nesse prazo, o pedido vai expirar e um\n"
-                    . "novo pode ser enviado pelo painel de administração da instância.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Verifique seu pedido de adesão à Pluriverse',
+            'paragraphs' => [
+                "Recebemos seu pedido para participar da Pluriverse a partir da instância de Telaris em {$hostname}. Confirme seu endereço de email com o botão abaixo nas próximas 24 horas.",
+                'Após a confirmação, quem tem acesso de administração vai revisar seu pedido e avisará quando sua instância estiver publicada na Pluriverse.',
+            ],
+            'cta_label' => 'Confirmar email',
+            'note' => 'Se não houver confirmação nesse prazo, o pedido vai expirar e um novo pode ser enviado pelo painel de administração da instância.',
         ],
         'fr' => [
             'subject' => 'Vérifie ta demande d\'adhésion à la Pluriverse',
-            'body' => "Bonjour,\n\n"
-                    . "Nous avons reçu ta demande d'adhésion à la Pluriverse depuis\n"
-                    . "l'instance Telaris à {$hostname}. Confirme ton adresse courriel en\n"
-                    . "visitant le lien ci-dessous dans les 24 heures qui viennent :\n\n"
-                    . "  {$tokenUrl}\n\n"
-                    . "Une fois confirmée, ta demande sera revue depuis le compte\n"
-                    . "d'administration et tu recevras un avis dès que ton instance sera\n"
-                    . "publiée dans la Pluriverse.\n\n"
-                    . "Sans confirmation dans ce délai, la demande va expirer et une\n"
-                    . "nouvelle peut être envoyée depuis le panneau d'administration de\n"
-                    . "l'instance.\n\n"
-                    . "Pluriverse - https://www.telaris.ca/\n",
+            'heading' => 'Vérifie ta demande d\'adhésion à la Pluriverse',
+            'paragraphs' => [
+                "Nous avons reçu ta demande d'adhésion à la Pluriverse depuis l'instance Telaris à {$hostname}. Confirme ton adresse courriel avec le bouton ci-dessous dans les 24 heures qui viennent.",
+                "Une fois confirmée, ta demande sera revue depuis le compte d'administration et tu recevras un avis dès que ton instance sera publiée dans la Pluriverse.",
+            ],
+            'cta_label' => 'Confirmer le courriel',
+            'note' => "Sans confirmation dans ce délai, la demande va expirer et une nouvelle peut être envoyée depuis le panneau d'administration de l'instance.",
         ],
     ];
     $tpl = $emailBodies[$emailLocale];
+    $rendered = pluriverse_email_render([
+        'heading' => $tpl['heading'],
+        'paragraphs' => $tpl['paragraphs'],
+        'cta' => ['label' => $tpl['cta_label'], 'url' => $tokenUrl],
+        'note' => $tpl['note'],
+        'locale' => $emailLocale,
+    ]);
     try {
-        pluriverse_send_mail($operatorEmail, $tpl['subject'], $tpl['body']);
+        pluriverse_send_mail($operatorEmail, $tpl['subject'], $rendered['text'], $rendered['html']);
     } catch (Throwable $e) {
         error_log("apply: ack mail to {$operatorEmail} failed (instance id={$instanceId}): " . $e->getMessage());
     }

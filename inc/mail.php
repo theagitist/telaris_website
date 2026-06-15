@@ -4,9 +4,12 @@ declare(strict_types=1);
 /**
  * Mail sender wrapper around PHPMailer.
  *
- * One public function: pluriverse_send_mail($to, $subject, $body). Plaintext
- * only; the audience is operators (technical) and HTML emails would add
- * deliverability complexity without payoff.
+ * One public function: pluriverse_send_mail($to, $subject, $body, $htmlBody).
+ * When $htmlBody is null the message is plaintext (back-compatible). When it is
+ * provided the message is multipart: $htmlBody as the HTML part, $body as the
+ * plain-text alternative. System mail is rendered through the on-brand shell
+ * pluriverse_email_render() (inc/email-template.php), the www twin of the
+ * instance email shell, so every email across the project shares one look.
  *
  * Configuration: MAIL_SMTP_HOST / PORT / USER / PASS / SECURE constants
  * (Mailgun on this host), MAIL_FROM_ADDRESS / NAME (defaults to
@@ -23,7 +26,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
-function pluriverse_send_mail(string $to, string $subject, string $body): bool {
+function pluriverse_send_mail(string $to, string $subject, string $body, ?string $htmlBody = null): bool {
     // Dry-run short-circuit: when MAIL_DRY_RUN is defined and truthy (the test
     // bootstrap defines it; production never does), log a redacted line and
     // return without contacting any relay. Mirrors the instance-side guard so
@@ -57,9 +60,15 @@ function pluriverse_send_mail(string $to, string $subject, string $body): bool {
         );
         $mail->addAddress($to);
         $mail->Subject = $subject;
-        $mail->Body = $body;
-        $mail->AltBody = $body;
-        $mail->isHTML(false);
+        if ($htmlBody !== null && $htmlBody !== '') {
+            $mail->isHTML(true);
+            $mail->Body = $htmlBody;
+            $mail->AltBody = $body;
+        } else {
+            $mail->isHTML(false);
+            $mail->Body = $body;
+            $mail->AltBody = $body;
+        }
         $mail->send();
         return true;
     } catch (PHPMailerException $e) {

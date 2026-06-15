@@ -139,54 +139,52 @@ if ($method === 'POST'
                             $emailBodies = [
                                 'en' => [
                                     'subject' => 'Confirm your new Pluriverse email',
-                                    'body' => "Hello,\n\n"
-                                            . "Someone signed in to the Pluriverse dashboard for the instance\n"
-                                            . "\"{$instanceLabel}\" and requested to change the operator email to\n"
-                                            . "this address. Open the link below within 24 hours to confirm:\n\n"
-                                            . "  {$tokenUrl}\n\n"
-                                            . "If you did not request this change, you can safely ignore this\n"
-                                            . "email; the change will not take effect without a click.\n\n"
-                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                    'heading' => 'Confirm your new Pluriverse email',
+                                    'paragraphs' => [
+                                        "Someone signed in to the Pluriverse dashboard for the instance \"{$instanceLabel}\" and requested to change the operator email to this address. Use the button below within 24 hours to confirm.",
+                                    ],
+                                    'cta_label' => 'Confirm email',
+                                    'note' => 'If you did not request this change, you can safely ignore this email; the change will not take effect without a click.',
                                 ],
                                 'es' => [
                                     'subject' => 'Confirma tu nuevo correo de la Pluriverse',
-                                    'body' => "Hola,\n\n"
-                                            . "Alguien inició sesión en el panel de la Pluriverse de la instancia\n"
-                                            . "\"{$instanceLabel}\" y solicitó cambiar el correo de operación a esta\n"
-                                            . "dirección. Abre el enlace de abajo dentro de las próximas 24 horas\n"
-                                            . "para confirmar:\n\n"
-                                            . "  {$tokenUrl}\n\n"
-                                            . "Si no solicitaste este cambio, puedes ignorar este correo; el\n"
-                                            . "cambio no se aplicará sin un clic.\n\n"
-                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                    'heading' => 'Confirma tu nuevo correo de la Pluriverse',
+                                    'paragraphs' => [
+                                        "Alguien inició sesión en el panel de la Pluriverse de la instancia \"{$instanceLabel}\" y solicitó cambiar el correo de operación a esta dirección. Usa el botón de abajo dentro de las próximas 24 horas para confirmar.",
+                                    ],
+                                    'cta_label' => 'Confirmar correo',
+                                    'note' => 'Si no solicitaste este cambio, puedes ignorar este correo; el cambio no se aplicará sin un clic.',
                                 ],
                                 'pt' => [
                                     'subject' => 'Confirme seu novo email da Pluriverse',
-                                    'body' => "Olá,\n\n"
-                                            . "Alguém entrou no painel da Pluriverse da instância \"{$instanceLabel}\"\n"
-                                            . "e solicitou mudar o email de operação para este endereço. Abra o\n"
-                                            . "link abaixo nas próximas 24 horas para confirmar:\n\n"
-                                            . "  {$tokenUrl}\n\n"
-                                            . "Se você não solicitou esta mudança, pode ignorar este email; a\n"
-                                            . "mudança não terá efeito sem um clique.\n\n"
-                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                    'heading' => 'Confirme seu novo email da Pluriverse',
+                                    'paragraphs' => [
+                                        "Alguém entrou no painel da Pluriverse da instância \"{$instanceLabel}\" e solicitou mudar o email de operação para este endereço. Use o botão abaixo nas próximas 24 horas para confirmar.",
+                                    ],
+                                    'cta_label' => 'Confirmar email',
+                                    'note' => 'Se você não solicitou esta mudança, pode ignorar este email; a mudança não terá efeito sem um clique.',
                                 ],
                                 'fr' => [
                                     'subject' => 'Confirme ton nouveau courriel Pluriverse',
-                                    'body' => "Bonjour,\n\n"
-                                            . "Quelqu'un s'est connecté au tableau de bord Pluriverse de l'instance\n"
-                                            . "\"{$instanceLabel}\" et a demandé à changer le courriel d'opération\n"
-                                            . "pour cette adresse. Ouvre le lien ci-dessous dans les 24 heures\n"
-                                            . "qui viennent pour confirmer :\n\n"
-                                            . "  {$tokenUrl}\n\n"
-                                            . "Si tu n'as pas demandé ce changement, tu peux ignorer ce courriel ;\n"
-                                            . "le changement ne prendra pas effet sans un clic.\n\n"
-                                            . "Pluriverse - https://www.telaris.ca/\n",
+                                    'heading' => 'Confirme ton nouveau courriel Pluriverse',
+                                    'paragraphs' => [
+                                        "Quelqu'un s'est connecté au tableau de bord Pluriverse de l'instance \"{$instanceLabel}\" et a demandé à changer le courriel d'opération pour cette adresse. Utilise le bouton ci-dessous dans les 24 heures qui viennent pour confirmer.",
+                                    ],
+                                    'cta_label' => 'Confirmer le courriel',
+                                    'note' => "Si tu n'as pas demandé ce changement, tu peux ignorer ce courriel ; le changement ne prendra pas effet sans un clic.",
                                 ],
                             ];
                             $tpl = $emailBodies[$emailLocale];
                             require_once __DIR__ . '/../mail.php';
-                            pluriverse_send_mail($newEmail, $tpl['subject'], $tpl['body']);
+                            require_once __DIR__ . '/../email-template.php';
+                            $rendered = pluriverse_email_render([
+                                'heading' => $tpl['heading'],
+                                'paragraphs' => $tpl['paragraphs'],
+                                'cta' => ['label' => $tpl['cta_label'], 'url' => $tokenUrl],
+                                'note' => $tpl['note'],
+                                'locale' => $emailLocale,
+                            ]);
+                            pluriverse_send_mail($newEmail, $tpl['subject'], $rendered['text'], $rendered['html']);
                         } catch (Throwable $e) {
                             if ($pdo->inTransaction()) $pdo->rollBack();
                             error_log('dashboard request_email_change: ' . $e->getMessage());
@@ -955,94 +953,90 @@ if ($method === 'POST') {
                     $singleBodies = [
                         'en' => [
                             'subject' => 'Sign in to your Pluriverse dashboard',
-                            'body' => "Hello,\n\n"
-                                    . "Open the link below to sign in to your Pluriverse dashboard for the\n"
-                                    . "instance \"{$label}\". The link is single-use and expires\n"
-                                    . "in 24 hours.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "If you did not request a sign-in, you can safely ignore this email.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Sign in to your Pluriverse dashboard',
+                            'paragraphs' => [
+                                "Use the button below to sign in to your Pluriverse dashboard for the instance \"{$label}\". The link is single-use and expires in 24 hours.",
+                            ],
+                            'cta_label' => 'Sign in',
+                            'note' => 'If you did not request a sign-in, you can safely ignore this email.',
                         ],
                         'es' => [
                             'subject' => 'Inicia sesión en tu panel de la Pluriverse',
-                            'body' => "Hola,\n\n"
-                                    . "Abre el enlace siguiente para iniciar sesión en tu panel de la\n"
-                                    . "Pluriverse para la instancia \"{$label}\". El enlace es de\n"
-                                    . "un solo uso y caduca en 24 horas.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Inicia sesión en tu panel de la Pluriverse',
+                            'paragraphs' => [
+                                "Usa el botón de abajo para iniciar sesión en tu panel de la Pluriverse para la instancia \"{$label}\". El enlace es de un solo uso y caduca en 24 horas.",
+                            ],
+                            'cta_label' => 'Iniciar sesión',
+                            'note' => 'Si no solicitaste iniciar sesión, puedes ignorar este correo.',
                         ],
                         'pt' => [
                             'subject' => 'Entrar no seu painel da Pluriverse',
-                            'body' => "Olá,\n\n"
-                                    . "Abra o link abaixo para entrar no seu painel da Pluriverse para a\n"
-                                    . "instância \"{$label}\". O link é de uso único e expira em\n"
-                                    . "24 horas.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Se você não solicitou entrar, pode ignorar este email.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Entrar no seu painel da Pluriverse',
+                            'paragraphs' => [
+                                "Use o botão abaixo para entrar no seu painel da Pluriverse para a instância \"{$label}\". O link é de uso único e expira em 24 horas.",
+                            ],
+                            'cta_label' => 'Entrar',
+                            'note' => 'Se você não solicitou entrar, pode ignorar este email.',
                         ],
                         'fr' => [
                             'subject' => 'Connecte-toi à ton tableau de bord Pluriverse',
-                            'body' => "Bonjour,\n\n"
-                                    . "Ouvre le lien ci-dessous pour te connecter à ton tableau de bord\n"
-                                    . "Pluriverse pour l'instance \"{$label}\". Le lien est à\n"
-                                    . "usage unique et expire dans 24 heures.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Connecte-toi à ton tableau de bord Pluriverse',
+                            'paragraphs' => [
+                                "Utilise le bouton ci-dessous pour te connecter à ton tableau de bord Pluriverse pour l'instance \"{$label}\". Le lien est à usage unique et expire dans 24 heures.",
+                            ],
+                            'cta_label' => 'Se connecter',
+                            'note' => "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.",
                         ],
                     ];
                     $multiBodies = [
                         'en' => [
                             'subject' => 'Sign in to your Pluriverse dashboard',
-                            'body' => "Hello,\n\n"
-                                    . "Open the link below to sign in to your Pluriverse dashboard. You\n"
-                                    . "operate more than one instance under this email, so you'll choose\n"
-                                    . "which one to manage after signing in. The link is single-use and\n"
-                                    . "expires in 24 hours.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "If you did not request a sign-in, you can safely ignore this email.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Sign in to your Pluriverse dashboard',
+                            'paragraphs' => [
+                                "Use the button below to sign in to your Pluriverse dashboard. You operate more than one instance under this email, so you'll choose which one to manage after signing in. The link is single-use and expires in 24 hours.",
+                            ],
+                            'cta_label' => 'Sign in',
+                            'note' => 'If you did not request a sign-in, you can safely ignore this email.',
                         ],
                         'es' => [
                             'subject' => 'Inicia sesión en tu panel de la Pluriverse',
-                            'body' => "Hola,\n\n"
-                                    . "Abre el enlace siguiente para iniciar sesión en tu panel de la\n"
-                                    . "Pluriverse. Operas más de una instancia con este correo, así que\n"
-                                    . "elegirás cuál gestionar después de iniciar sesión. El enlace es de\n"
-                                    . "un solo uso y caduca en 24 horas.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Si no solicitaste iniciar sesión, puedes ignorar este correo.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Inicia sesión en tu panel de la Pluriverse',
+                            'paragraphs' => [
+                                "Usa el botón de abajo para iniciar sesión en tu panel de la Pluriverse. Operas más de una instancia con este correo, así que elegirás cuál gestionar después de iniciar sesión. El enlace es de un solo uso y caduca en 24 horas.",
+                            ],
+                            'cta_label' => 'Iniciar sesión',
+                            'note' => 'Si no solicitaste iniciar sesión, puedes ignorar este correo.',
                         ],
                         'pt' => [
                             'subject' => 'Entrar no seu painel da Pluriverse',
-                            'body' => "Olá,\n\n"
-                                    . "Abra o link abaixo para entrar no seu painel da Pluriverse. Você\n"
-                                    . "opera mais de uma instância com este email, então vai escolher qual\n"
-                                    . "gerenciar depois de entrar. O link é de uso único e expira em\n"
-                                    . "24 horas.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Se você não solicitou entrar, pode ignorar este email.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Entrar no seu painel da Pluriverse',
+                            'paragraphs' => [
+                                "Use o botão abaixo para entrar no seu painel da Pluriverse. Você opera mais de uma instância com este email, então vai escolher qual gerenciar depois de entrar. O link é de uso único e expira em 24 horas.",
+                            ],
+                            'cta_label' => 'Entrar',
+                            'note' => 'Se você não solicitou entrar, pode ignorar este email.',
                         ],
                         'fr' => [
                             'subject' => 'Connecte-toi à ton tableau de bord Pluriverse',
-                            'body' => "Bonjour,\n\n"
-                                    . "Ouvre le lien ci-dessous pour te connecter à ton tableau de bord\n"
-                                    . "Pluriverse. Tu gères plus d'une instance sous ce courriel ; tu\n"
-                                    . "choisiras laquelle administrer après la connexion. Le lien est à\n"
-                                    . "usage unique et expire dans 24 heures.\n\n"
-                                    . "  {$tokenUrl}\n\n"
-                                    . "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.\n\n"
-                                    . "Pluriverse - https://www.telaris.ca/\n",
+                            'heading' => 'Connecte-toi à ton tableau de bord Pluriverse',
+                            'paragraphs' => [
+                                "Utilise le bouton ci-dessous pour te connecter à ton tableau de bord Pluriverse. Tu gères plus d'une instance sous ce courriel ; tu choisiras laquelle administrer après la connexion. Le lien est à usage unique et expire dans 24 heures.",
+                            ],
+                            'cta_label' => 'Se connecter',
+                            'note' => "Si tu n'as pas demandé à te connecter, tu peux ignorer ce courriel.",
                         ],
                     ];
                     $tpl = $single ? $singleBodies[$emailLocale] : $multiBodies[$emailLocale];
                     require_once __DIR__ . '/../mail.php';
-                    pluriverse_send_mail($emailInput, $tpl['subject'], $tpl['body']);
+                    require_once __DIR__ . '/../email-template.php';
+                    $rendered = pluriverse_email_render([
+                        'heading' => $tpl['heading'],
+                        'paragraphs' => $tpl['paragraphs'],
+                        'cta' => ['label' => $tpl['cta_label'], 'url' => $tokenUrl],
+                        'note' => $tpl['note'],
+                        'locale' => $emailLocale,
+                    ]);
+                    pluriverse_send_mail($emailInput, $tpl['subject'], $rendered['text'], $rendered['html']);
                 }
                 // Always show the same confirmation, regardless of whether
                 // we actually sent. Non-enumeration.

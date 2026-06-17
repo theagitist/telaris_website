@@ -152,8 +152,8 @@ if (!$canConnect) {
     try {
         require_once $root . '/config.php';
         $pdo = getDB();
-        $version = (string)$pdo->query('SELECT VERSION()')->fetchColumn();
-        $tasks[] = ['name' => 'DB reachable', 'status' => 'ok', 'detail' => 'MySQL ' . $version, 'fix' => null];
+        $version = (string)$pdo->query('SELECT version()')->fetchColumn();
+        $tasks[] = ['name' => 'DB reachable', 'status' => 'ok', 'detail' => $version, 'fix' => null];
 
         // Schema materialize covers website tables (project_info,
         // content_cache) AND federation tables (12 of them; see
@@ -163,7 +163,9 @@ if (!$canConnect) {
         $allExpected = array_merge($expectedTables, $expectedFederation);
 
         $missingTables = function() use ($pdo, $allExpected): array {
-            $present = array_map('strval', $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN));
+            $present = array_map('strval', $pdo->query(
+                "SELECT tablename FROM pg_tables WHERE schemaname = current_schema()"
+            )->fetchAll(PDO::FETCH_COLUMN));
             return array_values(array_diff($allExpected, $present));
         };
         $missing = $missingTables();
@@ -185,7 +187,7 @@ if (!$canConnect) {
 
         // Locale row count check. After --check, if project_info was missing
         // this is skipped (no table to query); after fix it should pass.
-        $projectInfoPresent = $pdo->query("SHOW TABLES LIKE 'project_info'")->fetch() !== false;
+        $projectInfoPresent = $pdo->query("SELECT to_regclass('project_info')")->fetchColumn() !== null;
         if ($projectInfoPresent) {
             $count = (int)$pdo->query("SELECT COUNT(*) FROM project_info")->fetchColumn();
             $expected = count(PLURIVERSE_LOCALES);
@@ -216,7 +218,7 @@ if (!$canConnect) {
     $tasks[] = ['name' => 'first admin seeded', 'status' => 'missing', 'detail' => 'prerequisite tasks above must pass first', 'fix' => null];
 } else {
     try {
-        $registryAdminsPresent = $pdo->query("SHOW TABLES LIKE 'registry_admins'")->fetch() !== false;
+        $registryAdminsPresent = $pdo->query("SELECT to_regclass('registry_admins')")->fetchColumn() !== null;
         if (!$registryAdminsPresent) {
             $tasks[] = ['name' => 'first admin seeded', 'status' => 'missing', 'detail' => 'registry_admins table not yet materialized', 'fix' => null];
         } else {

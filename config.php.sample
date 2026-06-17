@@ -8,10 +8,14 @@ declare(strict_types=1);
 // editing: 0640 root:www-data (set by bin/setup-host.php).
 
 define('DB_HOST', 'your-database-hostname');
-define('DB_PORT', '3306');
+define('DB_PORT', '5432');
 define('DB_NAME', 'pluriverse');
 define('DB_USER', 'pluriverse');
 define('DB_PASS', 'your-database-password');
+// Optional: path to a CA certificate for a TLS Postgres connection. When set
+// and non-empty, the DSN appends sslmode=verify-ca + sslrootcert=<path>.
+// Leave undefined (or '') for a local/non-TLS connection.
+// define('DB_SSL_CA', '/etc/ssl/your-db-ca.crt');
 
 // Path to the Telaris documentation repo on this host. The Manifest /
 // Privacy / Terms pages render their markdown live from this tree.

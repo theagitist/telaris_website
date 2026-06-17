@@ -100,12 +100,12 @@ if ($method === 'POST'
                     $conflict = $pdo->prepare("
                         SELECT id FROM instances
                         WHERE id <> :self AND (
-                            operator_email_lookup_hash = :h
-                            OR pending_email_lookup_hash = :h
+                            operator_email_lookup_hash = decode(:h,'hex')
+                            OR pending_email_lookup_hash = decode(:h,'hex')
                         ) LIMIT 1
                     ");
                     $conflict->bindValue(':self', (int)$instance['id'], PDO::PARAM_INT);
-                    $conflict->bindValue(':h', $newLookupHash, PDO::PARAM_LOB);
+                    $conflict->bindValue(':h', bin2hex($newLookupHash));
                     $conflict->execute();
                     if ($conflict->fetchColumn() !== false) {
                         $emailChangeErrorKey = 'email_taken';
@@ -116,13 +116,13 @@ if ($method === 'POST'
                             $pdo->beginTransaction();
                             $upd = $pdo->prepare("
                                 UPDATE instances
-                                SET pending_email_enc = :enc,
-                                    pending_email_lookup_hash = :hash,
+                                SET pending_email_enc = decode(:enc,'hex'),
+                                    pending_email_lookup_hash = decode(:hash,'hex'),
                                     pending_email_requested_at = NOW()
                                 WHERE id = :id
                             ");
-                            $upd->bindValue(':enc', $pendingEnc, PDO::PARAM_LOB);
-                            $upd->bindValue(':hash', $newLookupHash, PDO::PARAM_LOB);
+                            $upd->bindValue(':enc', bin2hex($pendingEnc));
+                            $upd->bindValue(':hash', bin2hex($newLookupHash));
                             $upd->bindValue(':id', (int)$instance['id'], PDO::PARAM_INT);
                             $upd->execute();
                             $log = $pdo->prepare("
@@ -301,10 +301,10 @@ if ($method === 'POST'
                     $pdo->beginTransaction();
                     $upd = $pdo->prepare("
                         UPDATE instances
-                        SET other_contacts_enc = :enc
+                        SET other_contacts_enc = decode(:enc,'hex')
                         WHERE id = :id
                     ");
-                    $upd->bindValue(':enc', $newEnc, PDO::PARAM_LOB);
+                    $upd->bindValue(':enc', bin2hex($newEnc));
                     $upd->bindValue(':id', (int)$instance['id'], PDO::PARAM_INT);
                     $upd->execute();
                     $log = $pdo->prepare("

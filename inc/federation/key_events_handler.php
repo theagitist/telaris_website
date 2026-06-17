@@ -42,7 +42,7 @@ try {
         $stmt = $pdo->prepare("
             SELECT origin_host, event_type, occurred_at, signed_payload, created_at
             FROM key_events_signed
-            WHERE occurred_at >= FROM_UNIXTIME(:t)
+            WHERE occurred_at >= to_timestamp(:t)
             ORDER BY occurred_at ASC, id ASC
             LIMIT 1000
         ");

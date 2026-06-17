@@ -33,8 +33,11 @@ function getDB(): PDO {
     static $pdo = null;
     if ($pdo !== null) return $pdo;
 
-    $port = defined('DB_PORT') && DB_PORT !== '' ? DB_PORT : '3306';
-    $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', DB_HOST, $port, DB_NAME);
+    $port = defined('DB_PORT') && DB_PORT !== '' ? DB_PORT : '5432';
+    $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', DB_HOST, $port, DB_NAME);
+    if (defined('DB_SSL_CA') && DB_SSL_CA !== '') {
+        $dsn .= ';sslmode=verify-ca;sslrootcert=' . DB_SSL_CA;
+    }
     $pdo = new PDO(
         $dsn,
         DB_USER,
@@ -43,9 +46,12 @@ function getDB(): PDO {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET sql_mode = "STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"',
         ]
     );
+    // Postgres session defaults: UTC time zone (so TIMESTAMP reads/writes are
+    // unambiguous) and a 30s statement timeout (matching the instance app).
+    $pdo->exec("SET TIME ZONE 'UTC'");
+    $pdo->exec('SET statement_timeout = 30000');
     return $pdo;
 }
 
@@ -161,33 +167,35 @@ function db_ensure_project_info(): void {
     if ($checked) return;
     $checked = true;
     $pdo = getDB();
-    // TEXT (not VARCHAR) for chrome columns: MySQL's in-row size limit is
-    // 65535 bytes, and 26 VARCHAR(1024) at utf8mb4 (4 bytes per char) would
-    // alone exceed that. TEXT is stored off-page so it adds only a small
-    // pointer to the in-row footprint. Lead paragraphs are ~300 chars; TEXT
-    // is plenty.
+    // TEXT for chrome columns: lead paragraphs are ~300 chars and TEXT is
+    // unbounded with no in-row penalty in Postgres.
     $cols = [];
     foreach (PROJECT_INFO_COLUMNS as $c) {
-        $cols[] = "`$c` TEXT NOT NULL";
+        // NOT NULL columns added to a table with rows need a default; the
+        // ALTER path below adds with '' so existing rows stay valid.
+        $cols[] = "$c TEXT NOT NULL DEFAULT ''";
     }
     $colSql = implode(",\n            ", $cols);
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS project_info (
             locale VARCHAR(8) NOT NULL PRIMARY KEY,
             {$colSql},
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     ");
     // Reconcile any added columns.
     $existing = $pdo->query("
-        SELECT COLUMN_NAME FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_info'
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = 'project_info'
     ")->fetchAll(PDO::FETCH_COLUMN);
     foreach (PROJECT_INFO_COLUMNS as $c) {
         if (!in_array($c, $existing, true)) {
-            $pdo->exec("ALTER TABLE project_info ADD COLUMN `$c` TEXT NOT NULL");
+            $pdo->exec("ALTER TABLE project_info ADD COLUMN $c TEXT NOT NULL DEFAULT ''");
         }
     }
+    // BEFORE UPDATE trigger replaces MySQL's ON UPDATE CURRENT_TIMESTAMP.
+    db_ensure_pg_runtime();
+    db_pg_ensure_updated_at_trigger('project_info');
     db_seed_project_info();
 }
 
@@ -201,8 +209,10 @@ function db_seed_project_info(): void {
     $defaults = pluriverse_project_info_defaults();
     $columns = array_merge(['locale'], PROJECT_INFO_COLUMNS);
     $placeholders = ':' . implode(', :', $columns);
-    $colList = '`' . implode('`, `', $columns) . '`';
-    $stmt = $pdo->prepare("INSERT IGNORE INTO project_info ({$colList}) VALUES ({$placeholders})");
+    $colList = implode(', ', $columns);
+    // ON CONFLICT (locale) DO NOTHING: idempotent seed; existing rows
+    // (operator-customized) are never overwritten.
+    $stmt = $pdo->prepare("INSERT INTO project_info ({$colList}) VALUES ({$placeholders}) ON CONFLICT (locale) DO NOTHING");
     foreach (PLURIVERSE_LOCALES as $locale) {
         if (!isset($defaults[$locale])) continue;
         $row = ['locale' => $locale];
@@ -222,7 +232,7 @@ function db_seed_project_info(): void {
     foreach (PROJECT_INFO_COLUMNS as $c) {
         // Whitelisted from the const; safe to inline as an identifier.
         $upd = $pdo->prepare(
-            "UPDATE project_info SET `$c` = :v WHERE locale = :l AND (`$c` IS NULL OR `$c` = '')"
+            "UPDATE project_info SET $c = :v WHERE locale = :l AND ($c IS NULL OR $c = '')"
         );
         foreach (PLURIVERSE_LOCALES as $locale) {
             $val = (string)($defaults[$locale][$c] ?? '');
@@ -252,17 +262,18 @@ function db_ensure_content_cache(): void {
     static $checked = false;
     if ($checked) return;
     $checked = true;
-    getDB()->exec("
+    $pdo = getDB();
+    $pdo->exec("
         CREATE TABLE IF NOT EXISTS content_cache (
             slug VARCHAR(64) NOT NULL,
             locale VARCHAR(8) NOT NULL,
             source_mtime BIGINT NOT NULL,
-            rendered_html MEDIUMTEXT NOT NULL,
+            rendered_html TEXT NOT NULL,
             rendered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (slug, locale),
-            INDEX idx_rendered_at (rendered_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            PRIMARY KEY (slug, locale)
+        )
     ");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_rendered_at ON content_cache (rendered_at)");
 }
 
 function db_content_cache_get(string $slug, string $locale, int $sourceMtime): ?string {
@@ -282,9 +293,61 @@ function db_content_cache_put(string $slug, string $locale, int $sourceMtime, st
     $stmt = getDB()->prepare("
         INSERT INTO content_cache (slug, locale, source_mtime, rendered_html)
         VALUES (:s, :l, :m, :h)
-        ON DUPLICATE KEY UPDATE source_mtime = VALUES(source_mtime), rendered_html = VALUES(rendered_html), rendered_at = CURRENT_TIMESTAMP
+        ON CONFLICT (slug, locale) DO UPDATE SET source_mtime = EXCLUDED.source_mtime, rendered_html = EXCLUDED.rendered_html, rendered_at = CURRENT_TIMESTAMP
     ");
     $stmt->execute([':s' => $slug, ':l' => $locale, ':m' => $sourceMtime, ':h' => $html]);
+}
+
+// ---------------------------------------------------------------------------
+// Postgres runtime prerequisites.
+//
+// MySQL gave us ON UPDATE CURRENT_TIMESTAMP for free; Postgres has no such
+// column clause, so every table with an updated_at column gets a BEFORE UPDATE
+// trigger that stamps NOW() into it. The trigger function is shared.
+//
+// Postgres also does not auto-index foreign-key columns the way MySQL's InnoDB
+// effectively did; the per-table ensure helpers add CREATE INDEX IF NOT EXISTS
+// for FK columns that aren't already a leading index column.
+// ---------------------------------------------------------------------------
+
+/**
+ * Create the shared set_updated_at() trigger function. Idempotent via CREATE
+ * OR REPLACE. The $$-quoted body must run as its own exec() (never through a
+ * ";"-splitting layer).
+ */
+function db_ensure_pg_runtime(): void {
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    getDB()->exec(
+        "CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$\n"
+        . "BEGIN\n"
+        . "    NEW.updated_at := NOW();\n"
+        . "    RETURN NEW;\n"
+        . "END;\n"
+        . "$$ LANGUAGE plpgsql"
+    );
+}
+
+/**
+ * Attach a BEFORE UPDATE trigger to $table that stamps updated_at = NOW().
+ * Drops-then-creates so it stays idempotent (Postgres has no CREATE TRIGGER
+ * IF NOT EXISTS before PG 14, and DROP ... IF EXISTS is universally safe).
+ * The caller must have run db_ensure_pg_runtime() first.
+ */
+function db_pg_ensure_updated_at_trigger(string $table): void {
+    // $table is always a hard-coded literal from these source files; never
+    // user input. Guard anyway.
+    if (!preg_match('/^[a-z_][a-z0-9_]*$/', $table)) {
+        throw new InvalidArgumentException('db_pg_ensure_updated_at_trigger: bad table name');
+    }
+    $trg = 'trg_' . $table . '_updated_at';
+    $pdo = getDB();
+    $pdo->exec("DROP TRIGGER IF EXISTS {$trg} ON {$table}");
+    $pdo->exec(
+        "CREATE TRIGGER {$trg} BEFORE UPDATE ON {$table} "
+        . "FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    );
 }
 
 require_once __DIR__ . '/db_defaults.php';

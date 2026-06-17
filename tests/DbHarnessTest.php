@@ -18,14 +18,14 @@ final class DbHarnessTest extends TestCase
 
     public function testConnectedToIsolatedTestDatabase(): void
     {
-        $db = getDB()->query('SELECT DATABASE()')->fetchColumn();
+        $db = getDB()->query('SELECT current_database()')->fetchColumn();
         $this->assertSame('pluriverse_test', $db, 'tests must never touch the live pluriverse DB');
     }
 
     public function testEnsureBuildsSchemaInTestDb(): void
     {
         db_ensure_anomaly_log_table();
-        $exists = getDB()->query("SHOW TABLES LIKE 'anomaly_log'")->fetchColumn();
+        $exists = getDB()->query("SELECT to_regclass('anomaly_log')")->fetchColumn();
         $this->assertSame('anomaly_log', $exists, 'db_ensure_* materializes tables in the test DB');
     }
 
@@ -33,7 +33,7 @@ final class DbHarnessTest extends TestCase
     {
         $pdo = getDB();
         $pdo->exec('CREATE TABLE IF NOT EXISTS _harness_probe (id INT PRIMARY KEY, note VARCHAR(32))');
-        $pdo->exec("INSERT INTO _harness_probe (id, note) VALUES (1, 'ok') ON DUPLICATE KEY UPDATE note='ok'");
+        $pdo->exec("INSERT INTO _harness_probe (id, note) VALUES (1, 'ok') ON CONFLICT (id) DO UPDATE SET note = 'ok'");
         $this->assertSame('ok', $pdo->query('SELECT note FROM _harness_probe WHERE id = 1')->fetchColumn());
         $pdo->exec('DROP TABLE _harness_probe');
     }

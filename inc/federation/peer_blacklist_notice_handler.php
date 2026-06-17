@@ -116,7 +116,10 @@ if (function_exists('apcu_inc')) {
 try {
     db_ensure_instances_table();
     $stmt = getDB()->prepare("
-        SELECT id, hostname, public_key, previous_public_key, admission_status
+        SELECT id, hostname,
+               encode(public_key,'hex') AS public_key,
+               encode(previous_public_key,'hex') AS previous_public_key,
+               admission_status
         FROM instances WHERE hostname = :h LIMIT 1
     ");
     $stmt->execute([':h' => $signerHostname]);
@@ -134,8 +137,10 @@ if ((string)$signerRow['admission_status'] !== 'published') {
     federation_router_problem(403, 'signer_not_published', "Instance {$signerHostname} is not currently published; only published peers may file notices.", '/api/pluriverse/peer-blacklist-notice');
     return;
 }
-$signerPubKey = (string)$signerRow['public_key'];
-$signerPrevPubKey = $signerRow['previous_public_key'] !== null ? (string)$signerRow['previous_public_key'] : null;
+// public_key / previous_public_key arrive hex-encoded (BYTEA); decode to raw.
+$signerPubKey = hex2bin((string)$signerRow['public_key']);
+$signerPrevPubKey = ($signerRow['previous_public_key'] !== null && $signerRow['previous_public_key'] !== '')
+    ? hex2bin((string)$signerRow['previous_public_key']) : null;
 
 // Fingerprint must match the current or (rotation grace) previous key.
 $currentFp = federation_compute_fingerprint($signerPubKey);

@@ -35,7 +35,8 @@ try {
     $stmt = $pdo->query("
         SELECT
             hostname, url, label,
-            public_key, previous_public_key,
+            encode(public_key,'hex') AS public_key,
+            encode(previous_public_key,'hex') AS previous_public_key,
             key_rotated_at, rotation_reason,
             editorial_framing, publishable_slugs, bridges,
             locale, is_highlighted,
@@ -54,9 +55,11 @@ try {
 $maxUpdated = 0;
 $peers = [];
 foreach ($rows as $r) {
-    $publicKey = (string)$r['public_key'];
+    // public_key / previous_public_key arrive hex-encoded (BYTEA); decode to
+    // raw bytes before base64url/fingerprint.
+    $publicKey = hex2bin((string)$r['public_key']);
     $previous = $r['previous_public_key'] !== null && $r['previous_public_key'] !== ''
-        ? (string)$r['previous_public_key']
+        ? hex2bin((string)$r['previous_public_key'])
         : null;
     $peers[] = [
         'hostname' => (string)$r['hostname'],

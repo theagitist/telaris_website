@@ -162,24 +162,27 @@ abstract class PluriverseHandlerTestCase extends TestCase
         $pdo = getDB();
         $pdo->prepare('DELETE FROM instances WHERE hostname = :h OR label = :l')
             ->execute([':h' => $hostname, ':l' => $label]);
+        // BYTEA columns travel as hex (decode at the DB); RETURNING id replaces
+        // lastInsertId() under Postgres.
         $stmt = $pdo->prepare("
             INSERT INTO instances
                 (hostname, url, pluriverse_endpoint, public_key, operator_email_enc,
                  operator_email_lookup_hash, label, locale, admission_status)
             VALUES
-                (:h, :u, :ep, :pk, :enc, :lh, :lbl, 'en', :st)
+                (:h, :u, :ep, decode(:pk,'hex'), decode(:enc,'hex'), decode(:lh,'hex'), :lbl, 'en', :st)
+            RETURNING id
         ");
         $stmt->execute([
             ':h'   => $hostname,
             ':u'   => $url !== '' ? $url : 'https://' . $hostname . '/',
             ':ep'  => 'https://' . $hostname . '/api/pluriverse',
-            ':pk'  => $publicKey,
-            ':enc' => random_bytes(48),
-            ':lh'  => random_bytes(32),
+            ':pk'  => bin2hex($publicKey),
+            ':enc' => bin2hex(random_bytes(48)),
+            ':lh'  => bin2hex(random_bytes(32)),
             ':lbl' => $label,
             ':st'  => $status,
         ]);
-        return (int)$pdo->lastInsertId();
+        return (int)$stmt->fetchColumn();
     }
 
     /** Build a JWS Compact Serialization with the given header/payload (NOT verifiable; relay only peeks). */

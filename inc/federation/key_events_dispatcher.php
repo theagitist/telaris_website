@@ -288,7 +288,7 @@ function key_events_dispatcher_queue_snapshot(): array {
     ")->fetchColumn();
 
     $headStmt = $pdo->query("
-        SELECT TIMESTAMPDIFF(SECOND, next_attempt_at, NOW()) AS wait
+        SELECT EXTRACT(EPOCH FROM (NOW() - next_attempt_at))::bigint AS wait
         FROM key_event_push_attempts
         WHERE delivery_status IN ('pending', 'failed')
           AND next_attempt_at IS NOT NULL AND next_attempt_at <= NOW()

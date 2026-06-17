@@ -129,7 +129,10 @@ if (!preg_match('/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/', $signerHostname) || strlen($s
 try {
     db_ensure_instances_table();
     $stmt = getDB()->prepare("
-        SELECT id, hostname, public_key, previous_public_key, label, admission_status
+        SELECT id, hostname,
+               encode(public_key,'hex') AS public_key,
+               encode(previous_public_key,'hex') AS previous_public_key,
+               label, admission_status
         FROM instances WHERE hostname = :h LIMIT 1
     ");
     $stmt->execute([':h' => $signerHostname]);
@@ -157,8 +160,10 @@ if ((string)$signerRow['admission_status'] !== 'published') {
     );
     return;
 }
-$signerPubKey = (string)$signerRow['public_key'];
-$signerPrevPubKey = $signerRow['previous_public_key'] !== null ? (string)$signerRow['previous_public_key'] : null;
+// public_key / previous_public_key arrive hex-encoded (BYTEA); decode to raw.
+$signerPubKey = hex2bin((string)$signerRow['public_key']);
+$signerPrevPubKey = ($signerRow['previous_public_key'] !== null && $signerRow['previous_public_key'] !== '')
+    ? hex2bin((string)$signerRow['previous_public_key']) : null;
 
 // Fingerprint check: keyid fingerprint must match current OR (if recently
 // rotated) previous public key. Defends against a stale fingerprint claim
@@ -285,7 +290,10 @@ $messageType = isset($peek['payload']['message_type']) && is_string($peek['paylo
 // -----------------------------------------------------------------------
 try {
     $stmt = getDB()->prepare("
-        SELECT id, hostname, url, operator_email_enc, operator_email_lookup_hash, label, locale, admission_status
+        SELECT id, hostname, url,
+               encode(operator_email_enc,'hex') AS operator_email_enc,
+               encode(operator_email_lookup_hash,'hex') AS operator_email_lookup_hash,
+               label, locale, admission_status
         FROM instances WHERE hostname = :h LIMIT 1
     ");
     $stmt->execute([':h' => $recipientHostname]);
@@ -405,11 +413,12 @@ if (!($downstreamStatus >= 200 && $downstreamStatus < 300)) {
 // No body excerpt, no thread_id, no operator-of-A address. The message
 // itself rides the signed channel; B's admin reads it there.
 // -----------------------------------------------------------------------
-$emailLookupHash = (string)$recipientRow['operator_email_lookup_hash'];
+// operator_email_lookup_hash / operator_email_enc arrive hex-encoded (BYTEA).
+$emailLookupHash = hex2bin((string)$recipientRow['operator_email_lookup_hash']);
 $recipientEmail = null;
 try {
     $rowContext = federation_row_context_for_instance($emailLookupHash);
-    $recipientEmail = federation_pii_decrypt((string)$recipientRow['operator_email_enc'], $rowContext, 'email');
+    $recipientEmail = federation_pii_decrypt(hex2bin((string)$recipientRow['operator_email_enc']), $rowContext, 'email');
 } catch (Throwable $e) {
     error_log("relay: operator email decrypt failed for instance {$recipientRow['id']}: " . $e->getMessage());
 }

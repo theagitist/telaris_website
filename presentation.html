@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A short conference presentation on Telaris, a decolonial knowledge archive: a relational, non-hierarchical, peer-to-peer cosmos of galaxies and wormholes woven by meaning. Graduate project at the UBC Institute for Gender, Race, Sexuality and Social Justice.">
+    <meta name="keywords" content="Telaris presentation, conference deck, decolonial archive, knowledge graph, rhizome, pluriverse, P2P federation, data sovereignty, UBC GRSJ, graduate project">
+    <meta name="author" content="Adri M. / UBC GRSJ">
+    <meta name="robots" content="noindex, nofollow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.telaris.ca/presentation.html">
+    <meta property="og:title" content="Telaris | Presentation">
+    <meta property="og:description" content="A short conference deck on a decolonial knowledge archive. Fifteen slides, observational, designed for panels and roundtables.">
+    <meta property="og:site_name" content="Telaris">
+
+    <link rel="canonical" href="https://www.telaris.ca/presentation.html">
+
+    <title>Telaris | Presentation</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "PresentationDigitalDocument",
+            "headline": "Telaris: conference presentation",
+            "description": "A short conference presentation on Telaris, a decolonial knowledge archive: relational, non-hierarchical, peer-to-peer, woven by meaning.",
+            "url": "https://www.telaris.ca/presentation.html",
+            "author": {
+                "@type": "Person",
+                "name": "Adri M."
+            },
+            "publisher": {
+                "@type": "Person",
+                "name": "Adri M.",
+                "affiliation": {
+                    "@type": "EducationalOrganization",
+                    "name": "UBC Institute for Gender, Race, Sexuality and Social Justice",
+                    "url": "https://grsj.arts.ubc.ca/"
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ===== Telaris brand tokens (from www.telaris.ca/assets/styles.css) ===== */
+        :root {
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --accent: #00ffcc;          /* Wormhole mint: signal only, never body */
+            --bg: #000000;              /* Void */
+            --fg: #e8eef0;              /* Aurora white */
+            --dim: rgba(232, 238, 240, 0.6);    /* Aurora 60 */
+            --dimmer: rgba(232, 238, 240, 0.4);
+            --ghost: rgba(232, 238, 240, 0.28); /* Aurora 28, footer */
+            --rule: rgba(255, 255, 255, 0.12);
+            --rule-soft: rgba(255, 255, 255, 0.08);
+            --slide-pad-y: clamp(2.5rem, 6vh, 5rem);
+            --slide-pad-x: clamp(1.5rem, 6vw, 5rem);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+        body.pitch {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: var(--font-mono);
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        /* ===== Ambient node-network (the brand's live identity) ===== */
+        #bg {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+        }
+        /* Scrim + vignette keep the animation as texture behind readable type. */
+        .bg-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.72) 100%);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #bg { display: none; }
+            .bg-scrim { background: var(--bg); }
+        }
+
+        .deck {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            padding: var(--slide-pad-y) var(--slide-pad-x);
+            opacity: 0;
+            transition: opacity 220ms ease;
+        }
+        .slide.active { display: flex; opacity: 1; }
+
+        .slide-inner {
+            width: 100%;
+            max-width: 72rem;
+            margin: 0 auto;
+        }
+
+        /* ===== Chapter spine: a small constellation mark + uppercase label ===== */
+        .slide-chapter {
+            display: flex;
+            align-items: center;
+            gap: 0.95rem;
+            margin-bottom: 1.35rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--rule);
+        }
+        .slide-chapter .mark {
+            width: 2.75rem;
+            height: 2rem;
+            flex-shrink: 0;
+            opacity: 0.95;
+        }
+        .slide-chapter .mark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+        .slide-chapter .chapter-title {
+            font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+            line-height: 1.1;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.28em;
+            font-weight: 400;
+        }
+
+        /* ===== Cover ===== */
+        .slide h1.cover {
+            font-size: clamp(2.75rem, 11vw, 6.5rem);
+            font-weight: 400;
+            color: var(--fg);
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            line-height: 1;
+            margin: 0.4rem 0 0;
+            background-image: linear-gradient(rgba(0, 0, 0, 0.18) 50%, rgba(0, 0, 0, 0) 50%);
+            background-size: 100% 4px;
+            text-shadow: 0 0 24px rgba(0, 255, 204, 0.18);
+        }
+
+        .slide h2 {
+            font-size: clamp(1.4rem, 3vw, 2.6rem);
+            line-height: 1.25;
+            font-weight: 400;
+            color: var(--fg);
+            letter-spacing: -0.005em;
+            margin: 0 0 1.25rem;
+        }
+
+        .slide p, .slide li {
+            font-size: clamp(0.95rem, 1.35vw, 1.2rem);
+            line-height: 1.7;
+            color: var(--fg);
+            font-weight: 400;
+        }
+        .slide p + p { margin-top: 0.85rem; }
+        .slide .muted { color: var(--dim); }
+        .slide a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+        .slide a:hover { color: var(--fg); }
+
+        /* Eyebrow accent line under a column body */
+        .slide .eyebrow {
+            margin-top: 0.85rem;
+            font-size: clamp(0.7rem, 1vw, 0.82rem);
+            color: var(--accent);
+            font-weight: 400;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            line-height: 1.4;
+        }
+        .slide .eyebrow .q { color: var(--dim); letter-spacing: 0; text-transform: none; }
+
+        .slide .footer-note {
+            margin-top: 1.25rem;
+            font-size: clamp(0.75rem, 1vw, 0.85rem);
+            color: var(--dim);
+            letter-spacing: 0.04em;
+        }
+
+        /* Pull quote: mint, no italic (mono italic reads glitchy by brand) */
+        .pullquote {
+            color: var(--accent);
+            font-size: clamp(1.25rem, 2.2vw, 2rem);
+            line-height: 1.45;
+            letter-spacing: 0.01em;
+            margin-top: 1.5rem;
+            max-width: 50rem;
+            padding-left: 1.25rem;
+            border-left: 2px solid rgba(0, 255, 204, 0.4);
+        }
+
+        .principles { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+        .principles li {
+            padding: 0.6rem 0;
+            border-top: 1px solid var(--rule);
+        }
+        .principles li:last-child { border-bottom: 1px solid var(--rule); }
+        .principles strong { color: var(--fg); font-weight: 500; }
+
+        .columns-3, .columns-2 {
+            display: grid;
+            gap: clamp(1rem, 2.5vw, 2.5rem);
+            margin-top: 1.5rem;
+        }
+        .columns-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .columns-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        @media (max-width: 760px) {
+            .columns-3, .columns-2 { grid-template-columns: 1fr; }
+        }
+        .col h3 {
+            color: var(--accent);
+            font-size: clamp(0.95rem, 1.3vw, 1.15rem);
+            font-weight: 500;
+            line-height: 1.25;
+            margin: 0 0 0.55rem;
+            letter-spacing: 0.02em;
+        }
+        .col p { font-size: clamp(0.9rem, 1.2vw, 1.1rem); color: var(--dim); }
+
+        /* Slide 2 contrast diagrams: a rigid folder tree vs a node graph */
+        .diagram {
+            margin: 1.1rem 0 0;
+            border-top: 1px solid var(--rule-soft);
+            padding-top: 0.9rem;
+        }
+        .diagram svg {
+            display: block;
+            width: 100%;
+            height: clamp(6rem, 12vh, 8.5rem);
+        }
+        .diagram figcaption {
+            margin-top: 0.5rem;
+            font-size: 0.6rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--ghost);
+            text-align: center;
+        }
+
+        /* Inline variant (slide 2): the diagram floats so the text wraps around it */
+        .dual-diagram .col::after { content: ""; display: block; clear: both; }
+        .dual-diagram .col .diagram {
+            float: left;
+            width: clamp(5rem, 11vw, 7.5rem);
+            margin: 0.2rem 1.1rem 0.5rem 0;
+            border-top: 0;
+            padding-top: 0;
+        }
+        .dual-diagram .col .diagram svg { height: auto; }
+        @media (max-width: 760px) {
+            .dual-diagram .col .diagram { width: 5rem; }
+        }
+
+        /* Telaris view screenshots (image slides) */
+        .shot-2up {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(1rem, 2.5vw, 2rem);
+            margin-top: 1.35rem;
+        }
+        @media (max-width: 760px) { .shot-2up { grid-template-columns: 1fr; } }
+        .shot-3up {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: clamp(0.75rem, 2vw, 1.5rem);
+            margin-top: 1.35rem;
+        }
+        @media (max-width: 760px) { .shot-3up { grid-template-columns: 1fr; } }
+        .shot { margin: 0; }
+        .shot img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 0.5rem;
+            border: 1px solid var(--rule);
+            box-shadow: 0 0 50px -12px rgba(0, 255, 204, 0.28);
+            background: #000;
+        }
+        .shot figcaption {
+            margin-top: 0.65rem;
+            font-size: clamp(0.65rem, 0.95vw, 0.8rem);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--dim);
+            text-align: center;
+        }
+        .shot-hero {
+            margin: 1.35rem auto 0;
+            max-width: clamp(28rem, 78vw, 52rem);
+        }
+
+        /* Wormhole/keyword chips: the in-app pastel-on-Void content colours */
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 0.6rem;
+            margin: 1.35rem 0 0.5rem;
+        }
+        .chip {
+            font-size: clamp(0.78rem, 1vw, 0.9rem);
+            letter-spacing: 0.04em;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            line-height: 1.3;
+            border: 1px solid currentColor;
+        }
+
+        /* Timeline / instances grid */
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: clamp(1rem, 2.5vw, 2.5rem);
+            margin-top: 1.5rem;
+        }
+        .timeline.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        @media (max-width: 960px) { .timeline.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 760px) {
+            .timeline, .timeline.four { grid-template-columns: 1fr; }
+        }
+        .timeline .step {
+            border-top: 2px solid rgba(0, 255, 204, 0.5);
+            padding-top: 0.75rem;
+        }
+        .timeline .step .when {
+            color: var(--accent);
+            font-size: clamp(0.78rem, 1vw, 0.9rem);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            line-height: 1.2;
+            margin-bottom: 0.45rem;
+        }
+        .timeline .step p { font-size: clamp(0.9rem, 1.2vw, 1.1rem); color: var(--dim); }
+        .timeline .step strong { color: var(--fg); font-weight: 500; }
+
+        .principles-2col {
+            list-style: none;
+            padding: 0;
+            margin: 0.85rem 0 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0 clamp(1.5rem, 3vw, 2.5rem);
+        }
+        @media (max-width: 760px) { .principles-2col { grid-template-columns: 1fr; } }
+        .principles-2col li {
+            position: relative;
+            border-top: 1px solid var(--rule);
+            padding: 0.65rem 0 0.65rem 1.4rem;
+            font-size: clamp(0.9rem, 1.15vw, 1.05rem);
+            color: var(--dim);
+        }
+        .principles-2col li strong { color: var(--fg); font-weight: 500; }
+        .principles-2col li::before {
+            content: "";
+            position: absolute;
+            left: 0.15rem;
+            top: 1.15rem;
+            width: 0.45rem;
+            height: 0.45rem;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        /* ===== Cover slide layout ===== */
+        .slide.cover-slide .slide-inner {
+            max-width: 60rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .cover-meta {
+            font-size: 0.72rem;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: var(--accent);
+            opacity: 0.75;
+            margin-bottom: 1.25rem;
+        }
+        .cover-sub {
+            margin: 0.75rem 0 0;
+            font-size: clamp(1rem, 1.6vw, 1.25rem);
+            letter-spacing: 0.32em;
+            color: var(--dim);
+            text-transform: lowercase;
+        }
+        .cover .hud-line {
+            height: 1px;
+            width: min(560px, 80vw);
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            margin: 2rem 0 1.75rem;
+        }
+        .cover-desc {
+            max-width: 40rem;
+            font-size: clamp(0.92rem, 1.2vw, 1.05rem);
+            line-height: 1.7;
+            color: var(--dim);
+        }
+        .cover-foot {
+            margin-top: 2.5rem;
+            font-size: 0.72rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: var(--ghost);
+        }
+
+        /* ===== Closing ===== */
+        .thanks-block { text-align: center; max-width: 44rem; margin: 0 auto; }
+        .thanks-block .thanks-mark {
+            font-size: clamp(2.25rem, 7vw, 4.5rem);
+            font-weight: 400;
+            color: var(--fg);
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            line-height: 1;
+            margin: 0 0 0.6rem;
+            background-image: linear-gradient(rgba(0,0,0,0.18) 50%, rgba(0,0,0,0) 50%);
+            background-size: 100% 4px;
+            text-shadow: 0 0 24px rgba(0, 255, 204, 0.18);
+        }
+        .thanks-block .thanks-tag {
+            font-size: clamp(1rem, 1.6vw, 1.25rem);
+            letter-spacing: 0.32em;
+            color: var(--dim);
+            text-transform: lowercase;
+            margin: 0 0 2rem;
+        }
+        .qr-card { margin: 1.5rem auto 0; width: clamp(8rem, 12vw, 10rem); }
+        .qr-card img {
+            display: block; width: 100%; height: auto;
+            border-radius: 0.4rem;
+            background: #fff; padding: 0.5rem;
+            box-shadow: 0 0 50px -10px rgba(0, 255, 204, 0.3);
+        }
+        .qr-card figcaption {
+            font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--ghost); text-align: center; margin-top: 0.6rem;
+        }
+        .thanks-block .thanks-links {
+            font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--ghost); margin-top: 1.75rem;
+        }
+        .thanks-block .thanks-links a { color: var(--accent); text-decoration: none; }
+        .thanks-block .thanks-links a:hover { color: var(--fg); }
+
+        /* ===== Controls / chrome ===== */
+        .deck-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.95rem 1.35rem;
+            font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--ghost);
+            z-index: 60; pointer-events: none;
+        }
+        .deck-bar a { color: var(--accent); text-decoration: none; pointer-events: auto; }
+        .deck-bar a:hover { color: var(--fg); }
+        .deck-bar .counter { font-variant-numeric: tabular-nums; }
+
+        .deck-hint {
+            position: fixed; bottom: 0.85rem; left: 0; right: 0; text-align: center;
+            font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--ghost); z-index: 60; pointer-events: none;
+            transition: opacity 400ms ease;
+        }
+        .deck-hint.faded { opacity: 0; }
+        .deck-hint kbd {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 0.05rem 0.35rem; border-radius: 0.2rem;
+            font-family: inherit; font-size: inherit;
+        }
+
+        .nav-zone {
+            position: fixed; top: 0; bottom: 0; width: 18%; z-index: 50; cursor: pointer;
+        }
+        .nav-zone.prev { left: 0; }
+        .nav-zone.next { right: 0; }
+        .nav-zone:hover { background: linear-gradient(to right, rgba(0,255,204,0.04), transparent); }
+        .nav-zone.next:hover { background: linear-gradient(to left, rgba(0,255,204,0.04), transparent); }
+
+        /* ===== Speaker notes ===== */
+        .speaker-notes {
+            display: none; position: fixed; left: 0; right: 0; bottom: 0;
+            max-height: 42vh; overflow-y: auto;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 255, 204, 0.4);
+            padding: 1rem 2rem 1.5rem;
+            color: var(--fg);
+            font-size: 1rem; line-height: 1.6; z-index: 70;
+        }
+        body.show-notes .speaker-notes.active { display: block; }
+        .speaker-notes h4 {
+            color: var(--accent); font-size: 0.75rem; letter-spacing: 0.2em;
+            text-transform: uppercase; font-weight: 400; line-height: 1.2; margin: 0 0 0.7rem;
+        }
+        .speaker-notes ul { list-style: none; padding-left: 0; margin: 0; }
+        .speaker-notes ul li {
+            margin-top: 0.55rem; line-height: 1.6; color: var(--dim);
+            padding-left: 1.1rem; position: relative;
+        }
+        .speaker-notes ul li::before {
+            content: "+"; position: absolute; left: 0; color: var(--accent);
+        }
+        .speaker-notes strong { color: var(--fg); font-weight: 500; }
+
+        /* ===== Overview overlay (press O) ===== */
+        .overview {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.94);
+            backdrop-filter: blur(12px);
+            z-index: 80; overflow-y: auto;
+            padding: clamp(2.5rem, 6vh, 4.5rem) clamp(1.5rem, 5vw, 4rem) clamp(2rem, 5vh, 3rem);
+            display: none;
+        }
+        body.show-overview .overview { display: block; }
+        body.show-overview .speaker-notes, body.show-overview .deck-hint { display: none !important; }
+        .overview-title {
+            color: var(--accent); font-size: clamp(0.9rem, 2vw, 1.25rem);
+            letter-spacing: 0.32em; text-transform: uppercase; text-align: center;
+            margin: 0 0 1.75rem; font-weight: 400;
+        }
+        .overview-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+            gap: 1rem; list-style: none; padding: 0; margin: 0 auto; max-width: 78rem;
+        }
+        .overview-grid li { margin: 0; padding: 0; border: 0; }
+        .overview-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--rule-soft);
+            border-radius: 0.5rem; padding: 1rem 1.1rem; text-align: left; cursor: pointer;
+            transition: background 180ms ease, border-color 180ms ease;
+            display: flex; flex-direction: column; gap: 0.5rem;
+            color: inherit; font: inherit; width: 100%;
+            aspect-ratio: 4 / 3; justify-content: space-between;
+        }
+        .overview-card:hover, .overview-card:focus-visible {
+            background: rgba(0, 255, 204, 0.06);
+            border-color: rgba(0, 255, 204, 0.4); outline: none;
+        }
+        .overview-card.current {
+            border-color: rgba(0, 255, 204, 0.75); background: rgba(0, 255, 204, 0.05);
+        }
+        .overview-card .num {
+            font-size: 0.6rem; letter-spacing: 0.22em; color: var(--ghost);
+            text-transform: uppercase; font-variant-numeric: tabular-nums;
+        }
+        .overview-card .ch {
+            color: var(--accent); font-size: clamp(0.78rem, 1vw, 0.9rem);
+            letter-spacing: 0.18em; text-transform: uppercase; line-height: 1.2;
+        }
+        .overview-card .t {
+            font-size: clamp(0.82rem, 1vw, 0.92rem); color: var(--dim); line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .overview-close {
+            position: absolute; top: 1rem; right: 1.25rem;
+            background: transparent; border: 0; color: var(--ghost);
+            font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
+            cursor: pointer; padding: 0.4rem 0.6rem; font-family: inherit;
+        }
+        .overview-close:hover { color: var(--accent); }
+
+        /* ===== Presenter mode (?presenter=1) ===== */
+        .presenter-view {
+            display: none; position: fixed; inset: 0; flex-direction: column;
+            padding: 1.25rem 1.75rem; background: var(--bg); color: var(--fg); z-index: 100;
+        }
+        body.presenter-mode { overflow: auto; }
+        body.presenter-mode .presenter-view { display: flex; }
+        body.presenter-mode .deck, body.presenter-mode #bg, body.presenter-mode .bg-scrim,
+        body.presenter-mode .deck-bar, body.presenter-mode .deck-hint,
+        body.presenter-mode .nav-zone, body.presenter-mode .speaker-notes,
+        body.presenter-mode .overview { display: none !important; }
+        .presenter-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 0.75rem; border-bottom: 1px solid var(--rule);
+            font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ghost);
+        }
+        .presenter-bar .counter { font-variant-numeric: tabular-nums; }
+        .presenter-timer {
+            font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.95rem;
+            letter-spacing: 0.05em; text-transform: none;
+        }
+        .presenter-main {
+            flex: 1; display: grid; grid-template-rows: minmax(0, 1fr) auto;
+            gap: 1rem; padding-top: 1rem; min-height: 0;
+        }
+        .presenter-now { overflow-y: auto; padding-right: 0.5rem; }
+        .presenter-eyebrow {
+            font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--accent); margin: 0 0 0.5rem;
+        }
+        .presenter-title-row {
+            display: flex; align-items: baseline; gap: 0.85rem; flex-wrap: wrap; margin-bottom: 1rem;
+        }
+        .presenter-title-row .ch {
+            color: var(--accent); font-size: clamp(0.8rem, 1.4vw, 1rem);
+            letter-spacing: 0.2em; text-transform: uppercase;
+        }
+        .presenter-title-row .t {
+            font-size: clamp(1rem, 1.6vw, 1.3rem); line-height: 1.3; color: var(--fg);
+        }
+        .presenter-notes { font-size: clamp(1.05rem, 1.35vw, 1.25rem); line-height: 1.6; color: var(--fg); }
+        .presenter-notes h4 {
+            color: var(--accent); font-size: 0.75rem; letter-spacing: 0.2em;
+            text-transform: uppercase; font-weight: 400; line-height: 1.2; margin: 0 0 0.85rem;
+        }
+        .presenter-notes ul { list-style: none; padding-left: 0; margin: 0; }
+        .presenter-notes li {
+            margin-top: 0.55rem; line-height: 1.6; color: var(--dim);
+            padding-left: 1.2rem; position: relative;
+        }
+        .presenter-notes li::before { content: "+"; position: absolute; left: 0; color: var(--accent); }
+        .presenter-notes strong { color: var(--fg); font-weight: 500; }
+        .presenter-next { border-top: 1px solid var(--rule); padding-top: 0.85rem; }
+        .presenter-foot {
+            padding-top: 0.75rem; border-top: 1px solid var(--rule);
+            font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
+            color: var(--ghost); text-align: center;
+        }
+        .presenter-foot kbd {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+            padding: 0.05rem 0.35rem; border-radius: 0.2rem; font-family: inherit; font-size: inherit;
+        }
+        .presenter-popup-warning {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #0a0a0c; border: 1px solid var(--accent); color: var(--fg);
+            padding: 1.25rem 1.75rem; border-radius: 0.5rem; max-width: 30rem; text-align: center;
+            font-size: 0.95rem; z-index: 200; box-shadow: 0 0 50px -10px rgba(0, 255, 204, 0.3);
+        }
+
+        /* ===== Print to PDF ===== */
+        @media print {
+            @page { size: 16in 9in; margin: 0; }
+            html, body {
+                background: #000 !important;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+                overflow: visible !important; height: auto !important;
+            }
+            body.pitch { position: static; overflow: visible; }
+            #bg, .bg-scrim { display: none !important; }
+            .deck { position: static !important; display: block; }
+            .slide {
+                position: relative !important; inset: auto !important; display: flex !important;
+                opacity: 1 !important; width: 16in; height: 9in;
+                page-break-after: always; break-after: page;
+            }
+            .slide:last-child { page-break-after: auto; }
+            .deck-bar, .deck-hint, .nav-zone, .speaker-notes { display: none !important; }
+        }
+    </style>
+</head>
+<body class="pitch">
+    <a href="#deck" style="position:absolute;left:-9999px;top:0;">Skip to deck</a>
+
+    <canvas id="bg" aria-hidden="true"></canvas>
+    <div class="bg-scrim" aria-hidden="true"></div>
+
+    <header class="deck-bar" role="banner">
+        <a href="/" aria-label="Back to Telaris">&larr; TELARIS</a>
+        <span class="counter" aria-live="polite"><span id="slide-current">01</span> / <span id="slide-total">15</span></span>
+    </header>
+
+    <div class="nav-zone prev" id="zone-prev" role="button" aria-label="Previous slide" tabindex="-1"></div>
+    <div class="nav-zone next" id="zone-next" role="button" aria-label="Next slide" tabindex="-1"></div>
+
+    <main id="deck" class="deck" role="main" aria-label="Telaris presentation deck">
+
+        <!-- ===== Slide 1: Cover ===== -->
+        <section class="slide cover-slide" data-slide="1" aria-labelledby="cover-title">
+            <div class="slide-inner cover">
+                <div class="cover-meta">Graduate project &middot; UBC GRSJ</div>
+                <h1 id="cover-title" class="cover">Telaris</h1>
+                <p class="cover-sub">weaving memory</p>
+                <div class="hud-line"></div>
+                <p class="cover-desc">A decolonial knowledge archive. Relational, P2P, non-hierarchical. Threaded by meaning.</p>
+                <p class="cover-foot">2026</p>
+            </div>
+            <aside class="speaker-notes" data-for="1">
+                <h4>Cover &middot; ~20s</h4>
+                <ul>
+                    <li>Open with the name and the tagline. Let them sit. "Telaris. Weaving memory."</li>
+                    <li>Anchor the frame: a graduate project at the UBC Institute for Gender, Race, Sexuality and Social Justice. Academic, without making the talk feel administrative.</li>
+                    <li>The one-line description is on the slide: a decolonial knowledge archive, relational, peer-to-peer, non-hierarchical. You can read it or let the audience catch it.</li>
+                    <li>The animation behind you is the project itself: nodes of meaning, linked by relation. It will run quietly the whole way through.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 2: The problem ===== -->
+        <section class="slide" data-slide="2" aria-labelledby="s2-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="0"></span><span class="chapter-title">The problem</span></header>
+                <h2 id="s2-title">The archive is not a tree.</h2>
+                <div class="columns-2 dual-diagram">
+                    <div class="col">
+                        <figure class="diagram" aria-hidden="true">
+                            <svg viewBox="0 0 260 132" preserveAspectRatio="xMidYMid meet" role="img" aria-label="A rigid folder hierarchy: one root branching down to sub-folders and files.">
+                                <g fill="none" stroke="rgba(232,238,240,0.3)" stroke-width="1.2">
+                                    <path d="M130,35 V46 M65,46 H195 M65,46 V53 M195,46 V53"/>
+                                    <path d="M65,82 V92 M42,92 H88 M42,92 V102 M88,92 V102"/>
+                                    <path d="M195,82 V92 M172,92 H218 M172,92 V102 M218,92 V102"/>
+                                </g>
+                                <g fill="rgba(232,238,240,0.06)" stroke="rgba(232,238,240,0.5)" stroke-width="1.3">
+                                    <rect x="110" y="6" width="18" height="6" rx="1.5"/><rect x="108" y="11" width="44" height="24" rx="2.5"/>
+                                    <rect x="47" y="53" width="18" height="6" rx="1.5"/><rect x="43" y="58" width="44" height="24" rx="2.5"/>
+                                    <rect x="177" y="53" width="18" height="6" rx="1.5"/><rect x="173" y="58" width="44" height="24" rx="2.5"/>
+                                </g>
+                                <g fill="none" stroke="rgba(232,238,240,0.38)" stroke-width="1.2">
+                                    <rect x="28" y="102" width="28" height="20" rx="2"/>
+                                    <rect x="74" y="102" width="28" height="20" rx="2"/>
+                                    <rect x="158" y="102" width="28" height="20" rx="2"/>
+                                    <rect x="204" y="102" width="28" height="20" rx="2"/>
+                                </g>
+                            </svg>
+                            <figcaption>Tree</figcaption>
+                        </figure>
+                        <h3>The colonial archive</h3>
+                        <p>The folder, the taxonomy, the single search box. One path to each item. Categories decided before you arrive. A thing belongs to exactly one place.</p>
+                        <p class="eyebrow">Reduction. <span class="q">"Where does this belong?"</span></p>
+                    </div>
+                    <div class="col">
+                        <figure class="diagram" aria-hidden="true">
+                            <svg viewBox="0 0 260 132" preserveAspectRatio="xMidYMid meet" role="img" aria-label="A node graph: pastel nodes connected in a non-hierarchical mesh.">
+                                <g stroke="#00ffcc" stroke-opacity="0.5" stroke-width="1.2">
+                                    <line x1="38" y1="34" x2="118" y2="24"/>
+                                    <line x1="118" y1="24" x2="214" y2="44"/>
+                                    <line x1="38" y1="34" x2="64" y2="96"/>
+                                    <line x1="118" y1="24" x2="156" y2="82"/>
+                                    <line x1="64" y1="96" x2="156" y2="82"/>
+                                    <line x1="156" y1="82" x2="222" y2="104"/>
+                                    <line x1="214" y1="44" x2="222" y2="104"/>
+                                    <line x1="64" y1="96" x2="122" y2="120"/>
+                                    <line x1="122" y1="120" x2="156" y2="82"/>
+                                </g>
+                                <g>
+                                    <circle cx="38" cy="34" r="12" fill="#fca5a5" fill-opacity="0.16"/><circle cx="38" cy="34" r="6" fill="#fca5a5"/>
+                                    <circle cx="118" cy="24" r="12" fill="#7dd3fc" fill-opacity="0.16"/><circle cx="118" cy="24" r="6" fill="#7dd3fc"/>
+                                    <circle cx="214" cy="44" r="12" fill="#bef264" fill-opacity="0.16"/><circle cx="214" cy="44" r="6" fill="#bef264"/>
+                                    <circle cx="64" cy="96" r="12" fill="#d8b4fe" fill-opacity="0.16"/><circle cx="64" cy="96" r="6" fill="#d8b4fe"/>
+                                    <circle cx="156" cy="82" r="12" fill="#fcd34d" fill-opacity="0.16"/><circle cx="156" cy="82" r="6" fill="#fcd34d"/>
+                                    <circle cx="222" cy="104" r="12" fill="#f0abfc" fill-opacity="0.16"/><circle cx="222" cy="104" r="6" fill="#f0abfc"/>
+                                    <circle cx="122" cy="120" r="12" fill="#6ee7b7" fill-opacity="0.16"/><circle cx="122" cy="120" r="6" fill="#6ee7b7"/>
+                                </g>
+                            </svg>
+                            <figcaption>Graph</figcaption>
+                        </figure>
+                        <h3>Telaris</h3>
+                        <p>A cosmos you move through. Meaning made by relation, not by filing. An item can sit in many galaxies at once. Nothing is reduced to fit a slot.</p>
+                        <p class="eyebrow">Relation. <span class="q">"What is this near to?"</span></p>
+                    </div>
+                </div>
+                <p style="margin-top: 1.5rem;">Hierarchy decides where a thing belongs before anyone has read it.</p>
+            </div>
+            <aside class="speaker-notes" data-for="2">
+                <h4>The problem &middot; ~50s</h4>
+                <ul>
+                    <li>Open with the contrast. Most archives are trees: folders inside folders, one taxonomy, one search box. Each item gets one home, and the categories were chosen in advance, usually by someone other than the people the records are about.</li>
+                    <li>Name the politics directly. That structure is not neutral. Deciding "where does this belong" before reading is a categorical reduction, the same move colonial classification makes on people and knowledge.</li>
+                    <li>Telaris asks a different question: "what is this near?" Meaning comes from relation, and a wormhole can live in many galaxies at once.</li>
+                    <li>This inversion is the whole methodological move. "Decolonial" here is analytical, not decorative: it names refusing imposed categorical reduction. Land on it before moving on.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 3: The proposition ===== -->
+        <section class="slide" data-slide="3" aria-labelledby="s3-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="7"></span><span class="chapter-title">The proposition</span></header>
+                <h2 id="s3-title">What if knowledge lived in a cosmos, not a catalogue?</h2>
+                <p>Telaris is a 3D archive you enter and move through. Galaxies of wormholes, connected by shared meaning rather than by folders. The structure is the argument: non-hierarchical, relational, woven.</p>
+                <p class="muted">It draws on decolonial thought, relational philosophy, and fractal traditions of design. Inside a body of decolonial method, not improvised.</p>
+                <p class="pullquote">"a world in which many worlds fit."</p>
+                <p class="footer-note">Telar (loom) and the stars. Weaving and cosmos in a single name.</p>
+            </div>
+            <aside class="speaker-notes" data-for="3">
+                <h4>The proposition &middot; ~55s</h4>
+                <ul>
+                    <li>This is the most important slide for an academic room. The claim is structural: the shape of the archive carries the argument. Non-hierarchical, relational, woven.</li>
+                    <li>Cite the lineage briefly so the audience knows this sits inside a body of work. The pluriverse (Escobar, Mignolo). The rhizome (Deleuze and Guattari). Fractal structure read through Eglash's African Fractals, not Mandelbrot. One sentence each is enough.</li>
+                    <li>The pull quote is Escobar's framing of the pluriverse: a world in which many worlds fit. Read it slowly. That sentence is also the design brief.</li>
+                    <li>If it helps, gloss the name: Telaris reads as telar, the loom, joined to the stars. Weaving and cosmos in one coined word. The whole interface follows from that.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 4: How it's built ===== -->
+        <section class="slide" data-slide="4" aria-labelledby="s4-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="5"></span><span class="chapter-title">How it's built</span></header>
+                <h2 id="s4-title">Commitments built into the artifact, not bolted on.</h2>
+                <ul class="principles-2col">
+                    <li><strong>Non-hierarchical by construction.</strong> No root, no parent folder, no canonical order.</li>
+                    <li><strong>Editorial sovereignty.</strong> No one reviews or corrects another editor's wormholes.</li>
+                    <li><strong>Data sovereignty.</strong> A source community can withdraw consent, and withdrawal removes.</li>
+                    <li><strong>No AI analysis of the corpus.</strong> The content is never fed to a model to be summarized or inferred.</li>
+                    <li><strong>Free and open.</strong> GPL app, AGPL Pluriverse, no third-party CDN at runtime.</li>
+                    <li><strong>Relational, not extractive.</strong> Meaning is described by people, never guessed by a machine.</li>
+                    <li style="grid-column: 1 / -1;"><strong>Many languages, no master.</strong> English, Spanish, Portuguese, and French as siblings, not translations of one. More can be added as needed.</li>
+                </ul>
+            </div>
+            <aside class="speaker-notes" data-for="4">
+                <h4>How it's built &middot; ~50s</h4>
+                <ul>
+                    <li>Read the list briskly. Each line is a commitment expressed in the build, not a value statement on a wall.</li>
+                    <li>Highlight three. First, editorial sovereignty: no review queue, no correction of someone else's wormholes. The only countervailing power is consent withdrawal, which a later slide covers.</li>
+                    <li>Second, no AI analysis of the corpus. For a room being told to "use AI to scale qualitative work," name this as a method choice: a model trained on normative European parameters would flatten exactly the nuance the project exists to hold.</li>
+                    <li>Third, many languages with no master. The interface ships in English, Spanish, Portuguese, and French as sibling phrasings, and more can be added as needed; the English is not the original the others translate.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 5: Sovereignty in the build ===== -->
+        <section class="slide" data-slide="5" aria-labelledby="s5-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="3"></span><span class="chapter-title">Sovereignty in the build</span></header>
+                <h2 id="s5-title">Consent is the only countervailing power.</h2>
+                <ul class="principles-2col">
+                    <li><strong>Withdrawal removes.</strong> A source community's veto is real: withdrawing consent drops the wormhole here and notifies subscribed peers.</li>
+                    <li><strong>Privacy-conscious relay.</strong> Peers contact each other through in-app messaging or email relays; neither operator sees the other's address.</li>
+                    <li><strong>Data stays put.</strong> Content lives on the instance that authored it. Federation copies only what is offered, and only to peers who asked.</li>
+                </ul>
+                <p style="margin-top: 1.25rem;">These are decisions in the code, not a code of conduct on a wall.</p>
+            </div>
+            <aside class="speaker-notes" data-for="5">
+                <h4>Sovereignty in the build &middot; ~45s</h4>
+                <ul>
+                    <li>Frame it as power. In a project that refuses review and correction, the question is what protects a source community. The answer is consent, and it is enforced, not aspirational.</li>
+                    <li><strong>Withdrawal removes.</strong> When a source community withdraws, the wormhole is dropped on this instance and subscribed peers are notified to drop their mirrors. From the peer side that is irreversible.</li>
+                    <li><strong>Relay privacy.</strong> Operators reach each other through in-app messaging or an email relay, so federating does not expose anyone's personal email.</li>
+                    <li>Close on the point: every one of these is a line of code, not a paragraph of policy.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 6: Inside the cosmos ===== -->
+        <section class="slide" data-slide="6" aria-labelledby="s6-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="9"></span><span class="chapter-title">Inside the cosmos</span></header>
+                <h2 id="s6-title">What it looks like.</h2>
+                <div class="shot-3up">
+                    <figure class="shot">
+                        <img src="/assets/presentation/galaxy.jpg" alt="A Telaris galaxy: image-wormholes floating in 3D space above a grid, with pastel keyword chips along the bottom.">
+                        <figcaption>A galaxy of wormholes, with its keywords</figcaption>
+                    </figure>
+                    <figure class="shot">
+                        <img src="/assets/presentation/space.jpg" alt="The Telaris hub: portals to other galaxies spread across a receding 3D grid.">
+                        <figcaption>The hub: portals to every galaxy</figcaption>
+                    </figure>
+                    <figure class="shot">
+                        <img src="/assets/presentation/cluster.jpg" alt="A Telaris cluster: dozens of image-wormholes from several galaxies gathered into one dense 3D field.">
+                        <figcaption>A cluster: many galaxies as one field</figcaption>
+                    </figure>
+                </div>
+                <p class="muted" style="margin-top: 1.25rem;">Every tile is a wormhole. You fly through galaxies; where they share keywords, they gather into clusters.</p>
+            </div>
+            <aside class="speaker-notes" data-for="6">
+                <h4>Inside the cosmos &middot; ~35s</h4>
+                <ul>
+                    <li>Stop talking and let them look. This is a real Telaris instance (the grsj306 course demo), not a mockup.</li>
+                    <li>Left: a single galaxy. Each tile is a wormhole, here showing its image; the pastel words along the bottom are the keywords that link it to everything else.</li>
+                    <li>Middle: the hub, a galaxy made only of portals, one doorway per world. The grid gives the sense of moving through a space rather than scrolling a page.</li>
+                    <li>Right: a cluster. Several galaxies that share keywords, pulled into one dense field; nobody arranged it, the density is the shared vocabulary. The weave is emergent.</li>
+                    <li>Invite them to open it themselves later, or scan the QR at the end for the Pluriverse.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 7: Galaxies ===== -->
+        <section class="slide" data-slide="7" aria-labelledby="s7-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="9"></span><span class="chapter-title">Galaxies</span></header>
+                <h2 id="s7-title">A space you enter, not a shelf you scan.</h2>
+                <ul class="principles" style="margin-top: 1.25rem;">
+                    <li><strong>Spatial reading.</strong> <span class="muted">You move through meaning in three dimensions. Where you go is part of what you find.</span></li>
+                    <li><strong>Many homes.</strong> <span class="muted">A wormhole can belong to several galaxies at once. No item is forced into a single place.</span></li>
+                    <li><strong>The unit of sovereignty.</strong> <span class="muted">A galaxy is what an editor chooses to publish, and what a peer chooses to federate. Nothing leaves an instance without that choice.</span></li>
+                </ul>
+                <p class="muted" style="margin-top: 1.25rem;">Each instance themes its galaxies: a cosmic field, an abstract field, a quiet one. The form follows the content.</p>
+            </div>
+            <aside class="speaker-notes" data-for="7">
+                <h4>Galaxies &middot; ~45s</h4>
+                <ul>
+                    <li>A galaxy is a constellation of wormholes you fly into, not a list you read top to bottom. Movement is a reading act: where a visitor travels is part of what the archive tells them.</li>
+                    <li>Many homes is the key non-hierarchical property. A single wormhole can sit in several galaxies. There is no canonical parent, no one true folder.</li>
+                    <li>The galaxy is also the unit of sovereignty. It is what an editor publishes and what a peer federates. Content does not move between instances unless someone offers it.</li>
+                    <li>Themes are per instance and per galaxy: the visual field can be cosmic, abstract, or quiet. The instrument bends to the material, not the other way round.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 8: The instrument ===== -->
+        <section class="slide" data-slide="8" aria-labelledby="s8-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="12"></span><span class="chapter-title">The instrument</span></header>
+                <h2 id="s8-title">Three components, one engine.</h2>
+                <div class="columns-3">
+                    <div class="col">
+                        <h3>Wormholes</h3>
+                        <p>A combination of content: text, image, audio, video, PDF, or a link out. The thing you arrive at.</p>
+                    </div>
+                    <div class="col">
+                        <h3>Portals</h3>
+                        <p>A wormhole that is a doorway into another galaxy.</p>
+                    </div>
+                    <div class="col">
+                        <h3>Keywords</h3>
+                        <p>The weave. Shared keywords link wormholes across galaxies, even across instances.</p>
+                    </div>
+                </div>
+                <p style="margin-top: 1.5rem;">Three components, one engine. Drop any one and the weave stops.</p>
+            </div>
+            <aside class="speaker-notes" data-for="8">
+                <h4>The instrument &middot; ~30s</h4>
+                <ul>
+                    <li>Name the three components: wormholes, portals, keywords. These are the moving parts inside a galaxy; the galaxy itself is the container, covered just before this.</li>
+                    <li>Each does one job. The wormhole is the content. The portal is the doorway between galaxies. The keyword is the connective tissue, the thing that makes the weave.</li>
+                    <li>Tell the audience what comes next: the following slides take each in turn.</li>
+                    <li>End on the engineering claim from the slide. Three components, one engine; drop any one and the weave stops.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 9: Wormholes ===== -->
+        <section class="slide" data-slide="9" aria-labelledby="s9-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="0"></span><span class="chapter-title">Wormholes</span></header>
+                <h2 id="s9-title">One wormhole, many modalities.</h2>
+                <p>A wormhole carries text, image, audio, video, a PDF, or a link out of the archive. Some hold a single line; some hold a dense bundle of media. Nothing is flattened into text to fit the system.</p>
+                <div class="columns-3" style="margin-top: 1.25rem;">
+                    <div class="col"><h3>Image &amp; video</h3><p>The wormhole's own picture can become its node in space, so the galaxy reads as a field of faces and places.</p></div>
+                    <div class="col"><h3>Audio</h3><p>Sound plays in place: a recording, a song, an oral testimony, ambient field audio.</p></div>
+                    <div class="col"><h3>Text, PDF, link</h3><p>A passage, a document, or a doorway to a source elsewhere on the web.</p></div>
+                </div>
+                <p class="muted" style="margin-top: 1.25rem;">Content stays in the editor's voice. Telaris frames a wormhole; Telaris does not edit it.</p>
+            </div>
+            <aside class="speaker-notes" data-for="9">
+                <h4>Wormholes &middot; ~40s</h4>
+                <ul>
+                    <li>The wormhole is the atom of content. It is multimodal by default: text, image, audio, video, PDF, or an outbound link. An oral testimony does not have to become a transcript to enter the archive.</li>
+                    <li>Media density varies on purpose. A wormhole can be one sentence or a whole bundle. The form does not impose a minimum or a maximum.</li>
+                    <li>A wormhole's image can also be its body in space, so a galaxy can look like a field of photographs rather than a list of titles.</li>
+                    <li>The editorial contract: whatever an editor writes stays in their voice. Telaris provides the frame and refuses to correct, normalize, or rephrase the content inside it. That is editorial sovereignty, which a later slide returns to.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 10: Moving between worlds ===== -->
+        <section class="slide" data-slide="10" aria-labelledby="s10-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="11"></span><span class="chapter-title">Moving between worlds</span></header>
+                <h2 id="s10-title">Portals open one galaxy onto another.</h2>
+                <div class="columns-3">
+                    <div class="col"><h3>Portals</h3><p>A wormhole that is a doorway. Activate it and you arrive inside another galaxy, without ever leaving the cosmos.</p></div>
+                    <div class="col"><h3>Clusters</h3><p>Galaxies that share keywords draw together into a single cross-galaxy view, so related worlds can be read at once.</p></div>
+                    <div class="col"><h3>Multigalaxy</h3><p>You are never locked in one world. The archive is traversed, not browsed page by page.</p></div>
+                </div>
+                <p style="margin-top: 1.5rem;">A hub galaxy can hold nothing but portals: a doorway to every other world, and an index that is itself part of the cosmos.</p>
+            </div>
+            <aside class="speaker-notes" data-for="10">
+                <h4>Moving between worlds &middot; ~40s</h4>
+                <ul>
+                    <li>Portals are how multigalaxy navigation works. A portal is a wormhole whose job is to be a doorway: activate it and you arrive in another galaxy. Same cosmos, new world.</li>
+                    <li>Clusters are the keyword graph at the level of whole galaxies. Galaxies that share vocabulary draw together into a cross-galaxy view, so a visitor can read related worlds side by side.</li>
+                    <li>Multigalaxy is the felt result: the archive is traversed, never paginated. There is no "next page," only somewhere adjacent to go.</li>
+                    <li>Concrete example you can point to: a hub galaxy made only of portals, one doorway per world. The index is not a menu bar; it is a place inside the same cosmos.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 11: The graph of meaning ===== -->
+        <section class="slide" data-slide="11" aria-labelledby="s11-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="14"></span><span class="chapter-title">The graph of meaning</span></header>
+                <h2 id="s11-title">Connections are made of meaning, not of folders.</h2>
+                <p>Every wormhole carries keywords. Two wormholes that share a keyword are linked, across galaxies and across instances. No one files anything. The graph is the by-product of how people choose to describe what they hold.</p>
+                <div class="chip-row" aria-hidden="true">
+                    <span class="chip" style="color:#fca5a5;">memory</span>
+                    <span class="chip" style="color:#7dd3fc;">migration</span>
+                    <span class="chip" style="color:#86efac;">land</span>
+                    <span class="chip" style="color:#d8b4fe;">resistance</span>
+                    <span class="chip" style="color:#fcd34d;">kinship</span>
+                    <span class="chip" style="color:#f0abfc;">ritual</span>
+                </div>
+                <p class="pullquote">"any point connects to any other."</p>
+                <p class="footer-note">The same keyword in two galaxies stitches them into one weave. That is the rhizome, made into an interface.</p>
+            </div>
+            <aside class="speaker-notes" data-for="11">
+                <h4>The graph of meaning &middot; ~55s</h4>
+                <ul>
+                    <li>This is the load-bearing mechanic. Every wormhole carries keywords, and any two wormholes that share a keyword are connected, even if they live in different galaxies or on different instances.</li>
+                    <li>Make the consequence explicit: nobody builds the connections. The graph is emergent, a by-product of how editors and communities describe their own material. The structure comes from the vocabulary, not from an administrator.</li>
+                    <li>The pull quote is from Deleuze and Guattari on the rhizome: any point connects to any other. Telaris is that principle turned into a navigable surface.</li>
+                    <li>Practically: galaxies that share keywords pull together into clusters, and the visitor can cross from one world to another along a shared word, which is exactly the clusters and portals shown a moment ago.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 12: On the Pluriverse ===== -->
+        <section class="slide" data-slide="12" aria-labelledby="s12-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="8"></span><span class="chapter-title">The Pluriverse</span></header>
+                <h2 id="s12-title">A meeting point, not a master.</h2>
+                <div class="columns-3">
+                    <div class="col">
+                        <h3>What it is</h3>
+                        <p>The meeting point for sovereign instances, at telaris.ca. It handles discovery, identity, and trust between peers, and holds no one's content.</p>
+                    </div>
+                    <div class="col">
+                        <h3>Why we made it</h3>
+                        <p>Federation needs a meeting point, but a meeting point must not become a ruler. It is the smallest coordinator that still lets independent peers connect.</p>
+                    </div>
+                    <div class="col">
+                        <h3>What it is not</h3>
+                        <p>Not a platform, not a host, not a registry that owns the network. It cannot read, edit, rank, or remove a wormhole.</p>
+                    </div>
+                </div>
+                <p style="margin-top: 1.5rem;">Instances publish to chosen peers, pull what they subscribe to, and revoke at will: a network federated by consent. Shut the Pluriverse down and every instance still holds its own archive and all archives shared with it.</p>
+            </div>
+            <aside class="speaker-notes" data-for="12">
+                <h4>The Pluriverse &middot; ~55s</h4>
+                <ul>
+                    <li>The architecture is peer-to-peer, not platform-and-users. Each instance is sovereign: its own database, operator, and galaxies. No central server holds everyone's archive.</li>
+                    <li>What it is: the coordination layer at telaris.ca. Discovery, identity, trust. That is all; it holds no content.</li>
+                    <li>Why we made it: federation needs somewhere to meet, but the moment the meeting point holds the content or sets the rules, you are back to a platform. So it is the smallest coordinator that works.</li>
+                    <li>How federation works: an instance publishes a galaxy to chosen peers, those peers subscribe and pull a read-only mirror, and either side can revoke. The proof of "not a master": shut it down and every instance still has its own archive and everything shared with it.</li>
+                    <li>The name is the politics: Pluriverse, after Escobar and Mignolo, chosen over "registry" or "hub" to refuse the single-platform pattern.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 13: Beyond v1 ===== -->
+        <section class="slide" data-slide="13" aria-labelledby="s13-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="2"></span><span class="chapter-title">Beyond v1</span></header>
+                <h2 id="s13-title">Telaris as a framework anyone can run.</h2>
+                <div class="columns-3">
+                    <div class="col"><h3>Self-hosting</h3><p>The instance ships as a public container image. Standing up a sovereign archive is a pull away.</p></div>
+                    <div class="col"><h3>Requestable instances</h3><p>A planned form to ask for an instance, provisioned and federated on creation, so a community need not be technical to hold one.</p></div>
+                    <div class="col"><h3>The open weave</h3><p>Any community can run a peer. The Pluriverse coordinates the network; it never owns it.</p></div>
+                </div>
+                <p class="muted" style="margin-top: 1.25rem; font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;">2026 onward &middot; prototype &rarr; federation &rarr; many sovereign peers</p>
+            </div>
+            <aside class="speaker-notes" data-for="13">
+                <h4>Beyond v1 &middot; ~45s</h4>
+                <ul>
+                    <li>The lasting form of the project is the framework, not version one of any single archive. The goal is many sovereign peers, not one big site.</li>
+                    <li><strong>Self-hosting</strong> already exists: the instance is published as a public, multi-architecture container image. A technical operator can stand one up today.</li>
+                    <li><strong>Requestable instances</strong> is the next step and is roadmap, not shipped: a form where a community asks for an instance, which is then provisioned and auto-federated. The aim is to remove the technical barrier to sovereignty.</li>
+                    <li><strong>The open weave</strong> is the principle that holds it together: anyone can run a peer, and the Pluriverse only ever coordinates. Be candid that the provisioning and request flow is designed but not yet built.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 14: In short ===== -->
+        <section class="slide" data-slide="14" aria-labelledby="s14-title">
+            <div class="slide-inner">
+                <header class="slide-chapter"><span class="mark" data-mark="6"></span><span class="chapter-title">In short</span></header>
+                <h2 id="s14-title">The structure is the argument.</h2>
+                <ul class="principles-2col">
+                    <li><strong>An archive that refuses the tree.</strong> Meaning comes from relation, not from where a thing was filed.</li>
+                    <li><strong>Sovereign by design.</strong> Editors, operators, and source communities keep their say; consent can be withdrawn.</li>
+                    <li><strong>Federated, not centralized.</strong> Many instances weave together, and no platform owns them.</li>
+                    <li><strong>Built, not promised.</strong> A working prototype you can open and move through today.</li>
+                </ul>
+                <p style="margin-top: 1.25rem;">A different politics of knowledge, made into something you can walk into.</p>
+            </div>
+            <aside class="speaker-notes" data-for="14">
+                <h4>In short &middot; ~40s</h4>
+                <ul>
+                    <li>This is the synthesis. Pull the threads together before the close.</li>
+                    <li>The one idea to leave them with: the shape of the archive carries the politics. A tree decides belonging in advance; a relational cosmos lets meaning stay plural.</li>
+                    <li>Name the three commitments quickly: sovereignty (consent can be withdrawn), federation (many instances, no owner), and that it is built and runnable now, not a proposal.</li>
+                    <li>Land the last line, a different politics of knowledge you can actually walk into, then move to the close.</li>
+                </ul>
+            </aside>
+        </section>
+
+        <!-- ===== Slide 15: Closing ===== -->
+        <section class="slide" data-slide="15" aria-labelledby="s15-title">
+            <div class="slide-inner">
+                <div class="thanks-block">
+                    <p class="pullquote" style="margin: 0 auto 2rem; max-width: 46rem; text-align: center; border: 0; padding: 0;">"a world in which many worlds fit."</p>
+                    <h2 id="s15-title" class="thanks-mark">Telaris</h2>
+                    <p class="thanks-tag">weaving memory</p>
+                    <figure class="qr-card">
+                        <img src="/assets/presentation/qr.svg" alt="QR code linking to telaris.ca">
+                        <figcaption>telaris.ca</figcaption>
+                    </figure>
+                    <p class="thanks-links">
+                        <a href="https://www.telaris.ca">telaris.ca</a> &middot; <a href="/manifest">Manifest</a> &middot; <a href="https://github.com/theagitist/telaris">Source</a> &middot; <a href="https://grsj.arts.ubc.ca/">UBC GRSJ</a>
+                    </p>
+                </div>
+            </div>
+            <aside class="speaker-notes" data-for="15">
+                <h4>Closing &middot; ~40s plus questions</h4>
+                <ul>
+                    <li>Return to the thesis sentence: a world in which many worlds fit. Read it slowly, then pause. It is both the theory and the architecture.</li>
+                    <li>Thank the room and open the floor.</li>
+                    <li>The QR goes to telaris.ca, the Pluriverse. Anyone can scan from their seat and walk into a live galaxy. The links cover the Manifest, the source code, and UBC GRSJ for follow-up.</li>
+                    <li>Stay on this slide for questions.</li>
+                </ul>
+            </aside>
+        </section>
+
+    </main>
+
+    <footer class="deck-hint faded" role="contentinfo">
+        <kbd>&larr;</kbd> <kbd>&rarr;</kbd> navigate &middot; <kbd>1</kbd>&ndash;<kbd>9</kbd> jump &middot; <kbd>O</kbd> overview &middot; <kbd>S</kbd> notes &middot; <kbd>W</kbd> presenter &middot; <kbd>F</kbd> fullscreen &middot; <kbd>P</kbd> print
+    </footer>
+
+    <aside class="overview" id="overview" aria-label="All slides" aria-hidden="true">
+        <button class="overview-close" type="button" aria-label="Close overview">Close [Esc]</button>
+        <h2 class="overview-title">All slides</h2>
+        <ol class="overview-grid"></ol>
+    </aside>
+
+    <aside class="presenter-view" id="presenter-view" aria-label="Presenter view">
+        <header class="presenter-bar">
+            <span class="counter">Presenter &middot; Slide <span id="presenter-current">01</span> / <span id="presenter-total">15</span></span>
+            <span class="presenter-timer" id="presenter-timer">00:00</span>
+        </header>
+        <div class="presenter-main">
+            <section class="presenter-now">
+                <p class="presenter-eyebrow">Now showing</p>
+                <div class="presenter-title-row">
+                    <span class="ch" id="presenter-current-chapter"></span>
+                    <span class="t" id="presenter-current-title"></span>
+                </div>
+                <div class="presenter-notes" id="presenter-notes"></div>
+            </section>
+            <section class="presenter-next">
+                <p class="presenter-eyebrow">Up next</p>
+                <div class="presenter-title-row">
+                    <span class="ch" id="presenter-next-chapter"></span>
+                    <span class="t" id="presenter-next-title"></span>
+                </div>
+            </section>
+        </div>
+        <footer class="presenter-foot">
+            <kbd>&larr;</kbd> <kbd>&rarr;</kbd> navigate &middot; <kbd>R</kbd> reset timer &middot; <kbd>Esc</kbd> close
+        </footer>
+    </aside>
+
+    <script>
+        // ===== Chapter constellation marks: small node-and-link glyphs, tinted per chapter =====
+        (function () {
+            var PALETTE = ['#fca5a5','#fdba74','#fcd34d','#fde047','#bef264','#86efac','#6ee7b7','#5eead4','#67e8f9','#7dd3fc','#93c5fd','#a5b4fc','#c4b5fd','#d8b4fe','#f0abfc','#f9a8d4','#fda4af'];
+            var marks = document.querySelectorAll('.slide-chapter .mark');
+            marks.forEach(function (el) {
+                var idx = parseInt(el.getAttribute('data-mark') || '0', 10) % PALETTE.length;
+                var c = PALETTE[idx];
+                var c2 = PALETTE[(idx + 6) % PALETTE.length];
+                el.innerHTML =
+                    '<svg viewBox="0 0 44 32" role="img" aria-hidden="true">' +
+                    '<line x1="7" y1="22" x2="22" y2="9" stroke="#00ffcc" stroke-opacity="0.5" stroke-width="1"/>' +
+                    '<line x1="22" y1="9" x2="37" y2="20" stroke="#00ffcc" stroke-opacity="0.5" stroke-width="1"/>' +
+                    '<circle cx="7" cy="22" r="2.6" fill="' + c + '"/>' +
+                    '<circle cx="22" cy="9" r="3.4" fill="' + c2 + '"/>' +
+                    '<circle cx="37" cy="20" r="2.6" fill="' + c + '"/>' +
+                    '</svg>';
+            });
+        })();
+
+        // ===== Ambient node-network background (adapted from www.telaris.ca/assets/bg.js) =====
+        (function () {
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var canvas = document.getElementById('bg');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var W = 0, H = 0, dpr = 1;
+            var stars = [], nodes = [];
+            function resize() {
+                dpr = Math.min(window.devicePixelRatio || 1, 2);
+                W = canvas.width = Math.floor(window.innerWidth * dpr);
+                H = canvas.height = Math.floor(window.innerHeight * dpr);
+                canvas.style.width = window.innerWidth + 'px';
+                canvas.style.height = window.innerHeight + 'px';
+            }
+            resize();
+            window.addEventListener('resize', resize);
+            var isNarrow = window.innerWidth < 640;
+            var STAR_COUNT = isNarrow ? 80 : 200;
+            var NODE_COUNT = isNarrow ? 7 : 11;
+            var PALETTE = ['#fca5a5','#fdba74','#fcd34d','#fde047','#bef264','#86efac','#6ee7b7','#5eead4','#67e8f9','#7dd3fc','#93c5fd','#a5b4fc','#c4b5fd','#d8b4fe','#f0abfc','#f9a8d4','#fda4af'];
+            function rgba(hex, a) {
+                var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+                return 'rgba(' + r + ',' + g + ',' + b + ',' + a.toFixed(3) + ')';
+            }
+            for (var i = 0; i < STAR_COUNT; i++) {
+                stars.push({ x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.2+0.2,
+                    baseAlpha: Math.random()*0.5+0.15, twinkleSpeed: Math.random()*0.004+0.0008, t: Math.random()*Math.PI*2 });
+            }
+            for (var k = 0; k < NODE_COUNT; k++) {
+                nodes.push({ x: Math.random()*W, y: Math.random()*H,
+                    vx: (Math.random()-0.5)*0.22*dpr, vy: (Math.random()-0.5)*0.22*dpr,
+                    r: (Math.random()*1.3+1.6)*dpr, a: Math.random()*0.4+0.5,
+                    color: PALETTE[Math.floor(Math.random()*PALETTE.length)] });
+            }
+            function tick() {
+                ctx.fillStyle = 'rgba(0,0,0,1)';
+                ctx.fillRect(0,0,W,H);
+                for (var si = 0; si < stars.length; si++) {
+                    var s = stars[si];
+                    s.t += s.twinkleSpeed;
+                    var a = s.baseAlpha * (0.55 + 0.45*Math.sin(s.t));
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.r*dpr, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+                    ctx.fill();
+                }
+                var linkDist = Math.min(W,H)*0.36, linkDistSq = linkDist*linkDist;
+                for (var a1 = 0; a1 < nodes.length; a1++) {
+                    for (var b1 = a1+1; b1 < nodes.length; b1++) {
+                        var dx = nodes[a1].x-nodes[b1].x, dy = nodes[a1].y-nodes[b1].y, dSq = dx*dx+dy*dy;
+                        if (dSq < linkDistSq) {
+                            var d = Math.sqrt(dSq), al = (1 - d/linkDist)*0.4;
+                            var grad = ctx.createLinearGradient(nodes[a1].x, nodes[a1].y, nodes[b1].x, nodes[b1].y);
+                            grad.addColorStop(0, rgba(nodes[a1].color, al));
+                            grad.addColorStop(1, rgba(nodes[b1].color, al));
+                            ctx.beginPath();
+                            ctx.moveTo(nodes[a1].x, nodes[a1].y);
+                            ctx.lineTo(nodes[b1].x, nodes[b1].y);
+                            ctx.strokeStyle = grad; ctx.lineWidth = 0.6*dpr; ctx.stroke();
+                        }
+                    }
+                }
+                for (var ni = 0; ni < nodes.length; ni++) {
+                    var n = nodes[ni];
+                    n.x += n.vx; n.y += n.vy;
+                    if (n.x < n.r || n.x > W-n.r) n.vx *= -1;
+                    if (n.y < n.r || n.y > H-n.r) n.vy *= -1;
+                    var grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r*7);
+                    grd.addColorStop(0, rgba(n.color, n.a*0.5));
+                    grd.addColorStop(1, rgba(n.color, 0));
+                    ctx.fillStyle = grd;
+                    ctx.beginPath(); ctx.arc(n.x, n.y, n.r*7, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+                    ctx.fillStyle = rgba(n.color, Math.min(1, n.a+0.15)); ctx.fill();
+                }
+                requestAnimationFrame(tick);
+            }
+            tick();
+        })();
+
+        // ===== Deck controller (keyboard, overview, presenter mode, print) =====
+        (function () {
+            'use strict';
+            var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+            var notes = Array.prototype.slice.call(document.querySelectorAll('.speaker-notes'));
+            var counterEl = document.getElementById('slide-current');
+            var totalEl = document.getElementById('slide-total');
+            var current = 0;
+            var total = slides.length;
+
+            totalEl.textContent = String(total).padStart(2, '0');
+
+            var isPresenter = new URLSearchParams(location.search).has('presenter');
+            if (isPresenter) document.body.classList.add('presenter-mode');
+            var presenterTotalEl = document.getElementById('presenter-total');
+            if (presenterTotalEl) presenterTotalEl.textContent = String(total).padStart(2, '0');
+
+            var channel = null;
+            try { channel = new BroadcastChannel('telaris-deck'); } catch (err) { /* unsupported */ }
+            var suppressBroadcast = false;
+            function broadcastGo(idx) {
+                if (channel && !suppressBroadcast) { channel.postMessage({ type: 'go', index: idx }); }
+            }
+            if (channel) {
+                channel.onmessage = function (e) {
+                    if (!e.data) return;
+                    if (e.data.type === 'go') {
+                        suppressBroadcast = true; go(e.data.index); suppressBroadcast = false;
+                    } else if (e.data.type === 'request-state') {
+                        channel.postMessage({ type: 'go', index: current });
+                    }
+                };
+            }
+
+            function readSlideMeta(s) {
+                if (!s) return { chapter: 'End', title: 'End of deck', notesHTML: '' };
+                var idx = slides.indexOf(s);
+                var chapter, title;
+                if (idx === 0) {
+                    chapter = 'Cover';
+                    var sub = s.querySelector('.cover-sub');
+                    title = sub ? sub.textContent.trim() : 'Telaris';
+                } else {
+                    var ch = s.querySelector('.chapter-title');
+                    var h2 = s.querySelector('h2');
+                    chapter = ch ? ch.textContent.trim() : '';
+                    title = h2 ? h2.textContent.trim() : '';
+                    if (!chapter && !title) { chapter = 'Closing'; title = ''; }
+                }
+                var notesEl = s.querySelector('.speaker-notes');
+                return { chapter: chapter, title: title, notesHTML: notesEl ? notesEl.innerHTML : '' };
+            }
+
+            var presenterCurrentEl = document.getElementById('presenter-current');
+            var presenterChapterEl = document.getElementById('presenter-current-chapter');
+            var presenterTitleEl = document.getElementById('presenter-current-title');
+            var presenterNotesEl = document.getElementById('presenter-notes');
+            var presenterNextChapterEl = document.getElementById('presenter-next-chapter');
+            var presenterNextTitleEl = document.getElementById('presenter-next-title');
+
+            function updatePresenterView() {
+                if (!isPresenter) return;
+                var nowInfo = readSlideMeta(slides[current]);
+                var nextInfo = readSlideMeta(slides[current + 1]);
+                if (presenterCurrentEl) presenterCurrentEl.textContent = String(current + 1).padStart(2, '0');
+                if (presenterChapterEl) presenterChapterEl.textContent = nowInfo.chapter;
+                if (presenterTitleEl) presenterTitleEl.textContent = nowInfo.title;
+                if (presenterNotesEl) presenterNotesEl.innerHTML = nowInfo.notesHTML;
+                if (presenterNextChapterEl) presenterNextChapterEl.textContent = nextInfo.chapter;
+                if (presenterNextTitleEl) presenterNextTitleEl.textContent = nextInfo.title;
+            }
+
+            var timerStart = Date.now();
+            var presenterTimerEl = document.getElementById('presenter-timer');
+            if (isPresenter) {
+                setInterval(function () {
+                    var elapsed = Math.floor((Date.now() - timerStart) / 1000);
+                    var mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    var ss = String(elapsed % 60).padStart(2, '0');
+                    if (presenterTimerEl) presenterTimerEl.textContent = mm + ':' + ss;
+                }, 500);
+            }
+
+            function openPresenter() {
+                var url = location.pathname + '?presenter=1' + (location.hash || '');
+                var w = window.open(url, 'telaris-presenter', 'width=920,height=720,toolbar=0,menubar=0,location=0,scrollbars=1');
+                if (!w) {
+                    var msg = document.createElement('div');
+                    msg.className = 'presenter-popup-warning';
+                    msg.textContent = 'Please allow pop-ups for this site to open the presenter window.';
+                    document.body.appendChild(msg);
+                    setTimeout(function () { msg.remove(); }, 3500);
+                }
+            }
+
+            function go(i) {
+                if (i < 0) i = 0;
+                if (i >= total) i = total - 1;
+                current = i;
+                slides.forEach(function (s, idx) { s.classList.toggle('active', idx === i); });
+                notes.forEach(function (n, idx) { n.classList.toggle('active', idx === i); });
+                counterEl.textContent = String(i + 1).padStart(2, '0');
+                if (location.hash !== '#' + (i + 1)) { history.replaceState(null, '', '#' + (i + 1)); }
+                broadcastGo(i);
+                updatePresenterView();
+            }
+            function next() { go(current + 1); }
+            function prev() { go(current - 1); }
+
+            var numBuffer = '';
+            var numTimer = null;
+            function commitNum() {
+                if (numTimer) { clearTimeout(numTimer); numTimer = null; }
+                if (numBuffer === '') return;
+                var n = parseInt(numBuffer, 10);
+                numBuffer = '';
+                if (isNaN(n)) return;
+                if (n < 1) n = 1;
+                if (n > total) n = total;
+                go(n - 1);
+            }
+
+            var overview = document.getElementById('overview');
+            var overviewGrid = overview.querySelector('.overview-grid');
+            var overviewCloseBtn = overview.querySelector('.overview-close');
+            slides.forEach(function (slide, idx) {
+                var chapter, title;
+                if (idx === 0) {
+                    chapter = 'Cover';
+                    title = (slide.querySelector('.cover-sub') || { textContent: 'Telaris' }).textContent.trim();
+                } else {
+                    var ch = slide.querySelector('.chapter-title');
+                    var h2 = slide.querySelector('h2');
+                    chapter = ch ? ch.textContent.trim() : '';
+                    title = h2 ? h2.textContent.trim() : '';
+                    if (!chapter && !title) { chapter = 'Closing'; title = ''; }
+                }
+                var li = document.createElement('li');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'overview-card';
+                btn.dataset.target = String(idx);
+                var num = document.createElement('span'); num.className = 'num'; num.textContent = 'Slide ' + String(idx + 1).padStart(2, '0');
+                var ch2 = document.createElement('span'); ch2.className = 'ch'; ch2.textContent = chapter;
+                var t = document.createElement('span'); t.className = 't'; t.textContent = title;
+                btn.appendChild(num); btn.appendChild(ch2); btn.appendChild(t);
+                btn.addEventListener('click', function () { go(idx); toggleOverview(false); });
+                li.appendChild(btn);
+                overviewGrid.appendChild(li);
+            });
+            function toggleOverview(force) {
+                var on = (typeof force === 'boolean') ? force : !document.body.classList.contains('show-overview');
+                document.body.classList.toggle('show-overview', on);
+                overview.setAttribute('aria-hidden', on ? 'false' : 'true');
+                if (on) {
+                    var cards = overviewGrid.querySelectorAll('.overview-card');
+                    cards.forEach(function (card, i) { card.classList.toggle('current', i === current); });
+                    var currentCard = cards[current];
+                    if (currentCard) currentCard.focus();
+                }
+            }
+            overviewCloseBtn.addEventListener('click', function () { toggleOverview(false); });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+                if (document.body.classList.contains('show-overview')) {
+                    if (e.key === 'Escape' || e.key === 'o' || e.key === 'O') { e.preventDefault(); toggleOverview(false); }
+                    return;
+                }
+                switch (e.key) {
+                    case 'ArrowRight': case 'PageDown': case ' ': e.preventDefault(); next(); break;
+                    case 'ArrowLeft': case 'PageUp': e.preventDefault(); prev(); break;
+                    case 'Home': e.preventDefault(); go(0); break;
+                    case 'End': e.preventDefault(); go(total - 1); break;
+                    case 'f': case 'F':
+                        e.preventDefault();
+                        if (!document.fullscreenElement) {
+                            (document.documentElement.requestFullscreen || function () {}).call(document.documentElement);
+                        } else {
+                            (document.exitFullscreen || function () {}).call(document);
+                        }
+                        break;
+                    case 's': case 'S': e.preventDefault(); document.body.classList.toggle('show-notes'); break;
+                    case 'p': case 'P': e.preventDefault(); window.print(); break;
+                    case 'o': case 'O': e.preventDefault(); toggleOverview(true); break;
+                    case 'w': case 'W': if (!isPresenter) { e.preventDefault(); openPresenter(); } break;
+                    case 'r': case 'R': if (isPresenter) { e.preventDefault(); timerStart = Date.now(); } break;
+                    case 'Escape': if (isPresenter && window.opener) { e.preventDefault(); window.close(); } break;
+                    default:
+                        if (/^[0-9]$/.test(e.key)) {
+                            e.preventDefault();
+                            numBuffer += e.key;
+                            if (parseInt(numBuffer, 10) * 10 > total) { commitNum(); }
+                            else { if (numTimer) clearTimeout(numTimer); numTimer = setTimeout(commitNum, 700); }
+                        }
+                        break;
+                }
+            });
+
+            document.getElementById('zone-prev').addEventListener('click', prev);
+            document.getElementById('zone-next').addEventListener('click', next);
+
+            var touchStartX = null;
+            document.addEventListener('touchstart', function (e) {
+                if (e.touches && e.touches.length === 1) touchStartX = e.touches[0].clientX;
+            }, { passive: true });
+            document.addEventListener('touchend', function (e) {
+                if (touchStartX === null) return;
+                var endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : touchStartX;
+                var dx = endX - touchStartX;
+                if (Math.abs(dx) > 60) { dx < 0 ? next() : prev(); }
+                touchStartX = null;
+            }, { passive: true });
+
+            var hint = document.querySelector('.deck-hint');
+            var HINT_REVEAL_PX = 64;
+            document.addEventListener('mousemove', function (e) {
+                if (!hint) return;
+                if (window.innerHeight - e.clientY <= HINT_REVEAL_PX) { hint.classList.remove('faded'); }
+                else { hint.classList.add('faded'); }
+            });
+
+            var params = new URLSearchParams(location.search);
+            if (params.has('notes')) document.body.classList.add('show-notes');
+            var hashNum = parseInt((location.hash || '#1').replace('#', ''), 10);
+            if (!isNaN(hashNum) && hashNum >= 1 && hashNum <= total) { go(hashNum - 1); }
+            else { go(0); }
+            if (isPresenter && channel) { channel.postMessage({ type: 'request-state' }); }
+        })();
+    </script>
+</body>
+</html>

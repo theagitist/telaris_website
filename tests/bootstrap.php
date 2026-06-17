@@ -7,7 +7,7 @@ declare(strict_types=1);
  *  1. Force mail into dry-run so no test ever contacts an SMTP relay.
  *  2. Load app config (DB_* constants + inc/db.php). No DB connection happens
  *     at require time; the first getDB() does.
- *  3. Route EVERY getDB() call to the isolated LOCAL Postgres `pluriverse_test`
+ *  3. Route EVERY getDB() call to the isolated LOCAL Postgres `telaris_pluriverse_test`
  *     database via the pluriverse_db_reset_for_testing() seam, so the suite can
  *     never touch the live `pluriverse` data (the lesson from the instance suite
  *     deleting a real peer row). The local dev role + password come from
@@ -29,8 +29,8 @@ if (!is_readable($__telaris_keyfile)) {
 }
 $__telaris_test_pass = trim((string)file_get_contents($__telaris_keyfile));
 $__telaris_test_pdo = new PDO(
-    'pgsql:host=127.0.0.1;port=5432;dbname=pluriverse_test',
-    'pluriverse',
+    'pgsql:host=127.0.0.1;port=5432;dbname=telaris_pluriverse_test',
+    'telaris_pluriverse',
     $__telaris_test_pass,
     [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

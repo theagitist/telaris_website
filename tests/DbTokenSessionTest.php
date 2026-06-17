@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * DB-backed tests for the auth data layer: magic-link tokens (single-use,
  * expiry) and sessions (create / validate / destroy / chooser bind). Runs
- * against the isolated `pluriverse_test` database (see tests/bootstrap.php).
+ * against the isolated `telaris_pluriverse_test` database (see tests/bootstrap.php).
  */
 final class DbTokenSessionTest extends TestCase
 {

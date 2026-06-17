@@ -5,7 +5,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Proves the test harness is isolated: every getDB() points at the throwaway
- * `pluriverse_test` database (NOT the live `pluriverse`), and the schema
+ * `telaris_pluriverse_test` database (NOT the live `telaris_pluriverse`), and the schema
  * self-builds there via db_ensure_*. This is the safety guard that lets
  * DB-backed handler tests run without risking real federation data.
  */
@@ -19,7 +19,7 @@ final class DbHarnessTest extends TestCase
     public function testConnectedToIsolatedTestDatabase(): void
     {
         $db = getDB()->query('SELECT current_database()')->fetchColumn();
-        $this->assertSame('pluriverse_test', $db, 'tests must never touch the live pluriverse DB');
+        $this->assertSame('telaris_pluriverse_test', $db, 'tests must never touch the live telaris_pluriverse DB');
     }
 
     public function testEnsureBuildsSchemaInTestDb(): void

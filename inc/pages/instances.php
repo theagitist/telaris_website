@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../content.php';
+require_once __DIR__ . '/../db_federation.php';
 
 $pageTitle = info('instance_title');
 $bodyClass = 'page-instances';
@@ -33,10 +34,12 @@ $instances = pluriverse_instances($pluriverseLocale);
 <?php endforeach; ?>
   </ul>
 <?php endif; ?>
+<?php if (db_self_service_is_open()): ?>
   <section class="instance-request-cta">
     <h2><?= h(info('instance_request_cta_title')) ?></h2>
     <p><?= h(info('instance_request_cta_body')) ?></p>
     <p><a class="btn" href="<?= h(pluriverse_locale_url('request-instance', $pluriverseLocale)) ?>"><?= h(info('instance_request_cta_button')) ?></a></p>
   </section>
+<?php endif; ?>
 </main>
 <?php require __DIR__ . '/../partials/footer.php'; ?>

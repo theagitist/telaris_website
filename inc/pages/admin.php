@@ -231,6 +231,7 @@ if ($session !== null && $session['subject_type'] === 'admin') {
         $pageTitle = info('admin_title');
         $bodyClass = 'page-admin';
         $includeBg = false;
+        $useDaisyui = true; // DaisyUI controls in the self-service section
         require __DIR__ . '/../partials/head.php';
         ?>
         <main class="page page-admin">
@@ -255,22 +256,29 @@ if ($session !== null && $session['subject_type'] === 'admin') {
           </div>
 <?php endif; ?>
 
-          <section class="dashboard-section">
+          <section class="dashboard-section ss-daisy" data-theme="dark">
             <h2><?= h(info('admin_ss_title')) ?></h2>
 
-            <h3><?= h(info('admin_ss_settings_title')) ?></h3>
-            <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
-              <?= pluriverse_csrf_field() ?>
-              <input type="hidden" name="action" value="ss_settings">
-              <label class="checkbox-row">
-                <input type="checkbox" name="open" value="1"<?= $ssOpen ? ' checked' : '' ?>>
-                <span><?= h(info('admin_ss_open_label')) ?></span>
-              </label>
-              <label><?= h(info('admin_ss_cap_label')) ?>
-                <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>">
-              </label>
-              <button type="submit"><?= h(info('admin_ss_save_button')) ?></button>
-            </form>
+            <div class="ss-panel">
+              <h3 class="ss-panel-title"><?= h(info('admin_ss_settings_title')) ?></h3>
+              <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
+                <?= pluriverse_csrf_field() ?>
+                <input type="hidden" name="action" value="ss_settings">
+                <div class="form-control ss-field">
+                  <label class="label cursor-pointer">
+                    <span class="label-text"><?= h(info('admin_ss_open_label')) ?></span>
+                    <input type="checkbox" name="open" value="1" class="toggle toggle-success"<?= $ssOpen ? ' checked' : '' ?>>
+                  </label>
+                </div>
+                <div class="form-control ss-field">
+                  <label class="label"><span class="label-text"><?= h(info('admin_ss_cap_label')) ?></span></label>
+                  <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>" class="input input-bordered input-sm ss-cap">
+                </div>
+                <div class="ss-field">
+                  <button type="submit" class="btn btn-primary btn-sm"><?= h(info('admin_ss_save_button')) ?></button>
+                </div>
+              </form>
+            </div>
 
             <h3><?= h(info('admin_ss_requests_title')) ?></h3>
 <?php if ($ssRequests === []): ?>
@@ -294,6 +302,7 @@ if ($session !== null && $session['subject_type'] === 'admin') {
     elseif (in_array($st, ['pending_confirmation', 'failed'], true)) { $ssRowActions = ['reject_req', 'ban_op']; }
     elseif ($st === 'banned') { $ssRowActions = ['unban_op']; }
     $btnLabelKey = ['approve' => 'admin_ss_btn_approve', 'reject_req' => 'admin_ss_btn_reject', 'ban_op' => 'admin_ss_btn_ban', 'unban_op' => 'admin_ss_btn_unban'];
+    $ssBtnClass = ['approve' => 'btn-success', 'reject_req' => 'btn-outline btn-error', 'ban_op' => 'btn-error', 'unban_op' => 'btn-ghost'];
     $opName = (string)($rq['operator_name'] ?? '');
     $opEmail = (string)($rq['operator_email'] ?? '');
 ?>
@@ -313,7 +322,7 @@ if ($session !== null && $session['subject_type'] === 'admin') {
                       <button type="submit"
                               name="action"
                               value="<?= h($ak) ?>"
-                              class="admin-action-btn admin-action-<?= h($ak) ?>"
+                              class="btn btn-xs <?= h($ssBtnClass[$ak]) ?>"
                               data-confirm="<?= h(sprintf(info('admin_ss_confirm_fmt'), info($btnLabelKey[$ak]), (string)$rq['label'])) ?>">
                         <?= h(info($btnLabelKey[$ak])) ?>
                       </button>

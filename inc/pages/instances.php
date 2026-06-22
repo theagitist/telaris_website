@@ -7,6 +7,7 @@ require_once __DIR__ . '/../db_federation.php';
 $pageTitle = info('instance_title');
 $bodyClass = 'page-instances';
 $includeBg = false;
+$useDaisyui = db_self_service_is_open(); // only when the request CTA is shown
 require __DIR__ . '/../partials/head.php';
 
 $instances = pluriverse_instances($pluriverseLocale);
@@ -35,10 +36,10 @@ $instances = pluriverse_instances($pluriverseLocale);
   </ul>
 <?php endif; ?>
 <?php if (db_self_service_is_open()): ?>
-  <section class="instance-request-cta">
+  <section class="instance-request-cta ss-daisy" data-theme="dark">
     <h2><?= h(info('instance_request_cta_title')) ?></h2>
     <p><?= h(info('instance_request_cta_body')) ?></p>
-    <p><a class="btn" href="<?= h(pluriverse_locale_url('request-instance', $pluriverseLocale)) ?>"><?= h(info('instance_request_cta_button')) ?></a></p>
+    <p><a class="btn btn-primary" href="<?= h(pluriverse_locale_url('request-instance', $pluriverseLocale)) ?>"><?= h(info('instance_request_cta_button')) ?></a></p>
   </section>
 <?php endif; ?>
 </main>

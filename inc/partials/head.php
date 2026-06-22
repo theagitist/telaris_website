@@ -17,6 +17,10 @@ global $pluriverseLocale, $pluriversePage, $pluriverseInfo;
 $pageTitle = $pageTitle ?? '';
 $bodyClass = $bodyClass ?? '';
 $includeBg = $includeBg ?? false;
+// Self-service pages opt into DaisyUI for their form controls. Loaded BEFORE
+// styles.css; DaisyUI's rules live in @layer, so the unlayered bespoke
+// styles.css keeps winning on the shared chrome (nav, footer, body, type).
+$useDaisyui = $useDaisyui ?? false;
 
 $titleSuffix = info('title_suffix');
 $fullTitle = $pageTitle !== '' ? ($pageTitle . ' · ' . $titleSuffix) : $titleSuffix;
@@ -42,6 +46,9 @@ $navItems = [
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<?php if ($useDaisyui): ?>
+  <link rel="stylesheet" href="/assets/vendor/daisyui-4.12.10.full.min.css">
+<?php endif; ?>
   <link rel="stylesheet" href="/assets/styles.css?v=<?= h((string)@filemtime(dirname(__DIR__, 2) . '/assets/styles.css') ?: '0') ?>">
 </head>
 <body class="<?= h($bodyClass) ?>">

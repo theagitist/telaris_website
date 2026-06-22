@@ -906,3 +906,72 @@ table.admin-instances code {
 .admin-no-actions {
   color: var(--fg-muted, rgba(255, 255, 255, 0.4));
 }
+
+/* ---------------------------------------------------------------------------
+   Self-service instance requests (Phase 3): the form + admin controls opt into
+   DaisyUI (loaded only on those pages). DaisyUI styles the controls; these
+   unlayered rules supply the layout Tailwind utilities would otherwise give
+   (widths, spacing) and the bits that aren't DaisyUI components.
+   --------------------------------------------------------------------------- */
+.request-form,
+.ss-settings-form { max-width: 480px; }
+
+/* Vertical rhythm between fields (DaisyUI form-control has no outer margin). */
+.ss-field { margin: 0 0 0.9rem; }
+
+/* Controls span the form column (no Tailwind w-full present). */
+.ss-daisy .input,
+.ss-daisy .select,
+.ss-daisy .textarea { width: 100%; }
+.ss-daisy .ss-cap { width: 8rem; }
+.ss-daisy .textarea { min-height: 4.5rem; }
+
+/* Field labels: drop DaisyUI's default side padding so they align with inputs. */
+.ss-daisy .label { padding-left: 0; padding-right: 0; }
+
+/* Help text under a field. */
+.ss-help {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--dimmer);
+}
+
+/* Checkbox rows with descriptive text (federate, consent). */
+.ss-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+.ss-checkbox-row .checkbox { flex: 0 0 auto; margin-top: 0.15rem; }
+.ss-checkbox-row span { font-size: 0.85rem; color: var(--dim); line-height: 1.4; }
+.ss-checkbox-row a { color: var(--accent); }
+
+/* Admin settings panel. */
+.ss-panel { max-width: 480px; margin: 0.75rem 0 1.75rem; }
+.ss-panel-title { margin: 0 0 0.75rem; font-size: 0.95rem; }
+
+/* Validation error summary. */
+.form-errors {
+  max-width: 480px;
+  margin: 0.75rem 0 1.25rem;
+  padding: 0.7rem 1rem;
+  border-left: 3px solid rgba(220, 110, 110, 0.7);
+  background: rgba(220, 110, 110, 0.06);
+  border-radius: 4px;
+}
+.form-errors ul { margin: 0; padding-left: 1.1rem; }
+.form-errors li { font-size: 0.85rem; }
+
+/* Instances-page CTA card. */
+.instance-request-cta {
+  margin: 2.5rem 0 0;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 6px;
+  background: rgba(0, 255, 204, 0.04);
+  max-width: 640px;
+}
+.instance-request-cta h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.instance-request-cta p { margin: 0 0 0.9rem; color: var(--dim); font-size: 0.9rem; }

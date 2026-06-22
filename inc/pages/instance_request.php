@@ -85,12 +85,13 @@ if ($confirmTokenEnc !== '') {
     $pageTitle = $heading;
     $bodyClass = 'page-request page-request-confirm';
     $includeBg = false;
+    $useDaisyui = true;
     require __DIR__ . '/../partials/head.php';
     ?>
-    <main class="page">
+    <main class="page ss-daisy" data-theme="dark">
       <h1 class="page-title"><?= h($heading) ?></h1>
       <p class="page-lead"><?= h($body) ?></p>
-      <p><a class="btn" href="<?= h($pluriversePrefix) ?>/"><?= h(info('verify_back_home')) ?></a></p>
+      <p><a class="btn btn-primary btn-sm" href="<?= h($pluriversePrefix) ?>/"><?= h(info('verify_back_home')) ?></a></p>
     </main>
     <?php
     require __DIR__ . '/../partials/footer.php';
@@ -252,15 +253,16 @@ function pluriverse_send_request_confirmation(string $to, string $locale, string
 $pageTitle = info('request_title');
 $bodyClass = 'page-request';
 $includeBg = false;
+$useDaisyui = true;
 require __DIR__ . '/../partials/head.php';
 ?>
-<main class="page">
+<main class="page ss-daisy" data-theme="dark">
   <h1 class="page-title"><?= h(info('request_title')) ?></h1>
 
 <?php if ($submitted): ?>
   <h2><?= h(info('request_success_heading')) ?></h2>
   <p class="page-lead"><?= h(info('request_success_body')) ?></p>
-  <p><a class="btn" href="<?= h($pluriversePrefix) ?>/"><?= h(info('verify_back_home')) ?></a></p>
+  <p><a class="btn btn-primary btn-sm" href="<?= h($pluriversePrefix) ?>/"><?= h(info('verify_back_home')) ?></a></p>
 
 <?php elseif (!$open): ?>
   <div class="prose"><?= pluriverse_commonmark()->convert(info('request_closed_notice'))->getContent() ?></div>
@@ -285,44 +287,64 @@ require __DIR__ . '/../partials/head.php';
       <label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
     </div>
 
-    <label for="rq-name"><?= h(info('request_name_label')) ?></label>
-    <input id="rq-name" type="text" name="name" maxlength="255" value="<?= h($v['name']) ?>" placeholder="<?= h(info('request_name_ph')) ?>">
+    <div class="form-control ss-field">
+      <label class="label" for="rq-name"><span class="label-text"><?= h(info('request_name_label')) ?></span></label>
+      <input id="rq-name" type="text" name="name" maxlength="255" value="<?= h($v['name']) ?>" placeholder="<?= h(info('request_name_ph')) ?>" class="input input-bordered">
+    </div>
 
-    <label for="rq-email"><?= h(info('request_email_label')) ?></label>
-    <input id="rq-email" type="email" name="email" required maxlength="254" value="<?= h($v['email']) ?>" placeholder="<?= h(info('request_email_ph')) ?>">
+    <div class="form-control ss-field">
+      <label class="label" for="rq-email"><span class="label-text"><?= h(info('request_email_label')) ?></span></label>
+      <input id="rq-email" type="email" name="email" required maxlength="254" value="<?= h($v['email']) ?>" placeholder="<?= h(info('request_email_ph')) ?>" class="input input-bordered">
+    </div>
 
-    <label for="rq-label"><?= h(info('request_label_label')) ?></label>
-    <input id="rq-label" type="text" name="label" required maxlength="31" value="<?= h($v['label']) ?>" pattern="[a-z][a-z0-9-]{1,30}">
-    <small><?= h(info('request_label_help')) ?></small>
+    <div class="form-control ss-field">
+      <label class="label" for="rq-label"><span class="label-text"><?= h(info('request_label_label')) ?></span></label>
+      <input id="rq-label" type="text" name="label" required maxlength="31" value="<?= h($v['label']) ?>" pattern="[a-z][a-z0-9-]{1,30}" class="input input-bordered">
+      <span class="ss-help"><?= h(info('request_label_help')) ?></span>
+    </div>
 
-    <label for="rq-sitename"><?= h(info('request_sitename_label')) ?></label>
-    <input id="rq-sitename" type="text" name="site_name" required maxlength="255" value="<?= h($v['site_name']) ?>" placeholder="<?= h(info('request_sitename_ph')) ?>">
+    <div class="form-control ss-field">
+      <label class="label" for="rq-sitename"><span class="label-text"><?= h(info('request_sitename_label')) ?></span></label>
+      <input id="rq-sitename" type="text" name="site_name" required maxlength="255" value="<?= h($v['site_name']) ?>" placeholder="<?= h(info('request_sitename_ph')) ?>" class="input input-bordered">
+    </div>
 
-    <label for="rq-tagline"><?= h(info('request_tagline_label')) ?></label>
-    <input id="rq-tagline" type="text" name="tagline" maxlength="512" value="<?= h($v['tagline']) ?>" placeholder="<?= h(info('request_tagline_ph')) ?>">
+    <div class="form-control ss-field">
+      <label class="label" for="rq-tagline"><span class="label-text"><?= h(info('request_tagline_label')) ?></span></label>
+      <input id="rq-tagline" type="text" name="tagline" maxlength="512" value="<?= h($v['tagline']) ?>" placeholder="<?= h(info('request_tagline_ph')) ?>" class="input input-bordered">
+    </div>
 
-    <label for="rq-locale"><?= h(info('request_locale_label')) ?></label>
-    <select id="rq-locale" name="locale">
+    <div class="form-control ss-field">
+      <label class="label" for="rq-locale"><span class="label-text"><?= h(info('request_locale_label')) ?></span></label>
+      <select id="rq-locale" name="locale" class="select select-bordered">
 <?php foreach (['en' => 'English', 'es' => 'Español', 'pt' => 'Português', 'fr' => 'Français'] as $code => $name): ?>
-      <option value="<?= h($code) ?>"<?= $v['locale'] === $code ? ' selected' : '' ?>><?= h($name) ?></option>
+        <option value="<?= h($code) ?>"<?= $v['locale'] === $code ? ' selected' : '' ?>><?= h($name) ?></option>
 <?php endforeach; ?>
-    </select>
+      </select>
+    </div>
 
-    <label for="rq-framing"><?= h(info('request_framing_label')) ?></label>
-    <textarea id="rq-framing" name="framing" rows="3" maxlength="2000"><?= h($v['framing']) ?></textarea>
-    <small><?= h(info('request_framing_help')) ?></small>
+    <div class="form-control ss-field">
+      <label class="label" for="rq-framing"><span class="label-text"><?= h(info('request_framing_label')) ?></span></label>
+      <textarea id="rq-framing" name="framing" rows="3" maxlength="2000" class="textarea textarea-bordered"><?= h($v['framing']) ?></textarea>
+      <span class="ss-help"><?= h(info('request_framing_help')) ?></span>
+    </div>
 
-    <label class="checkbox-row">
-      <input type="checkbox" name="federate" value="1"<?= $v['federate'] ? ' checked' : '' ?>>
-      <span><strong><?= h(info('request_federate_label')) ?></strong>: <?= h(info('request_federate_help')) ?></span>
-    </label>
+    <div class="form-control ss-field">
+      <label class="ss-checkbox-row">
+        <input type="checkbox" name="federate" value="1"<?= $v['federate'] ? ' checked' : '' ?> class="checkbox checkbox-sm">
+        <span><strong><?= h(info('request_federate_label')) ?></strong>: <?= h(info('request_federate_help')) ?></span>
+      </label>
+    </div>
 
-    <label class="checkbox-row">
-      <input type="checkbox" name="consent" value="1"<?= isset($_POST['consent']) ? ' checked' : '' ?> required>
-      <span><?= info('request_consent_html') ?></span>
-    </label>
+    <div class="form-control ss-field">
+      <label class="ss-checkbox-row">
+        <input type="checkbox" name="consent" value="1"<?= isset($_POST['consent']) ? ' checked' : '' ?> required class="checkbox checkbox-sm">
+        <span><?= info('request_consent_html') ?></span>
+      </label>
+    </div>
 
-    <button type="submit"><?= h(info('request_submit')) ?></button>
+    <div class="ss-field">
+      <button type="submit" class="btn btn-primary"><?= h(info('request_submit')) ?></button>
+    </div>
   </form>
 <?php endif; ?>
 </main>

@@ -180,6 +180,19 @@ const PROJECT_INFO_COLUMNS = [
     'request_confirm_heading_already', 'request_confirm_body_already',
     'request_confirm_heading_expired', 'request_confirm_body_expired',
     'request_confirm_heading_invalid', 'request_confirm_body_invalid',
+    // Admin self-service review (Phase 3e, 2026-06-22).
+    'admin_ss_title',
+    'admin_ss_settings_title', 'admin_ss_open_label', 'admin_ss_cap_label',
+    'admin_ss_save_button', 'admin_ss_settings_saved',
+    'admin_ss_requests_title', 'admin_ss_requests_none',
+    'admin_ss_col_operator', 'admin_ss_col_label', 'admin_ss_col_status', 'admin_ss_col_created',
+    'admin_ss_btn_approve', 'admin_ss_btn_reject', 'admin_ss_btn_ban', 'admin_ss_btn_unban',
+    'admin_ss_confirm_fmt',
+    'admin_ss_flash_approved', 'admin_ss_flash_rejected', 'admin_ss_flash_banned',
+    'admin_ss_flash_unbanned', 'admin_ss_flash_err',
+    'admin_ss_status_pending_confirmation', 'admin_ss_status_confirmed', 'admin_ss_status_approved',
+    'admin_ss_status_provisioning', 'admin_ss_status_provisioned',
+    'admin_ss_status_rejected', 'admin_ss_status_failed', 'admin_ss_status_banned',
 ];
 
 function db_ensure_project_info(): void {

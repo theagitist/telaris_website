@@ -1700,3 +1700,99 @@ function db_self_service_is_open(): bool {
 function db_self_service_operator_cap(): int {
     return max(1, (int)pluriverse_setting_get('self_service_operator_cap', '3'));
 }
+
+/**
+ * Seal a small operator-identity blob for a provisioning job payload, so the
+ * Orrery worker (a different user that CANNOT read the Pluriverse PII master
+ * key) can recover the operator email/name without any plaintext PII living in
+ * the job at rest. Mirrors the worker's handoff_unseal() exactly:
+ * libsodium secretbox, returns hex(nonce(24) || cipher). The key is shared only
+ * between www-data and the Orrery user at HANDOFF_KEY_FILE (0640).
+ *
+ * Throws RuntimeException if the shared key is missing/short (so an approve
+ * fails loudly rather than enqueueing an unprovisionable job).
+ */
+function pluriverse_orrery_handoff_seal(array $data): string {
+    $path = defined('TELARIS_ORRERY_HANDOFF_KEY') ? (string)TELARIS_ORRERY_HANDOFF_KEY : '/etc/telaris-orrery/handoff.key';
+    if (!is_readable($path)) {
+        throw new RuntimeException('Orrery handoff key not readable: ' . $path);
+    }
+    $raw = trim((string)file_get_contents($path));
+    if (strlen($raw) === 64 && ctype_xdigit($raw)) {
+        $raw = (string)hex2bin($raw);
+    }
+    if (strlen($raw) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+        throw new RuntimeException('Orrery handoff key must be 32 bytes (or 64 hex).');
+    }
+    $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+    $plain = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    $cipher = sodium_crypto_secretbox($plain, $nonce, $raw);
+    sodium_memzero($raw);
+    return bin2hex($nonce . $cipher);
+}
+
+/**
+ * Approve a confirmed request: seal the operator handoff, enqueue a provision
+ * job, and flip the request confirmed -> approved (atomic on the status guard).
+ * Returns the job id, or null if the request was not in 'confirmed' (e.g. a
+ * double click). The Orrery worker then drains the job and provisions.
+ */
+function db_approve_instance_request(int $requestId, string $actor): ?int {
+    $req = db_get_instance_request_by_id($requestId, true);
+    if ($req === null || (string)$req['status'] !== 'confirmed') {
+        return null;
+    }
+    $sealed = pluriverse_orrery_handoff_seal([
+        'email' => (string)($req['operator_email'] ?? ''),
+        'first' => (string)($req['operator_name'] ?? ''),
+        'last'  => '',
+    ]);
+    $payload = [
+        'site_name'    => (string)$req['site_name'],
+        'site_tagline' => $req['site_tagline'] !== null ? (string)$req['site_tagline'] : '',
+        'locale'       => (string)$req['locale'],
+        'federate'     => (bool)$req['federate'],
+        'operator_sealed' => $sealed,
+    ];
+    // Flip status first (atomic guard) so a double click cannot enqueue twice;
+    // only enqueue if we won the transition.
+    if (!db_transition_instance_request($requestId, 'confirmed', 'approved', $actor)) {
+        return null;
+    }
+    return db_enqueue_provisioning_job($requestId, 'provision', (string)$req['label'], $payload);
+}
+
+/**
+ * Requests an admin reviews: pending_confirmation + confirmed, newest first,
+ * with operator email/name decrypted for display.
+ *
+ * @return list<array<string,mixed>>
+ */
+function db_list_reviewable_requests(int $limit = 100): array {
+    db_ensure_instance_requests_table();
+    $limit = max(1, min(500, $limit));
+    $stmt = getDB()->query("
+        SELECT id FROM instance_requests
+        WHERE status IN ('pending_confirmation','confirmed','approved','provisioning','provisioned','failed','banned')
+        ORDER BY
+            array_position(ARRAY['confirmed','approved','provisioning','pending_confirmation','failed','banned','provisioned']::text[], status),
+            id DESC
+        LIMIT {$limit}
+    ");
+    $out = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        $row = db_get_instance_request_by_id((int)$id, true);
+        if ($row !== null) $out[] = $row;
+    }
+    return $out;
+}
+
+/** Recent provisioning jobs for the admin job panel. */
+function db_list_recent_provisioning_jobs(int $limit = 20): array {
+    db_ensure_provisioning_jobs_table();
+    $limit = max(1, min(200, $limit));
+    return getDB()->query("
+        SELECT id, request_id, job_type, label, status, attempt_count, last_error, updated_at
+        FROM provisioning_jobs ORDER BY id DESC LIMIT {$limit}
+    ")->fetchAll(PDO::FETCH_ASSOC);
+}

@@ -113,6 +113,65 @@ if ($method === 'POST'
     return;
 }
 
+// -----------------------------------------------------------------------
+// POST self-service review actions (Phase 3e): approve / reject / ban /
+// unban a request, or save the self-service settings. CSRF + admin gated;
+// PRG with a flash code.
+// -----------------------------------------------------------------------
+$ssActions = ['approve', 'reject_req', 'ban_op', 'unban_op', 'ss_settings'];
+if ($method === 'POST'
+    && in_array((string)($_POST['action'] ?? ''), $ssActions, true)
+    && $session !== null
+    && $session['subject_type'] === 'admin'
+) {
+    $action = (string)$_POST['action'];
+    $localePrefix = ($pluriverseLocale !== 'en') ? '/' . $pluriverseLocale : '';
+    $msg = 'ss_err';
+    $admin = db_get_admin_by_id($session['subject_id']);
+    if (pluriverse_csrf_verify($_POST['csrf'] ?? null) && $admin !== null && $admin['is_active']) {
+        $actor = 'admin:' . (int)$admin['id'];
+        try {
+            if ($action === 'ss_settings') {
+                pluriverse_setting_set('self_service_open', isset($_POST['open']) ? '1' : '0');
+                $cap = (int)($_POST['cap'] ?? 3);
+                if ($cap >= 1 && $cap <= 999) {
+                    pluriverse_setting_set('self_service_operator_cap', (string)$cap);
+                }
+                $msg = 'ss_settings_saved';
+            } else {
+                $reqId = (int)($_POST['request_id'] ?? 0);
+                $req = $reqId > 0 ? db_get_instance_request_by_id($reqId) : null;
+                if ($req !== null) {
+                    $cur = (string)$req['status'];
+                    if ($action === 'approve') {
+                        $msg = (db_approve_instance_request($reqId, $actor) !== null) ? 'ss_approved' : 'ss_err';
+                    } elseif ($action === 'reject_req') {
+                        $ok = in_array($cur, ['confirmed', 'pending_confirmation', 'failed'], true)
+                            && db_transition_instance_request($reqId, $cur, 'rejected', $actor, ['reason' => 'rejected via admin']);
+                        $msg = $ok ? 'ss_rejected' : 'ss_err';
+                    } elseif ($action === 'ban_op') {
+                        $lh = hex2bin((string)$req['operator_email_lookup_hash']);
+                        db_add_operator_ban($lh, 'banned via admin', $actor);
+                        if ($cur !== 'banned') {
+                            db_transition_instance_request($reqId, $cur, 'banned', $actor, ['reason' => 'operator banned']);
+                        }
+                        $msg = 'ss_banned';
+                    } elseif ($action === 'unban_op') {
+                        $lh = hex2bin((string)$req['operator_email_lookup_hash']);
+                        $msg = db_remove_operator_ban($lh, $actor) ? 'ss_unbanned' : 'ss_err';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('admin self-service action: ' . $e->getMessage());
+            $msg = 'ss_err';
+        }
+    }
+    header('Location: ' . $localePrefix . '/admin?msg=' . urlencode($msg));
+    http_response_code(303);
+    return;
+}
+
 $session = pluriverse_current_session();
 
 // -----------------------------------------------------------------------
@@ -136,7 +195,10 @@ if ($session !== null && $session['subject_type'] === 'admin') {
             SELECT id, hostname, label, admission_status, created_at, verify_by_at, locale
             FROM instances
             ORDER BY
-                FIELD(admission_status, 'verified', 'pending', 'published', 'outdated', 'withdrawn', 'expired', 'rejected', 'blacklisted', 'revoked'),
+                array_position(
+                    ARRAY['verified','pending','published','outdated','withdrawn','expired','rejected','blacklisted','revoked']::text[],
+                    admission_status
+                ),
                 created_at DESC
         ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -151,6 +213,20 @@ if ($session !== null && $session['subject_type'] === 'admin') {
         $flashOk = strpos($flashMsg, 'transition_ok_') === 0;
         $flashErrKey = ($flashMsg === 'csrf_err' || $flashMsg === 'transition_err') ? $flashMsg : '';
         $flashOkAction = $flashOk ? substr($flashMsg, strlen('transition_ok_')) : '';
+
+        // Self-service review data + flash (Phase 3e).
+        $ssOpen = db_self_service_is_open();
+        $ssCap = db_self_service_operator_cap();
+        $ssRequests = db_list_reviewable_requests();
+        $ssFlashMap = [
+            'ss_approved' => ['ok', 'admin_ss_flash_approved'],
+            'ss_rejected' => ['ok', 'admin_ss_flash_rejected'],
+            'ss_banned' => ['ok', 'admin_ss_flash_banned'],
+            'ss_unbanned' => ['ok', 'admin_ss_flash_unbanned'],
+            'ss_settings_saved' => ['ok', 'admin_ss_settings_saved'],
+            'ss_err' => ['error', 'admin_ss_flash_err'],
+        ];
+        $ssFlash = $ssFlashMap[$flashMsg] ?? null;
 
         $pageTitle = info('admin_title');
         $bodyClass = 'page-admin';
@@ -172,6 +248,85 @@ if ($session !== null && $session['subject_type'] === 'admin') {
             <p><?= h(info('admin_flash_' . $flashErrKey)) ?></p>
           </div>
 <?php endif; ?>
+
+<?php if ($ssFlash !== null): ?>
+          <div class="dashboard-callout dashboard-callout-<?= h($ssFlash[0]) ?>">
+            <p><?= h(info($ssFlash[1])) ?></p>
+          </div>
+<?php endif; ?>
+
+          <section class="dashboard-section">
+            <h2><?= h(info('admin_ss_title')) ?></h2>
+
+            <h3><?= h(info('admin_ss_settings_title')) ?></h3>
+            <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
+              <?= pluriverse_csrf_field() ?>
+              <input type="hidden" name="action" value="ss_settings">
+              <label class="checkbox-row">
+                <input type="checkbox" name="open" value="1"<?= $ssOpen ? ' checked' : '' ?>>
+                <span><?= h(info('admin_ss_open_label')) ?></span>
+              </label>
+              <label><?= h(info('admin_ss_cap_label')) ?>
+                <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>">
+              </label>
+              <button type="submit"><?= h(info('admin_ss_save_button')) ?></button>
+            </form>
+
+            <h3><?= h(info('admin_ss_requests_title')) ?></h3>
+<?php if ($ssRequests === []): ?>
+            <p class="dashboard-help"><?= h(info('admin_ss_requests_none')) ?></p>
+<?php else: ?>
+            <table class="admin-instances">
+              <thead>
+                <tr>
+                  <th><?= h(info('admin_ss_col_operator')) ?></th>
+                  <th><?= h(info('admin_ss_col_label')) ?></th>
+                  <th><?= h(info('admin_ss_col_status')) ?></th>
+                  <th><?= h(info('admin_ss_col_created')) ?></th>
+                  <th class="admin-col-actions"><?= h(info('admin_col_actions')) ?></th>
+                </tr>
+              </thead>
+              <tbody>
+<?php foreach ($ssRequests as $rq):
+    $st = (string)$rq['status'];
+    $ssRowActions = [];
+    if ($st === 'confirmed') { $ssRowActions = ['approve', 'reject_req', 'ban_op']; }
+    elseif (in_array($st, ['pending_confirmation', 'failed'], true)) { $ssRowActions = ['reject_req', 'ban_op']; }
+    elseif ($st === 'banned') { $ssRowActions = ['unban_op']; }
+    $btnLabelKey = ['approve' => 'admin_ss_btn_approve', 'reject_req' => 'admin_ss_btn_reject', 'ban_op' => 'admin_ss_btn_ban', 'unban_op' => 'admin_ss_btn_unban'];
+    $opName = (string)($rq['operator_name'] ?? '');
+    $opEmail = (string)($rq['operator_email'] ?? '');
+?>
+                <tr class="admin-instance-row admin-ss-row-<?= h($st) ?>">
+                  <td><?php if ($opName !== ''): ?><?= h($opName) ?><br><?php endif; ?><code><?= h($opEmail) ?></code></td>
+                  <td><code><?= h((string)$rq['label']) ?>.telaris.ca</code></td>
+                  <td><?= h(info('admin_ss_status_' . $st)) ?></td>
+                  <td><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h((string)$rq['created_at']) ?></time></td>
+                  <td class="admin-row-actions">
+<?php if ($ssRowActions === []): ?>
+                    <span class="admin-no-actions">-</span>
+<?php else: ?>
+                    <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>">
+                      <?= pluriverse_csrf_field() ?>
+                      <input type="hidden" name="request_id" value="<?= h((string)$rq['id']) ?>">
+<?php foreach ($ssRowActions as $ak): ?>
+                      <button type="submit"
+                              name="action"
+                              value="<?= h($ak) ?>"
+                              class="admin-action-btn admin-action-<?= h($ak) ?>"
+                              data-confirm="<?= h(sprintf(info('admin_ss_confirm_fmt'), info($btnLabelKey[$ak]), (string)$rq['label'])) ?>">
+                        <?= h(info($btnLabelKey[$ak])) ?>
+                      </button>
+<?php endforeach; ?>
+                    </form>
+<?php endif; ?>
+                  </td>
+                </tr>
+<?php endforeach; ?>
+              </tbody>
+            </table>
+<?php endif; ?>
+          </section>
 
           <section class="dashboard-section">
             <h2><?= h(info('admin_section_instances')) ?></h2>

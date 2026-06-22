@@ -40,6 +40,11 @@ function db_ensure_federation_schema(): void {
     db_ensure_key_events_signed_table();
     db_ensure_key_event_push_attempts_table();
     db_ensure_pluriverse_log_tables();
+    // Self-service control plane (Phase 3): public instance requests, the
+    // provisioning job queue the Orrery worker drains, and operator bans.
+    db_ensure_instance_requests_table();
+    db_ensure_provisioning_jobs_table();
+    db_ensure_operator_bans_table();
 }
 
 function db_ensure_instances_table(): void {
@@ -166,7 +171,7 @@ function db_ensure_magic_link_tokens_table(): void {
             CREATE TABLE IF NOT EXISTS magic_link_tokens (
                 token_hash BYTEA PRIMARY KEY,
                 email_lookup_hash BYTEA NOT NULL,
-                purpose VARCHAR(16) NOT NULL DEFAULT 'operator' CHECK (purpose IN ('operator','admin','email-change')),
+                purpose VARCHAR(16) NOT NULL DEFAULT 'operator' CHECK (purpose IN ('operator','admin','email-change','request')),
                 instance_id INT NULL,
                 expires_at TIMESTAMP NOT NULL,
                 consumed_at TIMESTAMP NULL
@@ -176,6 +181,12 @@ function db_ensure_magic_link_tokens_table(): void {
         // Additive reconciliation for installs that predate later columns.
         $pdo->exec("ALTER TABLE magic_link_tokens ADD COLUMN IF NOT EXISTS purpose VARCHAR(16) NOT NULL DEFAULT 'operator'");
         $pdo->exec("ALTER TABLE magic_link_tokens ADD COLUMN IF NOT EXISTS instance_id INT NULL");
+        // Widen the purpose CHECK to admit the Phase-3 'request' value (email
+        // confirmation for a self-service instance request). The inline CHECK
+        // from CREATE TABLE is named <table>_<column>_check by Postgres; drop
+        // and re-add idempotently so both fresh and pre-Phase-3 installs converge.
+        $pdo->exec("ALTER TABLE magic_link_tokens DROP CONSTRAINT IF EXISTS magic_link_tokens_purpose_check");
+        $pdo->exec("ALTER TABLE magic_link_tokens ADD CONSTRAINT magic_link_tokens_purpose_check CHECK (purpose IN ('operator','admin','email-change','request'))");
     } catch (PDOException $e) {
         error_log('db_ensure_magic_link_tokens_table: ' . $e->getMessage());
     }
@@ -1176,4 +1187,462 @@ function db_destroy_session(string $rawSessionId): bool {
     $stmt->bindValue(':sid', bin2hex($rawSessionId));
     $stmt->execute();
     return $stmt->rowCount() === 1;
+}
+
+// ===========================================================================
+// Self-service control plane (Phase 3)
+// ===========================================================================
+//
+// Three tables model the self-service instance lifecycle:
+//
+//   instance_requests  - a public, double-opt-in request to provision a
+//                        Telaris instance. Distinct from `instances` (the
+//                        federation member registry): a request is the intake
+//                        artefact; an `instances` row is only created at
+//                        provision time (3f auto-trust). Operator name + email
+//                        are encrypted at rest exactly like the instances PII.
+//   provisioning_jobs  - the typed job queue the Orrery worker drains. The
+//                        web app (www-data) only ever INSERTs a job; the worker
+//                        (a separate Orrery user) claims it FOR UPDATE SKIP
+//                        LOCKED, re-validates, and runs the fixed provisioner
+//                        sequence. Shape mirrors key_event_push_attempts.
+//   operator_bans      - a super-admin ban keyed by operator email lookup hash,
+//                        outliving any single request so a banned operator
+//                        cannot simply resubmit.
+//
+// Request lifecycle:
+//   pending_confirmation --(email link)--> confirmed --(admin approve)--> approved
+//      |                                       |                            |
+//      |                                       +--(admin reject)--> rejected
+//      |                                                                    |
+//      +--(admin/abuse)--> banned                          (worker) provisioning
+//                                                                    |       |
+//                                                            provisioned   failed
+
+/**
+ * Row-context for instance_requests PII columns (operator_email_enc,
+ * operator_name_enc). Mirrors federation_row_context_for_instance but with a
+ * distinct prefix so a request and its eventual instance never share a derived
+ * key. column_name is 'email' or 'name'.
+ */
+function federation_row_context_for_request(string $emailLookupHash): string {
+    return 'instance_request:' . bin2hex($emailLookupHash);
+}
+
+function db_ensure_instance_requests_table(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    db_ensure_instances_table();
+    try {
+        $pdo = getDB();
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS instance_requests (
+                id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                label VARCHAR(63) NOT NULL,
+                site_name VARCHAR(255) NOT NULL,
+                site_tagline VARCHAR(512) NULL,
+                editorial_framing TEXT NULL,
+                locale CHAR(2) NOT NULL DEFAULT 'en',
+                federate BOOLEAN NOT NULL DEFAULT TRUE,
+                operator_name_enc BYTEA NULL,
+                operator_email_enc BYTEA NOT NULL,
+                operator_email_lookup_hash BYTEA NOT NULL,
+                request_ip_hash BYTEA NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending_confirmation'
+                    CHECK (status IN ('pending_confirmation','confirmed','approved','provisioning','provisioned','rejected','failed','banned')),
+                confirmed_at TIMESTAMP NULL,
+                reviewed_at TIMESTAMP NULL,
+                reviewed_by VARCHAR(255) NULL,
+                decision_reason TEXT NULL,
+                instance_id INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE SET NULL
+            )
+        ");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ir_operator_lookup ON instance_requests (operator_email_lookup_hash)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ir_status ON instance_requests (status, created_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ir_label ON instance_requests (label)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_ir_instance ON instance_requests (instance_id)");
+        db_ensure_pg_runtime();
+        db_pg_ensure_updated_at_trigger('instance_requests');
+    } catch (PDOException $e) {
+        error_log('db_ensure_instance_requests_table: ' . $e->getMessage());
+    }
+}
+
+function db_ensure_provisioning_jobs_table(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    db_ensure_instance_requests_table();
+    try {
+        $pdo = getDB();
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS provisioning_jobs (
+                id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                request_id INT NULL,
+                job_type VARCHAR(16) NOT NULL DEFAULT 'provision'
+                    CHECK (job_type IN ('provision','deprovision','suspend','resume')),
+                label VARCHAR(63) NOT NULL,
+                payload JSONB NULL,
+                status VARCHAR(16) NOT NULL DEFAULT 'queued'
+                    CHECK (status IN ('queued','running','done','failed','given_up')),
+                attempt_count INT NOT NULL DEFAULT 0,
+                last_attempt_at TIMESTAMP NULL,
+                next_attempt_at TIMESTAMP NULL,
+                last_error VARCHAR(2048) NULL,
+                result JSONB NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (request_id) REFERENCES instance_requests(id) ON DELETE SET NULL
+            )
+        ");
+        // The worker claims with: status='queued' AND next_attempt_at due,
+        // ordered by id, FOR UPDATE SKIP LOCKED. This index serves that claim.
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_pj_claim ON provisioning_jobs (status, next_attempt_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_pj_request ON provisioning_jobs (request_id)");
+        db_ensure_pg_runtime();
+        db_pg_ensure_updated_at_trigger('provisioning_jobs');
+    } catch (PDOException $e) {
+        error_log('db_ensure_provisioning_jobs_table: ' . $e->getMessage());
+    }
+}
+
+function db_ensure_operator_bans_table(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    try {
+        getDB()->exec("
+            CREATE TABLE IF NOT EXISTS operator_bans (
+                id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                operator_email_lookup_hash BYTEA NOT NULL,
+                reason TEXT NULL,
+                banned_by VARCHAR(255) NULL,
+                banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uniq_ban_lookup UNIQUE (operator_email_lookup_hash)
+            )
+        ");
+    } catch (PDOException $e) {
+        error_log('db_ensure_operator_bans_table: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Lightweight audit-log writer. The codebase has only inline pluriverse_log
+ * INSERTs (relay_handler etc.); the self-service surface logs from several
+ * call sites, so one best-effort helper avoids repeating the boilerplate.
+ * Never throws (audit logging must not break the action it records).
+ */
+function pluriverse_log_event(string $eventType, string $outcome, ?string $actor = null, ?string $target = null, ?string $summary = null): void {
+    if (!in_array($outcome, ['success', 'failure', 'warning'], true)) {
+        $outcome = 'warning';
+    }
+    try {
+        db_ensure_pluriverse_log_tables();
+        $stmt = getDB()->prepare("
+            INSERT INTO pluriverse_log (event_type, actor, target, outcome, details_summary)
+            VALUES (:e, :a, :t, :o, :d)
+        ");
+        $stmt->execute([
+            ':e' => substr($eventType, 0, 64),
+            ':a' => $actor !== null ? substr($actor, 0, 255) : null,
+            ':t' => $target !== null ? substr($target, 0, 255) : null,
+            ':o' => $outcome,
+            ':d' => $summary !== null ? substr($summary, 0, 1024) : null,
+        ]);
+    } catch (Throwable $e) {
+        error_log('pluriverse_log_event: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Insert a public instance request in 'pending_confirmation'. Encrypts the
+ * operator email + name at rest (per-row HKDF key, request row-context) and
+ * stores a deterministic lookup hash of the email for cap/ban/confirm lookups.
+ * The request IP, when supplied, is stored only as a keyed hash for abuse
+ * correlation (never plaintext).
+ *
+ * $req keys: label, site_name, site_tagline?, editorial_framing?, locale?,
+ *            federate?(bool, default true), operator_name?, operator_email,
+ *            request_ip?
+ *
+ * Returns the new request id.
+ */
+function db_insert_instance_request(array $req): int {
+    db_ensure_instance_requests_table();
+
+    $email = trim((string)($req['operator_email'] ?? ''));
+    if ($email === '') {
+        throw new InvalidArgumentException('db_insert_instance_request: operator_email required');
+    }
+    $lookupHash = federation_pii_lookup_hash($email);
+    $rowContext = federation_row_context_for_request($lookupHash);
+    $emailEnc = federation_pii_encrypt($email, $rowContext, 'email');
+
+    $nameEnc = null;
+    $name = trim((string)($req['operator_name'] ?? ''));
+    if ($name !== '') {
+        $nameEnc = federation_pii_encrypt($name, $rowContext, 'name');
+    }
+
+    $ipHash = null;
+    $ip = trim((string)($req['request_ip'] ?? ''));
+    if ($ip !== '') {
+        $ipHash = federation_pii_lookup_hash($ip);
+    }
+
+    $locale = (string)($req['locale'] ?? 'en');
+    if (!in_array($locale, ['en', 'es', 'pt', 'fr'], true)) {
+        $locale = 'en';
+    }
+    $federate = array_key_exists('federate', $req) ? (bool)$req['federate'] : true;
+
+    $stmt = getDB()->prepare("
+        INSERT INTO instance_requests (
+            label, site_name, site_tagline, editorial_framing, locale, federate,
+            operator_name_enc, operator_email_enc, operator_email_lookup_hash, request_ip_hash
+        ) VALUES (
+            :label, :site_name, :tagline, :framing, :locale, :federate,
+            decode(:name_enc,'hex'), decode(:email_enc,'hex'), decode(:lookup,'hex'), decode(:ip_hash,'hex')
+        )
+        RETURNING id
+    ");
+    $stmt->bindValue(':label', (string)$req['label']);
+    $stmt->bindValue(':site_name', (string)$req['site_name']);
+    $stmt->bindValue(':tagline', isset($req['site_tagline']) && $req['site_tagline'] !== '' ? (string)$req['site_tagline'] : null);
+    $stmt->bindValue(':framing', isset($req['editorial_framing']) && $req['editorial_framing'] !== '' ? (string)$req['editorial_framing'] : null);
+    $stmt->bindValue(':locale', $locale);
+    $stmt->bindValue(':federate', $federate, PDO::PARAM_BOOL);
+    // decode(NULL,'hex') is NULL, so nullable BYTEA columns bind cleanly here.
+    $stmt->bindValue(':name_enc', $nameEnc === null ? null : bin2hex($nameEnc));
+    $stmt->bindValue(':email_enc', bin2hex($emailEnc));
+    $stmt->bindValue(':lookup', bin2hex($lookupHash));
+    $stmt->bindValue(':ip_hash', $ipHash === null ? null : bin2hex($ipHash));
+    $stmt->execute();
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Fetch one request by id. With $withPii, also decrypts and adds
+ * 'operator_email' + 'operator_name' (admin display); without it, PII stays
+ * sealed. BYTEA columns come back as hex via encode().
+ */
+function db_get_instance_request_by_id(int $id, bool $withPii = false): ?array {
+    db_ensure_instance_requests_table();
+    $stmt = getDB()->prepare("
+        SELECT id, label, site_name, site_tagline, editorial_framing, locale, federate,
+               encode(operator_name_enc,'hex') AS operator_name_enc,
+               encode(operator_email_enc,'hex') AS operator_email_enc,
+               encode(operator_email_lookup_hash,'hex') AS operator_email_lookup_hash,
+               status, confirmed_at, reviewed_at, reviewed_by, decision_reason,
+               instance_id, created_at, updated_at
+        FROM instance_requests WHERE id = :id
+    ");
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row === false) return null;
+    if ($withPii) {
+        $lookupHash = hex2bin((string)$row['operator_email_lookup_hash']);
+        $rowContext = federation_row_context_for_request($lookupHash);
+        try {
+            $row['operator_email'] = federation_pii_decrypt(hex2bin((string)$row['operator_email_enc']), $rowContext, 'email');
+        } catch (Throwable $e) {
+            $row['operator_email'] = null;
+        }
+        $row['operator_name'] = null;
+        if ($row['operator_name_enc'] !== null && $row['operator_name_enc'] !== '') {
+            try {
+                $row['operator_name'] = federation_pii_decrypt(hex2bin((string)$row['operator_name_enc']), $rowContext, 'name');
+            } catch (Throwable $e) {
+                $row['operator_name'] = null;
+            }
+        }
+    }
+    return $row;
+}
+
+/**
+ * The latest request for an operator (by email lookup hash) in a given set of
+ * statuses, newest first. Used by the confirm endpoint (purpose='request'
+ * tokens carry the request id in instance_id, but the lookup hash is the
+ * authoritative key the token also binds).
+ */
+function db_get_latest_request_by_lookup_hash(string $lookupHash, array $statuses): ?array {
+    if (strlen($lookupHash) !== 32 || $statuses === []) return null;
+    db_ensure_instance_requests_table();
+    $place = implode(',', array_fill(0, count($statuses), '?'));
+    $stmt = getDB()->prepare("
+        SELECT id, label, status FROM instance_requests
+        WHERE operator_email_lookup_hash = decode(?,'hex') AND status IN ($place)
+        ORDER BY id DESC LIMIT 1
+    ");
+    $stmt->execute(array_merge([bin2hex($lookupHash)], $statuses));
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+}
+
+/**
+ * Count an operator's requests that occupy a slot toward their cap: anything
+ * not in a terminal-negative state (rejected/failed/banned). Used by the
+ * per-operator cap gate (3c/3e).
+ */
+function db_count_active_requests_by_lookup_hash(string $lookupHash): int {
+    if (strlen($lookupHash) !== 32) return 0;
+    db_ensure_instance_requests_table();
+    $stmt = getDB()->prepare("
+        SELECT COUNT(*) FROM instance_requests
+        WHERE operator_email_lookup_hash = decode(:lh,'hex')
+          AND status NOT IN ('rejected','failed','banned')
+    ");
+    $stmt->bindValue(':lh', bin2hex($lookupHash));
+    $stmt->execute();
+    return (int)$stmt->fetchColumn();
+}
+
+/** True if the label is taken by a live request or an existing instance. */
+function db_label_in_use(string $label): bool {
+    db_ensure_instance_requests_table();
+    $pdo = getDB();
+    $a = $pdo->prepare("SELECT 1 FROM instances WHERE label = :l LIMIT 1");
+    $a->execute([':l' => $label]);
+    if ($a->fetchColumn() !== false) return true;
+    $b = $pdo->prepare("
+        SELECT 1 FROM instance_requests
+        WHERE label = :l AND status NOT IN ('rejected','failed','banned') LIMIT 1
+    ");
+    $b->execute([':l' => $label]);
+    return $b->fetchColumn() !== false;
+}
+
+/**
+ * Atomic request status transition: flips status only if currently $expected
+ * (idempotent), optionally setting confirmed_at / review fields / instance_id,
+ * and writes a pluriverse_log row. Returns true iff a row changed.
+ *
+ * $extra may set: 'confirmed_at'(bool), 'reviewed_by'(string), 'reason'(string),
+ *                 'instance_id'(int).
+ */
+function db_transition_instance_request(int $id, string $expected, string $next, string $actor, array $extra = []): bool {
+    db_ensure_instance_requests_table();
+    $sets = ['status = :next'];
+    $params = [':next' => $next, ':id' => $id, ':expected' => $expected];
+    if (!empty($extra['confirmed_at'])) {
+        $sets[] = 'confirmed_at = NOW()';
+    }
+    if (in_array($next, ['approved', 'rejected'], true)) {
+        $sets[] = 'reviewed_at = NOW()';
+        $sets[] = 'reviewed_by = :rb';
+        $params[':rb'] = isset($extra['reviewed_by']) ? substr((string)$extra['reviewed_by'], 0, 255) : $actor;
+    }
+    if (array_key_exists('reason', $extra)) {
+        $sets[] = 'decision_reason = :reason';
+        $params[':reason'] = $extra['reason'] !== null ? (string)$extra['reason'] : null;
+    }
+    if (array_key_exists('instance_id', $extra)) {
+        $sets[] = 'instance_id = :iid';
+        $params[':iid'] = $extra['instance_id'] !== null ? (int)$extra['instance_id'] : null;
+    }
+    $sql = 'UPDATE instance_requests SET ' . implode(', ', $sets) . ' WHERE id = :id AND status = :expected';
+    $stmt = getDB()->prepare($sql);
+    $stmt->execute($params);
+    $changed = $stmt->rowCount() === 1;
+    if ($changed) {
+        pluriverse_log_event(
+            'instance_request_' . $next,
+            'success',
+            $actor,
+            'request#' . $id,
+            'status ' . $expected . ' -> ' . $next . (isset($extra['reason']) && $extra['reason'] !== null ? ' (' . substr((string)$extra['reason'], 0, 200) . ')' : '')
+        );
+    }
+    return $changed;
+}
+
+/** True if this operator (by email lookup hash) is banned. */
+function db_operator_is_banned(string $lookupHash): bool {
+    if (strlen($lookupHash) !== 32) return false;
+    db_ensure_operator_bans_table();
+    $stmt = getDB()->prepare("SELECT 1 FROM operator_bans WHERE operator_email_lookup_hash = decode(:lh,'hex') LIMIT 1");
+    $stmt->bindValue(':lh', bin2hex($lookupHash));
+    $stmt->execute();
+    return $stmt->fetchColumn() !== false;
+}
+
+/** Ban an operator by email lookup hash (idempotent: updates reason on repeat). */
+function db_add_operator_ban(string $lookupHash, ?string $reason, string $bannedBy): void {
+    if (strlen($lookupHash) !== 32) {
+        throw new InvalidArgumentException('db_add_operator_ban: lookup hash must be 32 bytes');
+    }
+    db_ensure_operator_bans_table();
+    $stmt = getDB()->prepare("
+        INSERT INTO operator_bans (operator_email_lookup_hash, reason, banned_by)
+        VALUES (decode(:lh,'hex'), :reason, :by)
+        ON CONFLICT (operator_email_lookup_hash)
+        DO UPDATE SET reason = EXCLUDED.reason, banned_by = EXCLUDED.banned_by, banned_at = NOW()
+    ");
+    $stmt->bindValue(':lh', bin2hex($lookupHash));
+    $stmt->bindValue(':reason', $reason !== null && $reason !== '' ? $reason : null);
+    $stmt->bindValue(':by', substr($bannedBy, 0, 255));
+    $stmt->execute();
+    pluriverse_log_event('operator_ban', 'success', $bannedBy, null, 'banned operator (lookup ' . substr(bin2hex($lookupHash), 0, 16) . '...)');
+}
+
+/** Lift an operator ban. Returns true iff a ban row was removed. */
+function db_remove_operator_ban(string $lookupHash, string $actor): bool {
+    if (strlen($lookupHash) !== 32) return false;
+    db_ensure_operator_bans_table();
+    $stmt = getDB()->prepare("DELETE FROM operator_bans WHERE operator_email_lookup_hash = decode(:lh,'hex')");
+    $stmt->bindValue(':lh', bin2hex($lookupHash));
+    $stmt->execute();
+    $removed = $stmt->rowCount() >= 1;
+    if ($removed) {
+        pluriverse_log_event('operator_unban', 'success', $actor, null, 'unbanned operator (lookup ' . substr(bin2hex($lookupHash), 0, 16) . '...)');
+    }
+    return $removed;
+}
+
+/**
+ * Enqueue a typed provisioning job. The web app calls this (after super-admin
+ * approval, or for an admin-initiated suspend/resume/deprovision); the Orrery
+ * worker drains it out of band. $payload is the validated, NON-secret job
+ * parameters plus the sealed operator handoff blob (3b); it must be JSON-safe.
+ *
+ * Returns the new job id.
+ */
+function db_enqueue_provisioning_job(?int $requestId, string $jobType, string $label, array $payload): int {
+    if (!in_array($jobType, ['provision', 'deprovision', 'suspend', 'resume'], true)) {
+        throw new InvalidArgumentException('db_enqueue_provisioning_job: bad job_type');
+    }
+    db_ensure_provisioning_jobs_table();
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    $stmt = getDB()->prepare("
+        INSERT INTO provisioning_jobs (request_id, job_type, label, payload, status, next_attempt_at)
+        VALUES (:rid, :jt, :label, CAST(:payload AS JSONB), 'queued', NOW())
+        RETURNING id
+    ");
+    $stmt->bindValue(':rid', $requestId, $requestId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+    $stmt->bindValue(':jt', $jobType);
+    $stmt->bindValue(':label', $label);
+    $stmt->bindValue(':payload', $json);
+    $stmt->execute();
+    $jobId = (int)$stmt->fetchColumn();
+    pluriverse_log_event('provisioning_job_enqueued', 'success', null, $label, $jobType . ' job#' . $jobId . ($requestId !== null ? ' request#' . $requestId : ''));
+    return $jobId;
+}
+
+/** Fetch one job by id (for tests + the admin job view). payload/result as text. */
+function db_get_provisioning_job_by_id(int $id): ?array {
+    db_ensure_provisioning_jobs_table();
+    $stmt = getDB()->prepare("
+        SELECT id, request_id, job_type, label, payload::text AS payload, status,
+               attempt_count, last_attempt_at, next_attempt_at, last_error,
+               result::text AS result, created_at, updated_at
+        FROM provisioning_jobs WHERE id = :id
+    ");
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
 }

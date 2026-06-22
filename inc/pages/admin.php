@@ -271,8 +271,10 @@ if ($session !== null && $session['subject_type'] === 'admin') {
                   </label>
                 </div>
                 <div class="form-control ss-field">
-                  <label class="label"><span class="label-text"><?= h(info('admin_ss_cap_label')) ?></span></label>
-                  <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>" class="input input-bordered input-sm ss-cap">
+                  <label class="label">
+                    <span class="label-text"><?= h(info('admin_ss_cap_label')) ?></span>
+                    <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>" class="input input-bordered input-sm ss-cap">
+                  </label>
                 </div>
                 <div class="ss-field">
                   <button type="submit" class="btn btn-primary btn-sm"><?= h(info('admin_ss_save_button')) ?></button>

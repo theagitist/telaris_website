@@ -975,3 +975,7 @@ table.admin-instances code {
 }
 .instance-request-cta h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
 .instance-request-cta p { margin: 0 0 0.9rem; color: var(--dim); font-size: 0.9rem; }
+
+/* Required-field marker + legend on the request form. */
+.ss-required { color: #ff8a8a; }
+.ss-required-note { font-size: 0.78rem; color: var(--dimmer); margin: -0.4rem 0 1.1rem; }

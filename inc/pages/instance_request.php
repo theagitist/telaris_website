@@ -138,6 +138,9 @@ if ($method === 'POST' && $open) {
         if (!$rateLimited) {
             // Field validation (these errors are about the input, not about
             // whether an account exists, so showing them leaks nothing).
+            if ($v['name'] === '' || mb_strlen($v['name']) > 255) {
+                $errors['name'] = info('request_err_name');
+            }
             if ($v['email'] === '' || !filter_var($v['email'], FILTER_VALIDATE_EMAIL) || strlen($v['email']) > 254) {
                 $errors['email'] = info('request_err_email');
             }
@@ -146,6 +149,9 @@ if ($method === 'POST' && $open) {
             }
             if ($v['site_name'] === '' || strlen($v['site_name']) > 255) {
                 $errors['site_name'] = info('request_err_sitename');
+            }
+            if ($v['framing'] === '' || mb_strlen($v['framing']) > 2000) {
+                $errors['framing'] = info('request_err_framing');
             }
             if (!isset($_POST['consent'])) {
                 $errors['consent'] = info('request_err_consent');
@@ -269,6 +275,7 @@ require __DIR__ . '/../partials/head.php';
 
 <?php else: ?>
   <p class="page-lead"><?= h(info('request_lead')) ?></p>
+  <p class="ss-required-note"><?= h(info('request_required_note')) ?></p>
 
 <?php if (!empty($errors)): ?>
   <div class="form-errors" role="alert">
@@ -288,23 +295,23 @@ require __DIR__ . '/../partials/head.php';
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-name"><span class="label-text"><?= h(info('request_name_label')) ?></span></label>
-      <input id="rq-name" type="text" name="name" maxlength="255" value="<?= h($v['name']) ?>" placeholder="<?= h(info('request_name_ph')) ?>" class="input input-bordered">
+      <label class="label" for="rq-name"><span class="label-text"><?= h(info('request_name_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
+      <input id="rq-name" type="text" name="name" required maxlength="255" value="<?= h($v['name']) ?>" placeholder="<?= h(info('request_name_ph')) ?>" class="input input-bordered">
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-email"><span class="label-text"><?= h(info('request_email_label')) ?></span></label>
+      <label class="label" for="rq-email"><span class="label-text"><?= h(info('request_email_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
       <input id="rq-email" type="email" name="email" required maxlength="254" value="<?= h($v['email']) ?>" placeholder="<?= h(info('request_email_ph')) ?>" class="input input-bordered">
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-label"><span class="label-text"><?= h(info('request_label_label')) ?></span></label>
+      <label class="label" for="rq-label"><span class="label-text"><?= h(info('request_label_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
       <input id="rq-label" type="text" name="label" required maxlength="31" value="<?= h($v['label']) ?>" pattern="[a-z][a-z0-9-]{1,30}" class="input input-bordered">
       <span class="ss-help"><?= h(info('request_label_help')) ?></span>
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-sitename"><span class="label-text"><?= h(info('request_sitename_label')) ?></span></label>
+      <label class="label" for="rq-sitename"><span class="label-text"><?= h(info('request_sitename_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
       <input id="rq-sitename" type="text" name="site_name" required maxlength="255" value="<?= h($v['site_name']) ?>" placeholder="<?= h(info('request_sitename_ph')) ?>" class="input input-bordered">
     </div>
 
@@ -314,8 +321,8 @@ require __DIR__ . '/../partials/head.php';
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-locale"><span class="label-text"><?= h(info('request_locale_label')) ?></span></label>
-      <select id="rq-locale" name="locale" class="select select-bordered">
+      <label class="label" for="rq-locale"><span class="label-text"><?= h(info('request_locale_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
+      <select id="rq-locale" name="locale" required class="select select-bordered">
 <?php foreach (['en' => 'English', 'es' => 'Español', 'pt' => 'Português', 'fr' => 'Français'] as $code => $name): ?>
         <option value="<?= h($code) ?>"<?= $v['locale'] === $code ? ' selected' : '' ?>><?= h($name) ?></option>
 <?php endforeach; ?>
@@ -323,8 +330,8 @@ require __DIR__ . '/../partials/head.php';
     </div>
 
     <div class="form-control ss-field">
-      <label class="label" for="rq-framing"><span class="label-text"><?= h(info('request_framing_label')) ?></span></label>
-      <textarea id="rq-framing" name="framing" rows="3" maxlength="2000" class="textarea textarea-bordered"><?= h($v['framing']) ?></textarea>
+      <label class="label" for="rq-framing"><span class="label-text"><?= h(info('request_framing_label')) ?> <span class="ss-required" aria-hidden="true">*</span></span></label>
+      <textarea id="rq-framing" name="framing" rows="3" required maxlength="2000" class="textarea textarea-bordered"><?= h($v['framing']) ?></textarea>
       <span class="ss-help"><?= h(info('request_framing_help')) ?></span>
     </div>
 

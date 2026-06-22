@@ -185,7 +185,7 @@ const PROJECT_INFO_COLUMNS = [
     'admin_ss_title',
     'admin_ss_settings_title', 'admin_ss_open_label', 'admin_ss_cap_label',
     'admin_ss_save_button', 'admin_ss_settings_saved',
-    'admin_ss_requests_title', 'admin_ss_requests_none',
+    'admin_ss_requests_title', 'admin_ss_requests_none', 'admin_ss_modal_title', 'admin_ss_close',
     'admin_ss_col_operator', 'admin_ss_col_label', 'admin_ss_col_status', 'admin_ss_col_created',
     'admin_ss_btn_approve', 'admin_ss_btn_reject', 'admin_ss_btn_ban', 'admin_ss_btn_unban',
     'admin_ss_confirm_fmt',
@@ -194,6 +194,10 @@ const PROJECT_INFO_COLUMNS = [
     'admin_ss_status_pending_confirmation', 'admin_ss_status_confirmed', 'admin_ss_status_approved',
     'admin_ss_status_provisioning', 'admin_ss_status_provisioned',
     'admin_ss_status_rejected', 'admin_ss_status_failed', 'admin_ss_status_banned',
+    // Admin tabs + direct create-instance (Phase 3e follow-up, 2026-06-22).
+    'admin_tab_federated', 'admin_tab_orrery',
+    'admin_ss_create_title', 'admin_ss_create_help', 'admin_ss_create_button', 'admin_ss_flash_created',
+    'admin_ss_instances_title', 'admin_ss_instances_none',
 ];
 
 function db_ensure_project_info(): void {

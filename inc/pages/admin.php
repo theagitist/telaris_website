@@ -118,7 +118,7 @@ if ($method === 'POST'
 // unban a request, or save the self-service settings. CSRF + admin gated;
 // PRG with a flash code.
 // -----------------------------------------------------------------------
-$ssActions = ['approve', 'reject_req', 'ban_op', 'unban_op', 'ss_settings'];
+$ssActions = ['approve', 'reject_req', 'ban_op', 'unban_op', 'ss_settings', 'create_instance'];
 if ($method === 'POST'
     && in_array((string)($_POST['action'] ?? ''), $ssActions, true)
     && $session !== null
@@ -138,6 +138,34 @@ if ($method === 'POST'
                     pluriverse_setting_set('self_service_operator_cap', (string)$cap);
                 }
                 $msg = 'ss_settings_saved';
+            } elseif ($action === 'create_instance') {
+                // Admin-initiated: same fields as the public form but no email
+                // confirmation and no cap/ban gate. Insert -> confirm -> approve
+                // (which seals the handoff + enqueues the provision job).
+                require_once __DIR__ . '/../federation/pii.php';
+                $cEmail = trim((string)($_POST['email'] ?? ''));
+                $cName  = trim((string)($_POST['name'] ?? ''));
+                $cLabel = strtolower(trim((string)($_POST['label'] ?? '')));
+                $cSite  = trim((string)($_POST['site_name'] ?? ''));
+                $cFram  = trim((string)($_POST['framing'] ?? ''));
+                $cLoc   = (string)($_POST['locale'] ?? 'en');
+                if (!in_array($cLoc, ['en', 'es', 'pt', 'fr'], true)) $cLoc = 'en';
+                $valid = $cEmail !== '' && filter_var($cEmail, FILTER_VALIDATE_EMAIL) && strlen($cEmail) <= 254
+                    && $cName !== '' && $cSite !== '' && $cFram !== ''
+                    && preg_match('/^[a-z][a-z0-9-]{1,30}$/', $cLabel)
+                    && !str_contains($cLabel, '--') && !str_ends_with($cLabel, '-')
+                    && !db_label_in_use($cLabel);
+                if ($valid) {
+                    $reqId = db_insert_instance_request([
+                        'label' => $cLabel, 'site_name' => $cSite, 'site_tagline' => trim((string)($_POST['tagline'] ?? '')),
+                        'editorial_framing' => $cFram, 'locale' => $cLoc,
+                        'federate' => isset($_POST['federate']), 'operator_name' => $cName, 'operator_email' => $cEmail,
+                    ]);
+                    db_transition_instance_request($reqId, 'pending_confirmation', 'confirmed', $actor, ['confirmed_at' => true]);
+                    $msg = (db_approve_instance_request($reqId, $actor) !== null) ? 'ss_created' : 'ss_err';
+                } else {
+                    $msg = 'ss_err';
+                }
             } else {
                 $reqId = (int)($_POST['request_id'] ?? 0);
                 $req = $reqId > 0 ? db_get_instance_request_by_id($reqId) : null;
@@ -214,19 +242,26 @@ if ($session !== null && $session['subject_type'] === 'admin') {
         $flashErrKey = ($flashMsg === 'csrf_err' || $flashMsg === 'transition_err') ? $flashMsg : '';
         $flashOkAction = $flashOk ? substr($flashMsg, strlen('transition_ok_')) : '';
 
-        // Self-service review data + flash (Phase 3e).
+        // Self-service review data + flash (Phase 3e). Two lists: the review
+        // queue (pre-decision) and the Orrery instances (post-approval
+        // lifecycle), so an approved/provisioned request leaves the queue.
         $ssOpen = db_self_service_is_open();
         $ssCap = db_self_service_operator_cap();
-        $ssRequests = db_list_reviewable_requests();
+        $ssReview = db_list_requests_by_status(['confirmed', 'pending_confirmation']);
+        $ssInstances = db_list_requests_by_status(['approved', 'provisioning', 'provisioned', 'failed', 'banned', 'rejected']);
+        $ssAll = array_merge($ssReview, $ssInstances); // for the detail modals
         $ssFlashMap = [
             'ss_approved' => ['ok', 'admin_ss_flash_approved'],
             'ss_rejected' => ['ok', 'admin_ss_flash_rejected'],
             'ss_banned' => ['ok', 'admin_ss_flash_banned'],
             'ss_unbanned' => ['ok', 'admin_ss_flash_unbanned'],
             'ss_settings_saved' => ['ok', 'admin_ss_settings_saved'],
+            'ss_created' => ['ok', 'admin_ss_flash_created'],
             'ss_err' => ['error', 'admin_ss_flash_err'],
         ];
         $ssFlash = $ssFlashMap[$flashMsg] ?? null;
+        // Keep the operator on the tab they acted in after a PRG redirect.
+        $activeTab = (strpos($flashMsg, 'ss_') === 0) ? 'orrery' : 'federated';
 
         $pageTitle = info('admin_title');
         $bodyClass = 'page-admin';
@@ -256,145 +291,244 @@ if ($session !== null && $session['subject_type'] === 'admin') {
           </div>
 <?php endif; ?>
 
-          <section class="dashboard-section ss-daisy" data-theme="dark">
-            <h2><?= h(info('admin_ss_title')) ?></h2>
-
-            <div class="ss-panel">
-              <h3 class="ss-panel-title"><?= h(info('admin_ss_settings_title')) ?></h3>
-              <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
-                <?= pluriverse_csrf_field() ?>
-                <input type="hidden" name="action" value="ss_settings">
-                <div class="form-control ss-field">
-                  <label class="label cursor-pointer">
-                    <span class="label-text"><?= h(info('admin_ss_open_label')) ?></span>
-                    <input type="checkbox" name="open" value="1" class="toggle toggle-success"<?= $ssOpen ? ' checked' : '' ?>>
-                  </label>
-                </div>
-                <div class="form-control ss-field">
-                  <label class="label">
-                    <span class="label-text"><?= h(info('admin_ss_cap_label')) ?></span>
-                    <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>" class="input input-bordered input-sm ss-cap">
-                  </label>
-                </div>
-                <div class="ss-field">
-                  <button type="submit" class="btn btn-primary btn-sm"><?= h(info('admin_ss_save_button')) ?></button>
-                </div>
-              </form>
-            </div>
-
-            <h3><?= h(info('admin_ss_requests_title')) ?></h3>
-<?php if ($ssRequests === []): ?>
-            <p class="dashboard-help"><?= h(info('admin_ss_requests_none')) ?></p>
-<?php else: ?>
-            <table class="admin-instances">
-              <thead>
-                <tr>
-                  <th><?= h(info('admin_ss_col_operator')) ?></th>
-                  <th><?= h(info('admin_ss_col_label')) ?></th>
-                  <th><?= h(info('admin_ss_col_status')) ?></th>
-                  <th><?= h(info('admin_ss_col_created')) ?></th>
-                  <th class="admin-col-actions"><?= h(info('admin_col_actions')) ?></th>
-                </tr>
-              </thead>
-              <tbody>
-<?php foreach ($ssRequests as $rq):
-    $st = (string)$rq['status'];
-    $ssRowActions = [];
-    if ($st === 'confirmed') { $ssRowActions = ['approve', 'reject_req', 'ban_op']; }
-    elseif (in_array($st, ['pending_confirmation', 'failed'], true)) { $ssRowActions = ['reject_req', 'ban_op']; }
-    elseif ($st === 'banned') { $ssRowActions = ['unban_op']; }
-    $btnLabelKey = ['approve' => 'admin_ss_btn_approve', 'reject_req' => 'admin_ss_btn_reject', 'ban_op' => 'admin_ss_btn_ban', 'unban_op' => 'admin_ss_btn_unban'];
-    $ssBtnClass = ['approve' => 'btn-success', 'reject_req' => 'btn-outline btn-error', 'ban_op' => 'btn-error', 'unban_op' => 'btn-ghost'];
-    $opName = (string)($rq['operator_name'] ?? '');
-    $opEmail = (string)($rq['operator_email'] ?? '');
+<?php
+// Per-request action set + label/colour maps, shared by the list rows and the
+// detail modals.
+$ssBtnLabelKey = ['approve' => 'admin_ss_btn_approve', 'reject_req' => 'admin_ss_btn_reject', 'ban_op' => 'admin_ss_btn_ban', 'unban_op' => 'admin_ss_btn_unban'];
+$ssBtnClass = ['approve' => 'btn-success', 'reject_req' => 'btn-outline btn-error', 'ban_op' => 'btn-error', 'unban_op' => 'btn-ghost'];
+$ssActionsFor = static function (string $st): array {
+    if ($st === 'confirmed') return ['approve', 'reject_req', 'ban_op'];
+    if (in_array($st, ['pending_confirmation', 'failed'], true)) return ['reject_req', 'ban_op'];
+    if ($st === 'banned') return ['unban_op'];
+    return [];
+};
+$ssShortDate = static function (?string $ts): string {
+    $t = $ts ? strtotime($ts) : false;
+    return $t ? date('Y-m-d', $t) : '';
+};
 ?>
-                <tr class="admin-instance-row admin-ss-row-<?= h($st) ?>">
-                  <td><?php if ($opName !== ''): ?><?= h($opName) ?><br><?php endif; ?><code><?= h($opEmail) ?></code></td>
-                  <td><code><?= h((string)$rq['label']) ?>.telaris.ca</code></td>
-                  <td><?= h(info('admin_ss_status_' . $st)) ?></td>
-                  <td><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h((string)$rq['created_at']) ?></time></td>
-                  <td class="admin-row-actions">
-<?php if ($ssRowActions === []): ?>
-                    <span class="admin-no-actions">-</span>
-<?php else: ?>
-                    <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>">
-                      <?= pluriverse_csrf_field() ?>
-                      <input type="hidden" name="request_id" value="<?= h((string)$rq['id']) ?>">
-<?php foreach ($ssRowActions as $ak): ?>
-                      <button type="submit"
-                              name="action"
-                              value="<?= h($ak) ?>"
-                              class="btn btn-xs <?= h($ssBtnClass[$ak]) ?>"
-                              data-confirm="<?= h(sprintf(info('admin_ss_confirm_fmt'), info($btnLabelKey[$ak]), (string)$rq['label'])) ?>">
-                        <?= h(info($btnLabelKey[$ak])) ?>
-                      </button>
-<?php endforeach; ?>
-                    </form>
-<?php endif; ?>
-                  </td>
-                </tr>
-<?php endforeach; ?>
-              </tbody>
-            </table>
-<?php endif; ?>
-          </section>
+          <div class="ss-daisy admin-tabs-wrap" data-theme="dark">
+          <div role="tablist" class="tabs tabs-bordered admin-tabs">
 
-          <section class="dashboard-section">
-            <h2><?= h(info('admin_section_instances')) ?></h2>
+            <input type="radio" name="admin_tabs" role="tab" class="tab" aria-label="<?= h(info('admin_tab_federated')) ?>"<?= $activeTab === 'federated' ? ' checked' : '' ?>>
+            <div role="tabpanel" class="tab-content admin-tab-panel">
+              <h2><?= h(info('admin_section_instances')) ?></h2>
 <?php if ($rows === []): ?>
-            <p class="dashboard-help"><?= h(info('admin_instances_none')) ?></p>
+              <p class="dashboard-help"><?= h(info('admin_instances_none')) ?></p>
 <?php else: ?>
-            <p class="dashboard-help">
-              <?= h(sprintf(info('admin_instances_total_fmt'), count($rows))) ?>
-            </p>
-            <table class="admin-instances">
-              <thead>
-                <tr>
-                  <th><?= h(info('admin_col_name')) ?></th>
-                  <th><?= h(info('admin_col_hostname')) ?></th>
-                  <th><?= h(info('admin_col_status')) ?></th>
-                  <th><?= h(info('admin_col_locale')) ?></th>
-                  <th><?= h(info('admin_col_created')) ?></th>
-                  <th class="admin-col-actions"><?= h(info('admin_col_actions')) ?></th>
-                </tr>
-              </thead>
-              <tbody>
-<?php foreach ($rows as $r):
+              <p class="dashboard-help"><?= h(sprintf(info('admin_instances_total_fmt'), count($rows))) ?></p>
+              <table class="admin-instances">
+                <thead>
+                  <tr>
+                    <th><?= h(info('admin_col_name')) ?></th>
+                    <th><?= h(info('admin_col_hostname')) ?></th>
+                    <th><?= h(info('admin_col_status')) ?></th>
+                    <th><?= h(info('admin_col_locale')) ?></th>
+                    <th><?= h(info('admin_col_created')) ?></th>
+                    <th class="admin-col-actions"><?= h(info('admin_col_actions')) ?></th>
+                  </tr>
+                </thead>
+                <tbody>
+<?php
+// DaisyUI button variants for the federated-instance actions, so they match
+// the Orrery review buttons (and the main app's look).
+$fedBtnClass = ['publish' => 'btn-success', 'reject' => 'btn-outline btn-error', 'blacklist' => 'btn-error', 'unpublish' => 'btn-warning', 'reinstate' => 'btn-info'];
+foreach ($rows as $r):
     $st = (string)$r['admission_status'];
     $actions = $ADMIN_TRANSITIONS[$st] ?? [];
 ?>
-                <tr class="admin-instance-row admin-instance-row-<?= h($st) ?>">
-                  <td><?= h((string)$r['label']) ?></td>
-                  <td><code><?= h((string)$r['hostname']) ?></code></td>
-                  <td><?= h(info('verify_status_' . $st)) ?></td>
-                  <td><?= h((string)$r['locale']) ?></td>
-                  <td><time datetime="<?= h((string)$r['created_at']) ?>"><?= h((string)$r['created_at']) ?></time></td>
-                  <td class="admin-row-actions">
+                  <tr class="admin-instance-row admin-instance-row-<?= h($st) ?>">
+                    <td><?= h((string)$r['label']) ?></td>
+                    <td><code><?= h((string)$r['hostname']) ?></code></td>
+                    <td><?= h(info('verify_status_' . $st)) ?></td>
+                    <td><?= h((string)$r['locale']) ?></td>
+                    <td><time datetime="<?= h((string)$r['created_at']) ?>"><?= h($ssShortDate((string)$r['created_at'])) ?></time></td>
+                    <td class="admin-row-actions">
 <?php if ($actions === []): ?>
-                    <span class="admin-no-actions">&mdash;</span>
+                      <span class="admin-no-actions">-</span>
 <?php else: ?>
-                    <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>">
-                      <?= pluriverse_csrf_field() ?>
-                      <input type="hidden" name="instance_id" value="<?= h((string)$r['id']) ?>">
-                      <input type="hidden" name="expected_state" value="<?= h($st) ?>">
+                      <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>">
+                        <?= pluriverse_csrf_field() ?>
+                        <input type="hidden" name="instance_id" value="<?= h((string)$r['id']) ?>">
+                        <input type="hidden" name="expected_state" value="<?= h($st) ?>">
 <?php foreach ($actions as $actionKey => $newStatus): ?>
-                      <button type="submit"
-                              name="action"
-                              value="<?= h($actionKey) ?>"
-                              class="admin-action-btn admin-action-<?= h($actionKey) ?>"
-                              data-confirm="<?= h(sprintf(info('admin_confirm_action_fmt'), info('admin_btn_' . $actionKey), (string)$r['label'])) ?>">
-                        <?= h(info('admin_btn_' . $actionKey)) ?>
+                        <button type="submit" name="action" value="<?= h($actionKey) ?>"
+                                class="btn btn-xs <?= h($fedBtnClass[$actionKey] ?? '') ?>"
+                                data-confirm="<?= h(sprintf(info('admin_confirm_action_fmt'), info('admin_btn_' . $actionKey), (string)$r['label'])) ?>">
+                          <?= h(info('admin_btn_' . $actionKey)) ?>
+                        </button>
+<?php endforeach; ?>
+                      </form>
+<?php endif; ?>
+                    </td>
+                  </tr>
+<?php endforeach; ?>
+                </tbody>
+              </table>
+<?php endif; ?>
+            </div>
+
+            <input type="radio" name="admin_tabs" role="tab" class="tab" aria-label="<?= h(info('admin_tab_orrery')) ?>"<?= $activeTab === 'orrery' ? ' checked' : '' ?>>
+            <div role="tabpanel" class="tab-content admin-tab-panel">
+              <h2><?= h(info('admin_ss_title')) ?></h2>
+
+              <div class="ss-panel">
+                <h3 class="ss-panel-title"><?= h(info('admin_ss_settings_title')) ?></h3>
+                <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
+                  <?= pluriverse_csrf_field() ?>
+                  <input type="hidden" name="action" value="ss_settings">
+                  <div class="form-control ss-field">
+                    <label class="label cursor-pointer">
+                      <span class="label-text"><?= h(info('admin_ss_open_label')) ?></span>
+                      <input type="checkbox" name="open" value="1" class="toggle toggle-success"<?= $ssOpen ? ' checked' : '' ?>>
+                    </label>
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label">
+                      <span class="label-text"><?= h(info('admin_ss_cap_label')) ?></span>
+                      <input type="number" name="cap" min="1" max="999" value="<?= h((string)$ssCap) ?>" class="input input-bordered input-sm ss-cap">
+                    </label>
+                  </div>
+                  <div class="ss-field">
+                    <button type="submit" class="btn btn-primary btn-sm"><?= h(info('admin_ss_save_button')) ?></button>
+                  </div>
+                </form>
+              </div>
+
+              <details class="ss-panel ss-create-details">
+                <summary class="ss-panel-title"><?= h(info('admin_ss_create_title')) ?></summary>
+                <p class="ss-help"><?= h(info('admin_ss_create_help')) ?></p>
+                <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-settings-form">
+                  <?= pluriverse_csrf_field() ?>
+                  <input type="hidden" name="action" value="create_instance">
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_name_label')) ?></span></label>
+                    <input type="text" name="name" required maxlength="255" class="input input-bordered input-sm">
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_email_label')) ?></span></label>
+                    <input type="email" name="email" required maxlength="254" class="input input-bordered input-sm">
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_label_label')) ?></span></label>
+                    <input type="text" name="label" required maxlength="31" pattern="[a-z][a-z0-9-]{1,30}" class="input input-bordered input-sm">
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_sitename_label')) ?></span></label>
+                    <input type="text" name="site_name" required maxlength="255" class="input input-bordered input-sm">
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_tagline_label')) ?></span></label>
+                    <input type="text" name="tagline" maxlength="512" class="input input-bordered input-sm">
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_locale_label')) ?></span></label>
+                    <select name="locale" required class="select select-bordered select-sm">
+<?php foreach (['en' => 'English', 'es' => 'Español', 'pt' => 'Português', 'fr' => 'Français'] as $code => $lname): ?>
+                      <option value="<?= h($code) ?>"<?= $pluriverseLocale === $code ? ' selected' : '' ?>><?= h($lname) ?></option>
+<?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="label"><span class="label-text"><?= h(info('request_framing_label')) ?></span></label>
+                    <textarea name="framing" rows="2" required maxlength="2000" class="textarea textarea-bordered"></textarea>
+                  </div>
+                  <div class="form-control ss-field">
+                    <label class="ss-checkbox-row">
+                      <input type="checkbox" name="federate" value="1" checked class="checkbox checkbox-sm">
+                      <span><?= h(info('request_federate_label')) ?></span>
+                    </label>
+                  </div>
+                  <div class="ss-field">
+                    <button type="submit" class="btn btn-primary btn-sm"><?= h(info('admin_ss_create_button')) ?></button>
+                  </div>
+                </form>
+              </details>
+
+<?php
+// Shared row+table renderer for the two Orrery lists (review queue + instances).
+$ssRenderRows = static function (array $list) use ($ssShortDate): void { ?>
+              <table class="admin-instances ss-requests">
+                <thead>
+                  <tr>
+                    <th><?= h(info('admin_ss_col_operator')) ?></th>
+                    <th><?= h(info('admin_ss_col_label')) ?></th>
+                    <th><?= h(info('admin_ss_col_status')) ?></th>
+                    <th><?= h(info('admin_ss_col_created')) ?></th>
+                  </tr>
+                </thead>
+                <tbody>
+<?php foreach ($list as $rq):
+    $st = (string)$rq['status'];
+    $opName = (string)($rq['operator_name'] ?? '');
+    $opEmail = (string)($rq['operator_email'] ?? '');
+?>
+                  <tr class="admin-instance-row admin-ss-row-<?= h($st) ?> ss-clickable" data-modal="rq-modal-<?= h((string)$rq['id']) ?>" tabindex="0" role="button">
+                    <td><?php if ($opName !== ''): ?><?= h($opName) ?><br><?php endif; ?><code><?= h($opEmail) ?></code></td>
+                    <td><code><?= h((string)$rq['label']) ?>.telaris.ca</code></td>
+                    <td><?= h(info('admin_ss_status_' . $st)) ?></td>
+                    <td><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h($ssShortDate((string)$rq['created_at'])) ?></time></td>
+                  </tr>
+<?php endforeach; ?>
+                </tbody>
+              </table>
+<?php };
+?>
+              <h3><?= h(info('admin_ss_requests_title')) ?></h3>
+<?php if ($ssReview === []): ?>
+              <p class="dashboard-help"><?= h(info('admin_ss_requests_none')) ?></p>
+<?php else: $ssRenderRows($ssReview); endif; ?>
+
+              <h3><?= h(info('admin_ss_instances_title')) ?></h3>
+<?php if ($ssInstances === []): ?>
+              <p class="dashboard-help"><?= h(info('admin_ss_instances_none')) ?></p>
+<?php else: $ssRenderRows($ssInstances); endif; ?>
+
+<?php foreach ($ssAll as $rq):
+    $st = (string)$rq['status'];
+    $rowActions = $ssActionsFor($st);
+    $opName = (string)($rq['operator_name'] ?? '');
+    $opEmail = (string)($rq['operator_email'] ?? '');
+?>
+              <dialog id="rq-modal-<?= h((string)$rq['id']) ?>" class="modal">
+                <div class="modal-box ss-modal-box">
+                  <h3 class="ss-modal-title"><?= h(info('admin_ss_modal_title')) ?></h3>
+                  <dl class="ss-details">
+                    <dt><?= h(info('request_name_label')) ?></dt><dd><?= $opName !== '' ? h($opName) : '-' ?></dd>
+                    <dt><?= h(info('request_email_label')) ?></dt><dd><code><?= h($opEmail) ?></code></dd>
+                    <dt><?= h(info('request_label_label')) ?></dt><dd><code><?= h((string)$rq['label']) ?>.telaris.ca</code></dd>
+                    <dt><?= h(info('request_sitename_label')) ?></dt><dd><?= h((string)$rq['site_name']) ?></dd>
+                    <dt><?= h(info('request_tagline_label')) ?></dt><dd><?= $rq['site_tagline'] !== null && $rq['site_tagline'] !== '' ? h((string)$rq['site_tagline']) : '-' ?></dd>
+                    <dt><?= h(info('request_locale_label')) ?></dt><dd><?= h((string)$rq['locale']) ?></dd>
+                    <dt><?= h(info('request_framing_label')) ?></dt><dd><?= $rq['editorial_framing'] !== null && $rq['editorial_framing'] !== '' ? h((string)$rq['editorial_framing']) : '-' ?></dd>
+                    <dt><?= h(info('request_federate_label')) ?></dt><dd><?= ((bool)$rq['federate']) ? '&#10003;' : '&#10007;' ?></dd>
+                    <dt><?= h(info('admin_ss_col_status')) ?></dt><dd><?= h(info('admin_ss_status_' . $st)) ?></dd>
+                    <dt><?= h(info('admin_ss_col_created')) ?></dt><dd><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h((string)$rq['created_at']) ?></time></dd>
+                  </dl>
+                  <div class="ss-modal-actions">
+<?php if ($rowActions !== []): ?>
+                    <form method="post" action="<?= h($pluriversePrefix . '/admin') ?>" class="ss-modal-action-form">
+                      <?= pluriverse_csrf_field() ?>
+                      <input type="hidden" name="request_id" value="<?= h((string)$rq['id']) ?>">
+<?php foreach ($rowActions as $ak): ?>
+                      <button type="submit" name="action" value="<?= h($ak) ?>"
+                              class="btn btn-sm <?= h($ssBtnClass[$ak]) ?>"
+                              data-confirm="<?= h(sprintf(info('admin_ss_confirm_fmt'), info($ssBtnLabelKey[$ak]), (string)$rq['label'])) ?>">
+                        <?= h(info($ssBtnLabelKey[$ak])) ?>
                       </button>
 <?php endforeach; ?>
                     </form>
 <?php endif; ?>
-                  </td>
-                </tr>
+                    <form method="dialog"><button class="btn btn-sm btn-ghost"><?= h(info('admin_ss_close')) ?></button></form>
+                  </div>
+                </div>
+                <form method="dialog" class="modal-backdrop"><button aria-label="<?= h(info('admin_ss_close')) ?>">close</button></form>
+              </dialog>
 <?php endforeach; ?>
-              </tbody>
-            </table>
-<?php endif; ?>
-          </section>
+            </div>
+
+          </div>
+          </div>
 
           <p class="dashboard-footer-note"><?= h(info('admin_actions_help')) ?></p>
 
@@ -414,6 +548,17 @@ if ($session !== null && $session['subject_type'] === 'admin') {
                   if (!window.confirm(btn.dataset.confirm)) {
                     ev.preventDefault();
                   }
+                });
+              });
+              // Open a request's detail modal when its row is clicked / activated.
+              document.querySelectorAll('tr.ss-clickable[data-modal]').forEach(function (row) {
+                function open() {
+                  var dlg = document.getElementById(row.getAttribute('data-modal'));
+                  if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
+                }
+                row.addEventListener('click', open);
+                row.addEventListener('keydown', function (ev) {
+                  if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
                 });
               });
             })();

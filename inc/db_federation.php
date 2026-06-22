@@ -1763,22 +1763,22 @@ function db_approve_instance_request(int $requestId, string $actor): ?int {
 }
 
 /**
- * Requests an admin reviews: pending_confirmation + confirmed, newest first,
- * with operator email/name decrypted for display.
+ * Requests in the given statuses, newest first, with operator email/name
+ * decrypted for display. The admin view calls this twice: once for the
+ * review queue (pre-decision statuses) and once for the Orrery instances
+ * list (post-approval lifecycle), so a provisioned instance leaves the
+ * review queue.
  *
+ * @param list<string> $statuses
  * @return list<array<string,mixed>>
  */
-function db_list_reviewable_requests(int $limit = 100): array {
+function db_list_requests_by_status(array $statuses, int $limit = 200): array {
+    if ($statuses === []) return [];
     db_ensure_instance_requests_table();
     $limit = max(1, min(500, $limit));
-    $stmt = getDB()->query("
-        SELECT id FROM instance_requests
-        WHERE status IN ('pending_confirmation','confirmed','approved','provisioning','provisioned','failed','banned')
-        ORDER BY
-            array_position(ARRAY['confirmed','approved','provisioning','pending_confirmation','failed','banned','provisioned']::text[], status),
-            id DESC
-        LIMIT {$limit}
-    ");
+    $place = implode(',', array_fill(0, count($statuses), '?'));
+    $stmt = getDB()->prepare("SELECT id FROM instance_requests WHERE status IN ($place) ORDER BY id DESC LIMIT {$limit}");
+    $stmt->execute($statuses);
     $out = [];
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
         $row = db_get_instance_request_by_id((int)$id, true);

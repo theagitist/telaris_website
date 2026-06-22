@@ -979,3 +979,21 @@ table.admin-instances code {
 /* Required-field marker + legend on the request form. */
 .ss-required { color: #ff8a8a; }
 .ss-required-note { font-size: 0.78rem; color: var(--dimmer); margin: -0.4rem 0 1.1rem; }
+
+/* Admin tabs + Orrery request modal (Phase 3e follow-up). */
+.admin-tabs-wrap { margin-top: 1.25rem; }
+.admin-tab-panel { padding: 1.25rem 0.25rem; }
+.ss-requests tbody tr.ss-clickable { cursor: pointer; }
+.ss-requests tbody tr.ss-clickable:hover,
+.ss-requests tbody tr.ss-clickable:focus-visible { background: rgba(255, 255, 255, 0.05); outline: none; }
+.ss-create-details { max-width: 480px; }
+.ss-create-details > summary { cursor: pointer; list-style: revert; }
+
+/* Request-detail modal. */
+.ss-modal-box { max-width: 32rem; }
+.ss-modal-title { margin: 0 0 0.75rem; font-size: 1rem; }
+.ss-details { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0 0 1.1rem; font-size: 0.85rem; }
+.ss-details dt { color: var(--dim); }
+.ss-details dd { margin: 0; word-break: break-word; }
+.ss-modal-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.ss-modal-action-form { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; }

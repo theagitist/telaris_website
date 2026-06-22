@@ -52,6 +52,7 @@ $pageHandlers = [
     'governance' => 'governance',
     'dashboard' => 'dashboard',
     'admin' => 'admin',
+    'request-instance' => 'instance_request',
 ];
 
 $handler = $pageHandlers[$pluriversePage] ?? null;

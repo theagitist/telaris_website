@@ -45,6 +45,7 @@ function db_ensure_federation_schema(): void {
     db_ensure_instance_requests_table();
     db_ensure_provisioning_jobs_table();
     db_ensure_operator_bans_table();
+    db_ensure_pluriverse_settings_table();
 }
 
 function db_ensure_instances_table(): void {
@@ -525,8 +526,8 @@ function db_create_magic_link_token(string $emailLookupHash, int $ttlSeconds = 3
     if (strlen($emailLookupHash) !== 32) {
         throw new InvalidArgumentException('db_create_magic_link_token: lookup hash must be 32 bytes');
     }
-    if (!in_array($purpose, ['operator', 'admin', 'email-change'], true)) {
-        throw new InvalidArgumentException('db_create_magic_link_token: purpose must be operator|admin|email-change');
+    if (!in_array($purpose, ['operator', 'admin', 'email-change', 'request'], true)) {
+        throw new InvalidArgumentException('db_create_magic_link_token: purpose must be operator|admin|email-change|request');
     }
     db_ensure_magic_link_tokens_table();
     $raw = random_bytes(32);
@@ -1645,4 +1646,57 @@ function db_get_provisioning_job_by_id(int $id): ?array {
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row === false ? null : $row;
+}
+
+// ---------------------------------------------------------------------------
+// Pluriverse operational settings (small key-value store).
+//
+// The Pluriverse is a single instance, so a simple settings table is enough
+// (no idempotent-migration ceremony beyond the ensure). Used for the
+// self-service control-plane knobs (open/closed, per-operator cap); the
+// super-admin flips these in the admin view (3e).
+// ---------------------------------------------------------------------------
+
+function db_ensure_pluriverse_settings_table(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    try {
+        getDB()->exec("
+            CREATE TABLE IF NOT EXISTS pluriverse_settings (
+                key VARCHAR(64) PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    } catch (PDOException $e) {
+        error_log('db_ensure_pluriverse_settings_table: ' . $e->getMessage());
+    }
+}
+
+function pluriverse_setting_get(string $key, string $default = ''): string {
+    db_ensure_pluriverse_settings_table();
+    $stmt = getDB()->prepare("SELECT value FROM pluriverse_settings WHERE key = :k");
+    $stmt->execute([':k' => $key]);
+    $v = $stmt->fetchColumn();
+    return $v === false ? $default : (string)$v;
+}
+
+function pluriverse_setting_set(string $key, string $value): void {
+    db_ensure_pluriverse_settings_table();
+    $stmt = getDB()->prepare("
+        INSERT INTO pluriverse_settings (key, value) VALUES (:k, :v)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    ");
+    $stmt->execute([':k' => $key, ':v' => $value]);
+}
+
+/** Is the public self-service request form accepting requests? Default: closed. */
+function db_self_service_is_open(): bool {
+    return pluriverse_setting_get('self_service_open', '0') === '1';
+}
+
+/** Max active (non-terminal) requests one operator email may hold. Default: 3. */
+function db_self_service_operator_cap(): int {
+    return max(1, (int)pluriverse_setting_get('self_service_operator_cap', '3'));
 }

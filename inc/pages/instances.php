@@ -33,5 +33,10 @@ $instances = pluriverse_instances($pluriverseLocale);
 <?php endforeach; ?>
   </ul>
 <?php endif; ?>
+  <section class="instance-request-cta">
+    <h2><?= h(info('instance_request_cta_title')) ?></h2>
+    <p><?= h(info('instance_request_cta_body')) ?></p>
+    <p><a class="btn" href="<?= h(pluriverse_locale_url('request-instance', $pluriverseLocale)) ?>"><?= h(info('instance_request_cta_button')) ?></a></p>
+  </section>
 </main>
 <?php require __DIR__ . '/../partials/footer.php'; ?>

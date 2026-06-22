@@ -160,6 +160,26 @@ const PROJECT_INFO_COLUMNS = [
     'governance_section_admission_title', 'governance_section_admission_body',
     'governance_section_lifecycle_title', 'governance_section_lifecycle_body',
     'governance_section_fork_title', 'governance_section_fork_body',
+    // Self-service instance request (Phase 3c/3d, 2026-06-22).
+    'footer_request',
+    'instance_request_cta_title', 'instance_request_cta_body', 'instance_request_cta_button',
+    'request_title', 'request_lead', 'request_closed_notice',
+    'request_name_label', 'request_name_ph',
+    'request_email_label', 'request_email_ph',
+    'request_label_label', 'request_label_help',
+    'request_sitename_label', 'request_sitename_ph',
+    'request_tagline_label', 'request_tagline_ph',
+    'request_locale_label',
+    'request_framing_label', 'request_framing_help',
+    'request_federate_label', 'request_federate_help',
+    'request_consent_html', 'request_submit',
+    'request_success_heading', 'request_success_body',
+    'request_err_email', 'request_err_label_invalid', 'request_err_label_taken',
+    'request_err_sitename', 'request_err_consent', 'request_err_rate_limited', 'request_err_generic',
+    'request_confirm_heading_ok', 'request_confirm_body_ok',
+    'request_confirm_heading_already', 'request_confirm_body_already',
+    'request_confirm_heading_expired', 'request_confirm_body_expired',
+    'request_confirm_heading_invalid', 'request_confirm_body_invalid',
 ];
 
 function db_ensure_project_info(): void {

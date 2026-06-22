@@ -7,31 +7,32 @@ declare(strict_types=1);
  *  1. Force mail into dry-run so no test ever contacts an SMTP relay.
  *  2. Load app config (DB_* constants + inc/db.php). No DB connection happens
  *     at require time; the first getDB() does.
- *  3. Route EVERY getDB() call to the isolated LOCAL Postgres `telaris_pluriverse_test`
+ *  3. Route EVERY getDB() call to the isolated `telaris_pluriverse_test`
  *     database via the pluriverse_db_reset_for_testing() seam, so the suite can
- *     never touch the live `pluriverse` data (the lesson from the instance suite
- *     deleting a real peer row). The local dev role + password come from
- *     ~/apps/keys/pluriverse-postgres-dev (never hardcoded). The schema is
- *     materialized in the test DB via the umbrella ensure + db_ensure_pg_runtime.
+ *     never touch the live `telaris_pluriverse` data (the lesson from the instance
+ *     suite deleting a real peer row). The connection follows the app config.php
+ *     DB endpoint (DB_HOST/DB_PORT/DB_SSL_CA, the managed cluster since the Phase 0
+ *     migration), reusing DB_USER/DB_PASS but swapping in the `_test` database, so
+ *     no host or secret is hardcoded here. The schema is materialized in the test
+ *     DB via the umbrella ensure + db_ensure_pg_runtime.
  */
 
 define('MAIL_DRY_RUN', true);
 
 require dirname(__DIR__) . '/config.php';
 
-// Local Postgres test connection. Role + password from the dev keyfile so no
-// secret is committed; if the keyfile is unreadable the suite cannot run
-// (better than silently falling back to anything live).
-$__telaris_keyfile = getenv('HOME') . '/apps/keys/pluriverse-postgres-dev';
-if (!is_readable($__telaris_keyfile)) {
-    fwrite(STDERR, "tests/bootstrap.php: cannot read $__telaris_keyfile (local Postgres dev password)\n");
-    exit(1);
+// Test connection follows the app's DB endpoint (managed cluster post Phase 0),
+// only swapping the database name to the isolated `_test` DB. Reuses DB_USER /
+// DB_PASS / DB_SSL_CA from config.php, so nothing is hardcoded or committed.
+$__telaris_test_port = defined('DB_PORT') && DB_PORT !== '' ? DB_PORT : '5432';
+$__telaris_test_dsn  = sprintf('pgsql:host=%s;port=%s;dbname=%s', DB_HOST, $__telaris_test_port, 'telaris_pluriverse_test');
+if (defined('DB_SSL_CA') && DB_SSL_CA !== '') {
+    $__telaris_test_dsn .= sprintf(';sslmode=verify-ca;sslrootcert=%s', DB_SSL_CA);
 }
-$__telaris_test_pass = trim((string)file_get_contents($__telaris_keyfile));
 $__telaris_test_pdo = new PDO(
-    'pgsql:host=127.0.0.1;port=5432;dbname=telaris_pluriverse_test',
-    'telaris_pluriverse',
-    $__telaris_test_pass,
+    $__telaris_test_dsn,
+    DB_USER,
+    defined('DB_PASS') ? DB_PASS : '',
     [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

@@ -1732,10 +1732,86 @@ function pluriverse_orrery_handoff_seal(array $data): string {
 }
 
 /**
+ * Resolve the wildcard subdomain base for self-service instances. A
+ * self-service label `foo` is provisioned at `foo.<base>` (matching the
+ * Orrery's TELARIS_WILDCARD_BASE), so the Pluriverse computes the same
+ * hostname/url/endpoint at approval time. Overridable via the optional
+ * TELARIS_WILDCARD_BASE constant; defaults to telaris.ca.
+ */
+function pluriverse_wildcard_base(): string {
+    return defined('TELARIS_WILDCARD_BASE') ? (string)TELARIS_WILDCARD_BASE : 'telaris.ca';
+}
+
+/**
+ * 3f auto-trust: insert a PENDING placeholder `instances` row for a
+ * self-service instance that opted into federation, returning the new row id.
+ *
+ * The PII (operator email) must be encrypted with the Pluriverse master key,
+ * which only www-data can read, so the row is created here at approval time
+ * rather than by the Orrery worker (a different OS user with no master key).
+ * The public_key is genuinely unknown until the instance is provisioned and
+ * mints its keypair, so it is left as an empty BYTEA and admission_status stays
+ * 'pending' (which the published-instances query excludes, so the row is never
+ * advertised before the worker backfills the real key and flips it to
+ * 'published'). hostname/url/endpoint are deterministic from the label and set
+ * now. Returns null on a UNIQUE collision (hostname/label already present).
+ */
+function db_create_pending_federation_instance(string $label, string $operatorEmail, string $locale, ?string $editorialFraming): ?int {
+    db_ensure_instances_table();
+    $base = pluriverse_wildcard_base();
+    $hostname = $label . '.' . $base;
+    $url = 'https://' . $hostname;
+    $endpoint = $url . '/api/pluriverse/identity';
+
+    $lookupHash = federation_pii_lookup_hash($operatorEmail);
+    $rowContext = federation_row_context_for_instance($lookupHash);
+    $emailEnc = federation_pii_encrypt($operatorEmail, $rowContext, 'email');
+
+    if (!in_array($locale, ['en', 'es', 'pt', 'fr'], true)) {
+        $locale = 'en';
+    }
+
+    try {
+        $stmt = getDB()->prepare("
+            INSERT INTO instances (
+                hostname, url, pluriverse_endpoint, public_key,
+                operator_email_enc, operator_email_lookup_hash,
+                label, editorial_framing, locale, admission_status
+            ) VALUES (
+                :hostname, :url, :endpoint, decode('', 'hex'),
+                decode(:email_enc, 'hex'), decode(:lookup, 'hex'),
+                :label, :framing, :locale, 'pending'
+            )
+            RETURNING id
+        ");
+        $stmt->execute([
+            ':hostname' => $hostname,
+            ':url' => $url,
+            ':endpoint' => $endpoint,
+            ':email_enc' => bin2hex($emailEnc),
+            ':lookup' => bin2hex($lookupHash),
+            ':label' => $label,
+            ':framing' => ($editorialFraming !== null && $editorialFraming !== '') ? $editorialFraming : null,
+            ':locale' => $locale,
+        ]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        // Log only the SQLSTATE, never the message: the bound values include
+        // operator PII, and some drivers echo bound parameters in the message.
+        error_log('db_create_pending_federation_instance: SQLSTATE ' . $e->getCode());
+        return null;
+    }
+}
+
+/**
  * Approve a confirmed request: seal the operator handoff, enqueue a provision
  * job, and flip the request confirmed -> approved (atomic on the status guard).
  * Returns the job id, or null if the request was not in 'confirmed' (e.g. a
  * double click). The Orrery worker then drains the job and provisions.
+ *
+ * 3f: when the request opted into federation, a PENDING placeholder instances
+ * row is created first and its id linked onto the request + carried in the job
+ * payload so the worker can backfill the minted public key and publish it.
  */
 function db_approve_instance_request(int $requestId, string $actor): ?int {
     $req = db_get_instance_request_by_id($requestId, true);
@@ -1747,17 +1823,42 @@ function db_approve_instance_request(int $requestId, string $actor): ?int {
         'first' => (string)($req['operator_name'] ?? ''),
         'last'  => '',
     ]);
+    $federate = (bool)$req['federate'];
     $payload = [
         'site_name'    => (string)$req['site_name'],
         'site_tagline' => $req['site_tagline'] !== null ? (string)$req['site_tagline'] : '',
         'locale'       => (string)$req['locale'],
-        'federate'     => (bool)$req['federate'],
+        'federate'     => $federate,
         'operator_sealed' => $sealed,
     ];
+
+    // 3f: pre-create the PENDING federation instances row (www-data holds the
+    // PII master key; the worker does not). Link it onto the request and carry
+    // its id in the job payload so the worker can backfill the minted key and
+    // publish it. A null id (UNIQUE collision / DB error) is non-fatal: the
+    // instance still provisions, just without an auto-trust row.
+    $instanceId = null;
+    if ($federate) {
+        $instanceId = db_create_pending_federation_instance(
+            (string)$req['label'],
+            (string)($req['operator_email'] ?? ''),
+            (string)$req['locale'],
+            $req['editorial_framing'] !== null ? (string)$req['editorial_framing'] : null
+        );
+        if ($instanceId !== null) {
+            $payload['instance_id'] = $instanceId;
+        }
+    }
+
     // Flip status first (atomic guard) so a double click cannot enqueue twice;
     // only enqueue if we won the transition.
     if (!db_transition_instance_request($requestId, 'confirmed', 'approved', $actor)) {
         return null;
+    }
+    if ($instanceId !== null) {
+        // Link the request to its (pending) federation instance row.
+        $link = getDB()->prepare("UPDATE instance_requests SET instance_id = :iid WHERE id = :id");
+        $link->execute([':iid' => $instanceId, ':id' => $requestId]);
     }
     return db_enqueue_provisioning_job($requestId, 'provision', (string)$req['label'], $payload);
 }

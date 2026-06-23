@@ -6,10 +6,43 @@
 :root {
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --accent: #00ffcc;
+  --accent-40: rgba(0, 255, 204, 0.4);
+  --accent-85: rgba(0, 255, 204, 0.85);
   --bg: #000;
   --fg: #e8eef0;
   --dim: rgba(232, 238, 240, 0.6);
   --dimmer: rgba(232, 238, 240, 0.28);
+  /* Surface ramp + hairline borders, mirroring the app's --tel-* tokens
+     (Brand book: Components / Palette). */
+  --panel: #0a0a0c;
+  --panel-2: #15151a;
+  --panel-3: #1f1f26;
+  --border: rgba(255, 255, 255, 0.18);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  /* Four-colour status set (app admin-console-theme.php). */
+  --status-attention: rgba(255, 210, 110, 0.92);
+  --status-live: rgba(140, 220, 150, 0.92);
+  --status-refused: rgba(230, 130, 130, 0.92);
+  --status-terminal: rgba(180, 180, 180, 0.78);
+  --status-info: rgba(140, 200, 220, 0.92);
+}
+
+/* Dark-console theming contract, ported from the app's inc/admin-console-theme.php
+   so the opt-in DaisyUI controls (the request form, the admin self-service
+   section, the instances CTA) paint with Void / Aurora / Wormhole mint instead
+   of DaisyUI's default light theme. <html data-theme="dark"> is set in head.php;
+   styles.css loads AFTER the DaisyUI stylesheet, so these override DaisyUI's own
+   [data-theme="dark"] OKLCH channels. No effect on pages that do not load
+   DaisyUI (nothing reads these variables there). Brand book: Components. */
+[data-theme="dark"] {
+  --b1: 0% 0 0;          /* base-100      -> Void */
+  --b2: 4% 0 0;          /* base-200      -> faint lift */
+  --b3: 8% 0 0;          /* base-300      -> hover lift */
+  --bc: 94% 0.006 230;   /* base-content  -> Aurora white */
+  --n: 14% 0 0;          /* neutral       -> dark panel */
+  --nc: 94% 0.006 230;   /* neutral-content -> Aurora */
+  --p: 86% 0.17 175;     /* primary       -> Wormhole mint */
+  --pc: 18% 0 0;         /* primary-content -> near-Void on mint */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -661,9 +694,10 @@ body.home footer.site-footer {
 .dashboard-section {
   margin: 2.25rem 0;
   padding: 1.25rem 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-soft);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(10, 10, 12, 0.5);
+  backdrop-filter: blur(8px);
 }
 .dashboard-section h2 {
   margin: 0 0 0.85rem;
@@ -968,9 +1002,10 @@ table.admin-instances code {
 .instance-request-cta {
   margin: 2.5rem 0 0;
   padding: 1.5rem 1.6rem;
-  border: 1px solid rgba(0, 255, 204, 0.25);
+  border: 1px solid var(--accent-40);
   border-radius: 6px;
   background: rgba(0, 255, 204, 0.04);
+  backdrop-filter: blur(6px);
   max-width: 640px;
 }
 .instance-request-cta h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }

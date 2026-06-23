@@ -35,7 +35,7 @@ $navItems = [
     ['changelog', info('nav_changelog')],
 ];
 ?><!doctype html>
-<html lang="<?= h($htmlLang) ?>">
+<html lang="<?= h($htmlLang) ?>" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

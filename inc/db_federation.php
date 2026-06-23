@@ -1804,6 +1804,132 @@ function db_create_pending_federation_instance(string $label, string $operatorEm
 }
 
 /**
+ * 3f auto-trust backfill: write a freshly provisioned instance's minted public
+ * key into its (PENDING) placeholder row and flip admission_status to
+ * 'published'. Only acts while the row is still 'pending' (idempotent across
+ * worker retries). Returns the hostname on success, or null if the row was not
+ * pending. The Orrery calls this through the www-data bridge after reading the
+ * raw key from inside the container (the one piece only the running instance
+ * can supply); $pubkeyHex must be a 64-char hex Ed25519 public key.
+ */
+function db_publish_instance_key(int $instanceId, string $pubkeyHex): ?string {
+    if (!preg_match('/^[0-9a-f]{64}$/', $pubkeyHex)) {
+        throw new InvalidArgumentException('publish_key: public key must be 64 hex chars');
+    }
+    $stmt = getDB()->prepare("
+        UPDATE instances
+        SET public_key = decode(:pk, 'hex'), admission_status = 'published', last_seen_at = NOW()
+        WHERE id = :id AND admission_status = 'pending'
+        RETURNING hostname
+    ");
+    $stmt->execute([':pk' => $pubkeyHex, ':id' => $instanceId]);
+    $host = $stmt->fetchColumn();
+    return $host === false ? null : (string)$host;
+}
+
+/**
+ * Retract a deprovisioned instance from the federation registry: DELETE the
+ * row so it stops being advertised (every advertise path gates on
+ * admission_status='published'). DELETE not 'withdrawn' to avoid a UNIQUE(label)
+ * clash if the label is re-provisioned later. Returns rows affected (0 if none).
+ */
+function db_retract_instance(string $label): int {
+    $stmt = getDB()->prepare("DELETE FROM instances WHERE label = :l");
+    $stmt->execute([':l' => $label]);
+    return $stmt->rowCount();
+}
+
+/**
+ * Claim the next due provisioning job (FIFO, respecting backoff) and mark it
+ * 'running'. Atomic via FOR UPDATE SKIP LOCKED so concurrent workers never grab
+ * the same job. Returns the claimed row (payload as JSON text, attempt_count
+ * already incremented) or null if the queue is drained.
+ */
+function db_claim_provisioning_job(): ?array {
+    $pdo = getDB();
+    $pdo->beginTransaction();
+    try {
+        $sel = $pdo->query("
+            SELECT id, request_id, job_type, label, payload::text AS payload, attempt_count
+            FROM provisioning_jobs
+            WHERE status = 'queued' AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+            ORDER BY id ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+        ");
+        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            $pdo->rollBack();
+            return null;
+        }
+        $upd = $pdo->prepare("
+            UPDATE provisioning_jobs
+            SET status = 'running', attempt_count = attempt_count + 1, last_attempt_at = NOW()
+            WHERE id = :id
+        ");
+        $upd->execute([':id' => (int)$row['id']]);
+        $pdo->commit();
+        $row['attempt_count'] = (int)$row['attempt_count'] + 1;
+        return $row;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        throw $e;
+    }
+}
+
+/** Mark a claimed job done (terminal success), recording its JSON result. */
+function db_finish_provisioning_job(int $jobId, array $result): void {
+    $stmt = getDB()->prepare("
+        UPDATE provisioning_jobs
+        SET status = 'done', last_error = NULL, result = CAST(:r AS JSONB)
+        WHERE id = :id
+    ");
+    $stmt->bindValue(':r', json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $stmt->bindValue(':id', $jobId, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+/**
+ * Record a failed attempt: re-queue with backoff if attempts remain, else give
+ * up. Backoff = attempt^2 minutes (1, 4, 9, ...). Returns 'given_up' or
+ * 'requeued'.
+ */
+function db_fail_provisioning_job(int $jobId, int $attemptCount, int $maxAttempts, string $error): string {
+    $error = substr($error, 0, 2048);
+    if ($attemptCount >= $maxAttempts) {
+        $stmt = getDB()->prepare("
+            UPDATE provisioning_jobs SET status = 'given_up', last_error = :e WHERE id = :id
+        ");
+        $stmt->execute([':e' => $error, ':id' => $jobId]);
+        return 'given_up';
+    }
+    $delayMin = $attemptCount * $attemptCount;
+    $stmt = getDB()->prepare("
+        UPDATE provisioning_jobs
+        SET status = 'queued', last_error = :e, next_attempt_at = NOW() + (:d * INTERVAL '1 minute')
+        WHERE id = :id
+    ");
+    $stmt->bindValue(':e', $error);
+    $stmt->bindValue(':d', $delayMin, PDO::PARAM_INT);
+    $stmt->bindValue(':id', $jobId, PDO::PARAM_INT);
+    $stmt->execute();
+    return 'requeued';
+}
+
+/** Set instance_requests.status (+ optional instance_id) for a job's request. */
+function db_set_request_status(?int $requestId, string $status, ?int $instanceId = null): void {
+    if ($requestId === null) { return; }
+    $sets = ['status = :s'];
+    $params = [':s' => $status, ':id' => $requestId];
+    if ($instanceId !== null) {
+        $sets[] = 'instance_id = :iid';
+        $params[':iid'] = $instanceId;
+    }
+    $stmt = getDB()->prepare('UPDATE instance_requests SET ' . implode(', ', $sets) . ' WHERE id = :id');
+    $stmt->execute($params);
+}
+
+/**
  * Approve a confirmed request: seal the operator handoff, enqueue a provision
  * job, and flip the request confirmed -> approved (atomic on the status guard).
  * Returns the job id, or null if the request was not in 'confirmed' (e.g. a

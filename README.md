@@ -1,6 +1,6 @@
 # telaris_website
 
-Source for the Pluriverse website at <https://www.telaris.ca>. PHP 8.3 + MySQL, mirroring the stack of every Telaris instance. The federation plan v10 frames `www.telaris.ca` as the eventual home of the Pluriverse application proper; this codebase is the public-facing surface that ships first.
+Source for the Pluriverse website at <https://www.telaris.ca>. PHP 8.3 + PostgreSQL (the managed `polivoxia-pg1` cluster, `sslmode=verify-ca`), mirroring the stack of every Telaris instance. The federation plan v10 frames `www.telaris.ca` as the eventual home of the Pluriverse application proper; this codebase is the public-facing surface plus the self-service control plane that drives the Orrery provisioner.
 
 ## Pages
 
@@ -21,10 +21,10 @@ URL slugs stay English across all four locales; only the navbar labels and page 
 
 ## Architecture
 
-PHP 8.3 + MySQL, mirroring the Telaris instance pattern:
+PHP 8.3 + PostgreSQL, mirroring the Telaris instance pattern:
 
-- **`config.php`** — runtime credentials, gitignored. Per-instance, never in source control.
-- **`inc/db.php`** — PDO + utf8mb4 + InnoDB. Idempotent `db_ensure_*()` helpers create / reconcile the schema on first call; default project_info rows seeded by `INSERT IGNORE` so operator edits are preserved.
+- **`config.php`** — runtime credentials + `DB_SSL_CA` for the managed cluster, gitignored. Per-instance, never in source control. Mode `0640 root:www-data` (or `<deployer>:www-data`); the DB password is inlined, not read from a keyfile, because www-data cannot traverse `~/apps/keys` at boot.
+- **`inc/db.php`** — PDO (pgsql, `verify-ca` when `DB_SSL_CA` is set). Idempotent `db_ensure_*()` helpers create / reconcile the schema on first call; default project_info rows seeded only when absent so operator edits are preserved.
 - **`inc/db_defaults.php`** — default chrome strings for EN/ES/PT/FR, used by the seed.
 - **`inc/locale.php`** — parses `REQUEST_URI` → `(locale, page, prefix)`.
 - **`inc/bootstrap.php`** — common page bootstrap (config + db + schema ensure + locale resolve + project_info load). Every page request_onces this once.
@@ -37,12 +37,12 @@ Long-form pages (Manifest, Privacy, Terms) render their prose at request time fr
 
 ## Schema
 
-Two tables in the `pluriverse` MySQL database:
+Core content tables in the `telaris_pluriverse` PostgreSQL database:
 
 - **`project_info`** — one row per locale; chrome strings (navbar labels, page titles, page leads, doc captions, etc.). Operators may edit rows directly; seed rows install only if absent.
 - **`content_cache`** — markdown render cache, keyed by `(slug, locale, source_mtime)`.
 
-Federation tables (twelve) are materialized as of stage 2 (2026-05-25): `instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive. All idempotent via `db_ensure_*()`; see `inc/db_federation.php`.
+Federation + self-service tables are materialized via `db_ensure_*()` in `inc/db_federation.php`: the stage-2 federation set (`instances`, `instance_status_log` + archive, `registry_admins`, `magic_link_tokens`, `sessions`, `blacklists`, `anomaly_log`, `key_events_signed`, `key_event_push_attempts`, `pluriverse_log` + archive) plus the self-service control plane (`instance_requests`, `provisioning_jobs`, `operator_bans`, `pluriverse_settings`). Operator PII is encrypted at rest (libsodium secretbox, per-row HKDF key); the master key lives in `secrets/` (www-data-only).
 
 ## Federation surface
 
@@ -66,14 +66,39 @@ Page routes (front controller; locale-prefixed `/es/`, `/pt/`, `/fr/` variants o
 |---|---|
 | `/operators/verify-magic-link?t=…` | Magic-link consume; branches on token `purpose` ∈ `{operator, admin}`. |
 | `/dashboard` | Operator self-service: read-only own-instance view (summary, contacts, galaxies, status history) + CSRF-protected logout. Sign-in via magic-link request. |
-| `/admin` | Pluriverse admin: instance list + per-row transition actions (publish, reject, blacklist, unpublish, reinstate). CSRF-protected. Admin sign-in via magic-link request, gated to `registry_admins` rows. |
+| `/admin` | Pluriverse admin: tabbed Federated instances + Orrery (self-service review, per-operator cap, open/close toggle, ban). Per-row transition actions (publish, reject, blacklist, unpublish, reinstate). CSRF-protected. Admin sign-in via magic-link request, gated to `registry_admins` rows. |
+| `/request-instance` | Public self-service request form (gated; default closed). Double-opt-in confirm email, then super-admin review. |
 
 Public reads (`peers.json`, `blacklist.json`, `key-events.json`) ship as plain JSON for now; JWS-signed envelopes with the Pluriverse coord key are a planned follow-up before any stage-3 peer-side verifier ships.
 
+## Self-service instances (Orrery control plane)
+
+The Pluriverse drives the [telaris-orrery](https://github.com/theagitist/telaris-orrery) provisioner. The loop, default **closed**:
+
+1. Public **`/request-instance`** form (gated by `db_self_service_is_open()`) → double-opt-in confirmation email.
+2. Super-admin **`/admin`** (Orrery tab) reviews confirmed requests and approves. Approval seals the operator identity into the job payload with the shared handoff key and enqueues a `provision` job in `provisioning_jobs`.
+3. The Orrery worker drains the queue, provisions a live container instance, and (for federated requests) publishes it into the `instances` registry.
+
+**The bridge — `bin/pluriverse-bridge.php`.** The Orrery runs as a different, non-web OS user and is deliberately given **no Pluriverse database credentials and no PII master key**. Every read/write it needs against Pluriverse-owned tables (the `instances` registry and the `provisioning_jobs` queue) is performed by invoking this committed dispatcher **as www-data**:
+
+```
+sudo -n -u www-data /usr/bin/php bin/pluriverse-bridge.php <func>   < <json-args>
+```
+
+It whitelists exactly seven functions (`register_pending`, `publish_key`, `retract`, `claim_job`, `finish_job`, `fail_job`, `set_request_status`), takes a JSON argument array on stdin (no shell quoting, no injection), and returns `{"ok":bool,...}`. This is the entire trust surface between the two programs, and it requires **passwordless `sudo -u www-data`** for the Orrery user.
+
+Host state this depends on (created once, outside source control):
+
+- **`/etc/telaris-orrery/handoff.key`** — 32-byte key, owner `<orrery-user>:www-data`, mode `0640`. The Pluriverse (www-data) seals the operator email/name into each job with it; the Orrery unseals it. It is a narrow capability and is NOT the PII master key.
+- **`secrets/`** — the operator-PII master key, www-data-only `0700`. Never in any backup, snapshot, or federation export.
+- A sudoers drop-in granting `<orrery-user> ALL=(www-data) NOPASSWD: /usr/bin/php <this-checkout>/bin/pluriverse-bridge.php *`.
+
+`pluriverse_settings` holds the runtime toggles (`self_service_open`, `self_service_operator_cap`); `operator_bans` blocks abusive operator emails by lookup hash.
+
 ## Dependencies
 
-- PHP 8.3, PHP-FPM, ext-pdo_mysql, ext-mbstring, ext-json, ext-ctype, ext-sodium (federation signing), ext-curl (apply-side HTTP), ext-apcu (rate-limit buckets).
-- MySQL 8.x.
+- PHP 8.3, PHP-FPM, ext-pdo_pgsql, ext-mbstring, ext-json, ext-ctype, ext-sodium (federation signing + operator-PII encryption), ext-curl (apply-side HTTP), ext-apcu (rate-limit buckets).
+- PostgreSQL (the managed `polivoxia-pg1` cluster; connect with `verify-ca` + the cluster CA at `/etc/ssl/polivoxia-pg1-ca.crt`).
 - Composer packages:
   - [`league/commonmark`](https://commonmark.thephpleague.com/) for markdown rendering of Manifest / Privacy / Terms.
   - [`zircote/swagger-php`](https://github.com/zircote/swagger-php) for the OpenAPI 3.1 surface.
@@ -112,7 +137,8 @@ sudo php bin/setup-host.php --check       # cheap drift check
 ├── index.php                 # Front controller.
 ├── bin/
 │   ├── setup-app.php         # Deploying-user CLI: composer + schema bootstrap.
-│   └── setup-host.php        # Root CLI: nginx vhost, config.php perms, docs ACLs.
+│   ├── setup-host.php        # Root CLI: nginx vhost, config.php perms, docs ACLs.
+│   └── pluriverse-bridge.php # Orrery -> Pluriverse RPC dispatcher (run as www-data).
 ├── etc/
 │   └── nginx/
 │       └── www.telaris.ca.conf.sample  # Canonical vhost; installed by setup-host.

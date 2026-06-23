@@ -242,14 +242,16 @@ if ($session !== null && $session['subject_type'] === 'admin') {
         $flashErrKey = ($flashMsg === 'csrf_err' || $flashMsg === 'transition_err') ? $flashMsg : '';
         $flashOkAction = $flashOk ? substr($flashMsg, strlen('transition_ok_')) : '';
 
-        // Self-service review data + flash (Phase 3e). Two lists: the review
-        // queue (pre-decision) and the Orrery instances (post-approval
-        // lifecycle), so an approved/provisioned request leaves the queue.
+        // Self-service data + flash (Phase 3e; subtabbed 2026-06-23). Three
+        // lists feed the Orrery subtabs: intake (submitted, not yet email
+        // confirmed), the review queue (confirmed, awaiting a decision), and the
+        // Orrery instances (post-approval lifecycle).
         $ssOpen = db_self_service_is_open();
         $ssCap = db_self_service_operator_cap();
-        $ssReview = db_list_requests_by_status(['confirmed', 'pending_confirmation']);
+        $ssRequests = db_list_requests_by_status(['pending_confirmation']);
+        $ssReview = db_list_requests_by_status(['confirmed']);
         $ssInstances = db_list_requests_by_status(['approved', 'provisioning', 'provisioned', 'failed', 'banned', 'rejected']);
-        $ssAll = array_merge($ssReview, $ssInstances); // for the detail modals
+        $ssAll = array_merge($ssRequests, $ssReview, $ssInstances); // for the detail modals
         $ssFlashMap = [
             'ss_approved' => ['ok', 'admin_ss_flash_approved'],
             'ss_rejected' => ['ok', 'admin_ss_flash_rejected'],
@@ -262,6 +264,11 @@ if ($session !== null && $session['subject_type'] === 'admin') {
         $ssFlash = $ssFlashMap[$flashMsg] ?? null;
         // Keep the operator on the tab they acted in after a PRG redirect.
         $activeTab = (strpos($flashMsg, 'ss_') === 0) ? 'orrery' : 'federated';
+        // ...and on the right Orrery subtab. Settings is the default (first).
+        $orrerySub = 'settings';
+        if (in_array($flashMsg, ['ss_approved', 'ss_rejected', 'ss_banned', 'ss_unbanned'], true)) {
+            $orrerySub = 'review';
+        }
 
         $pageTitle = info('admin_title');
         $bodyClass = 'page-admin';
@@ -370,7 +377,39 @@ foreach ($rows as $r):
 
             <input type="radio" name="admin_tabs" role="tab" class="tab" aria-label="<?= h(info('admin_tab_orrery')) ?>"<?= $activeTab === 'orrery' ? ' checked' : '' ?>>
             <div role="tabpanel" class="tab-content admin-tab-panel">
-              <h2><?= h(info('admin_ss_title')) ?></h2>
+<?php
+// Shared row+table renderer for the Orrery lists (intake / review / instances).
+$ssRenderRows = static function (array $list) use ($ssShortDate): void { ?>
+              <table class="admin-instances ss-requests">
+                <thead>
+                  <tr>
+                    <th><?= h(info('admin_ss_col_operator')) ?></th>
+                    <th><?= h(info('admin_ss_col_label')) ?></th>
+                    <th><?= h(info('admin_ss_col_status')) ?></th>
+                    <th><?= h(info('admin_ss_col_created')) ?></th>
+                  </tr>
+                </thead>
+                <tbody>
+<?php foreach ($list as $rq):
+    $st = (string)$rq['status'];
+    $opName = (string)($rq['operator_name'] ?? '');
+    $opEmail = (string)($rq['operator_email'] ?? '');
+?>
+                  <tr class="admin-instance-row admin-ss-row-<?= h($st) ?> ss-clickable" data-modal="rq-modal-<?= h((string)$rq['id']) ?>" tabindex="0" role="button">
+                    <td><?php if ($opName !== ''): ?><?= h($opName) ?><br><?php endif; ?><code><?= h($opEmail) ?></code></td>
+                    <td><code><?= h((string)$rq['label']) ?>.telaris.ca</code></td>
+                    <td><?= h(info('admin_ss_status_' . $st)) ?></td>
+                    <td><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h($ssShortDate((string)$rq['created_at'])) ?></time></td>
+                  </tr>
+<?php endforeach; ?>
+                </tbody>
+              </table>
+<?php };
+?>
+              <div role="tablist" class="tabs tabs-bordered ss-subtabs">
+
+                <input type="radio" name="orrery_subtabs" role="tab" class="tab" aria-label="<?= h(info('admin_ss_settings_title')) ?>"<?= $orrerySub === 'settings' ? ' checked' : '' ?>>
+                <div role="tabpanel" class="tab-content ss-subpanel">
 
               <div class="ss-panel">
                 <h3 class="ss-panel-title"><?= h(info('admin_ss_settings_title')) ?></h3>
@@ -445,44 +484,30 @@ foreach ($rows as $r):
                 </form>
               </details>
 
-<?php
-// Shared row+table renderer for the two Orrery lists (review queue + instances).
-$ssRenderRows = static function (array $list) use ($ssShortDate): void { ?>
-              <table class="admin-instances ss-requests">
-                <thead>
-                  <tr>
-                    <th><?= h(info('admin_ss_col_operator')) ?></th>
-                    <th><?= h(info('admin_ss_col_label')) ?></th>
-                    <th><?= h(info('admin_ss_col_status')) ?></th>
-                    <th><?= h(info('admin_ss_col_created')) ?></th>
-                  </tr>
-                </thead>
-                <tbody>
-<?php foreach ($list as $rq):
-    $st = (string)$rq['status'];
-    $opName = (string)($rq['operator_name'] ?? '');
-    $opEmail = (string)($rq['operator_email'] ?? '');
-?>
-                  <tr class="admin-instance-row admin-ss-row-<?= h($st) ?> ss-clickable" data-modal="rq-modal-<?= h((string)$rq['id']) ?>" tabindex="0" role="button">
-                    <td><?php if ($opName !== ''): ?><?= h($opName) ?><br><?php endif; ?><code><?= h($opEmail) ?></code></td>
-                    <td><code><?= h((string)$rq['label']) ?>.telaris.ca</code></td>
-                    <td><?= h(info('admin_ss_status_' . $st)) ?></td>
-                    <td><time datetime="<?= h((string)$rq['created_at']) ?>"><?= h($ssShortDate((string)$rq['created_at'])) ?></time></td>
-                  </tr>
-<?php endforeach; ?>
-                </tbody>
-              </table>
-<?php };
-?>
-              <h3><?= h(info('admin_ss_requests_title')) ?></h3>
-<?php if ($ssReview === []): ?>
-              <p class="dashboard-help"><?= h(info('admin_ss_requests_none')) ?></p>
-<?php else: $ssRenderRows($ssReview); endif; ?>
+                </div><!-- /Self-service settings subpanel -->
 
-              <h3><?= h(info('admin_ss_instances_title')) ?></h3>
+                <input type="radio" name="orrery_subtabs" role="tab" class="tab" aria-label="<?= h(info('admin_ss_title')) ?>"<?= $orrerySub === 'requests' ? ' checked' : '' ?>>
+                <div role="tabpanel" class="tab-content ss-subpanel">
+<?php if ($ssRequests === []): ?>
+                  <p class="dashboard-help"><?= h(info('admin_ss_intake_none')) ?></p>
+<?php else: $ssRenderRows($ssRequests); endif; ?>
+                </div>
+
+                <input type="radio" name="orrery_subtabs" role="tab" class="tab" aria-label="<?= h(info('admin_ss_requests_title')) ?>"<?= $orrerySub === 'review' ? ' checked' : '' ?>>
+                <div role="tabpanel" class="tab-content ss-subpanel">
+<?php if ($ssReview === []): ?>
+                  <p class="dashboard-help"><?= h(info('admin_ss_requests_none')) ?></p>
+<?php else: $ssRenderRows($ssReview); endif; ?>
+                </div>
+
+                <input type="radio" name="orrery_subtabs" role="tab" class="tab" aria-label="<?= h(info('admin_ss_instances_title')) ?>"<?= $orrerySub === 'instances' ? ' checked' : '' ?>>
+                <div role="tabpanel" class="tab-content ss-subpanel">
 <?php if ($ssInstances === []): ?>
-              <p class="dashboard-help"><?= h(info('admin_ss_instances_none')) ?></p>
+                  <p class="dashboard-help"><?= h(info('admin_ss_instances_none')) ?></p>
 <?php else: $ssRenderRows($ssInstances); endif; ?>
+                </div>
+
+              </div><!-- /ss-subtabs -->
 
 <?php foreach ($ssAll as $rq):
     $st = (string)$rq['status'];

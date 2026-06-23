@@ -1017,6 +1017,10 @@ table.admin-instances code {
 
 /* Admin tabs + Orrery request modal (Phase 3e follow-up). */
 .admin-tabs-wrap { margin-top: 1.25rem; }
+
+/* Orrery subtabs (Self-service settings / requests / review / instances). */
+.ss-subtabs { margin-top: 1rem; }
+.ss-subpanel { padding-top: 1.1rem; }
 .admin-tab-panel { padding: 1.25rem 0.25rem; }
 .ss-requests tbody tr.ss-clickable { cursor: pointer; }
 .ss-requests tbody tr.ss-clickable:hover,

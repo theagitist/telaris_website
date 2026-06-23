@@ -186,6 +186,7 @@ const PROJECT_INFO_COLUMNS = [
     'admin_ss_settings_title', 'admin_ss_open_label', 'admin_ss_cap_label',
     'admin_ss_save_button', 'admin_ss_settings_saved',
     'admin_ss_requests_title', 'admin_ss_requests_none', 'admin_ss_modal_title', 'admin_ss_close',
+    'admin_ss_intake_none',
     'admin_ss_col_operator', 'admin_ss_col_label', 'admin_ss_col_status', 'admin_ss_col_created',
     'admin_ss_btn_approve', 'admin_ss_btn_reject', 'admin_ss_btn_ban', 'admin_ss_btn_unban',
     'admin_ss_confirm_fmt',

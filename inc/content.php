@@ -229,6 +229,7 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'mobile-views',
         'editor-switch',
         'galaxy-name-in-view',
         'two-d-zoom',
@@ -255,6 +256,11 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'mobile-views' => [
+                'date' => 'June 2026',
+                'title' => 'The editor and admin screens now work on a phone',
+                'body' => 'The screens where editors manage wormholes and where operators run an instance were built for a wide display. They now adapt to a phone: long lists become stacked cards you can read without scrolling sideways, toolbars and search fold to fit, and buttons are easier to tap. The 3D view already worked on a phone, and nothing changes on a computer.',
+            ],
             'editor-switch' => [
                 'date' => 'June 2026',
                 'title' => 'Turn editing on or off, from the whole instance down to one editor',
@@ -372,6 +378,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'mobile-views' => [
+                'date' => 'Junio de 2026',
+                'title' => 'Las pantallas de edición y administración ya funcionan en el teléfono',
+                'body' => 'Las pantallas donde editas agujeros de gusano y donde se administra una instancia estaban pensadas para una pantalla ancha. Ahora se adaptan al teléfono: las listas largas se convierten en tarjetas apiladas que se leen sin desplazarse de lado, las barras de herramientas y la búsqueda se reacomodan, y los botones son más fáciles de tocar. La vista 3D ya funcionaba en el teléfono, y en la computadora no cambia nada.',
+            ],
             'editor-switch' => [
                 'date' => 'Junio de 2026',
                 'title' => 'Activa o desactiva la edición, desde toda la instancia hasta una sola editora',
@@ -489,6 +500,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'mobile-views' => [
+                'date' => 'Junho de 2026',
+                'title' => 'As telas de edição e administração agora funcionam no celular',
+                'body' => 'As telas onde você edita buracos de minhoca e onde uma instância é administrada foram feitas para uma tela larga. Agora elas se adaptam ao celular: listas longas viram cartões empilhados que se leem sem rolar para o lado, as barras de ferramentas e a busca se reorganizam, e os botões ficam mais fáceis de tocar. A vista 3D já funcionava no celular, e no computador nada muda.',
+            ],
             'editor-switch' => [
                 'date' => 'Junho de 2026',
                 'title' => 'Ative ou desative a edição, da instância inteira até uma só editora',
@@ -606,6 +622,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'mobile-views' => [
+                'date' => 'Juin 2026',
+                'title' => "Les écrans d'édition et d'administration fonctionnent maintenant sur téléphone",
+                'body' => "Les écrans où l'on édite les trous de ver et où l'on administre une instance étaient conçus pour un grand écran. Ils s'adaptent désormais au téléphone : les longues listes deviennent des cartes empilées qui se lisent sans défilement latéral, les barres d'outils et la recherche se replient pour tenir, et les boutons sont plus faciles à toucher. La vue 3D fonctionnait déjà sur téléphone, et rien ne change sur ordinateur.",
+            ],
             'editor-switch' => [
                 'date' => 'Juin 2026',
                 'title' => "Activez ou désactivez l'édition, de l'instance entière à un seul compte",

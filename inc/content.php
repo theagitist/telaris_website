@@ -229,6 +229,7 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'media-extras',
         'mobile-views',
         'editor-switch',
         'galaxy-name-in-view',
@@ -256,6 +257,11 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'media-extras' => [
+                'date' => 'June 2026',
+                'title' => 'Richer freeform media pages',
+                'body' => 'A freeform page inside a wormhole can now hold more. Images can be uploaded in the modern WebP format, videos can come from PeerTube as well as the usual sources, and a new layout turns a page of video clips into a soundboard, where a tap plays each clip and several can sound at once. The editing toolbar also gained a cleaner set of icons.',
+            ],
             'mobile-views' => [
                 'date' => 'June 2026',
                 'title' => 'The editor and admin screens now work on a phone',
@@ -378,6 +384,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'media-extras' => [
+                'date' => 'Junio de 2026',
+                'title' => 'Páginas libres más ricas',
+                'body' => 'Una página libre dentro de un agujero de gusano ahora admite más. Las imágenes se pueden subir en el formato moderno WebP, los videos pueden venir de PeerTube además de las fuentes habituales, y un nuevo diseño convierte una página de videoclips en una mesa de sonido, donde un toque reproduce cada clip y varios pueden sonar a la vez. La barra de edición también estrena un conjunto de iconos más claro.',
+            ],
             'mobile-views' => [
                 'date' => 'Junio de 2026',
                 'title' => 'Las pantallas de edición y administración ya funcionan en el teléfono',
@@ -500,6 +511,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'media-extras' => [
+                'date' => 'Junho de 2026',
+                'title' => 'Páginas livres mais ricas',
+                'body' => 'Uma página livre dentro de um buraco de minhoca agora aceita mais. As imagens podem ser enviadas no formato moderno WebP, os vídeos podem vir do PeerTube além das fontes habituais, e um novo layout transforma uma página de videoclipes em uma mesa de som, onde um toque reproduz cada clipe e vários podem soar ao mesmo tempo. A barra de edição também ganhou um conjunto de ícones mais claro.',
+            ],
             'mobile-views' => [
                 'date' => 'Junho de 2026',
                 'title' => 'As telas de edição e administração agora funcionam no celular',
@@ -622,6 +638,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'media-extras' => [
+                'date' => 'Juin 2026',
+                'title' => 'Des pages libres plus riches',
+                'body' => "Une page libre dans un trou de ver peut désormais contenir davantage. Les images peuvent être téléversées au format moderne WebP, les vidéos peuvent provenir de PeerTube en plus des sources habituelles, et une nouvelle disposition transforme une page de clips vidéo en une table de mixage, où une touche lit chaque clip et plusieurs peuvent retentir en même temps. La barre d'édition a aussi reçu un jeu d'icônes plus clair.",
+            ],
             'mobile-views' => [
                 'date' => 'Juin 2026',
                 'title' => "Les écrans d'édition et d'administration fonctionnent maintenant sur téléphone",

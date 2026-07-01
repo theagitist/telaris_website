@@ -177,36 +177,36 @@ function pluriverse_docs(string $locale): array {
         'editor-quick-start' => ['slug' => 'editor-quick-start', 'color' => '#fde047'],
         'editor-manual' => ['slug' => 'editor-manual', 'color' => '#86efac'],
         'hotglue-manual' => ['slug' => 'hotglue-manual', 'color' => '#c4b5fd'],
-        'admin-manual' => ['slug' => 'admin-manual', 'color' => '#7dd3fc', 'draft' => true],
+        'admin-manual' => ['slug' => 'admin-manual', 'color' => '#7dd3fc'],
     ];
     $i18n = [
         'en' => [
             'manifest' => ['name' => 'Manifest', 'caption' => 'Position statement. What Telaris is, what it refuses, the six principles that hold it together. Approximately five pages.'],
             'editor-quick-start' => ['name' => 'Editor Quick Start', 'caption' => 'Five steps to your first wormhole. For new editors who want the shortest possible path. Six pages.'],
-            'editor-manual' => ['name' => 'Editor Manual', 'caption' => 'Complete reference for editors authoring galaxies, wormholes, keywords, portals, tours, and visitor views. Fifteen chapters, seventy-two pages.'],
+            'editor-manual' => ['name' => 'Editor Manual', 'caption' => 'Complete reference for editors authoring galaxies, wormholes, keywords, portals, tours, and visitor views. Fifteen chapters, eighty pages.'],
             'hotglue-manual' => ['name' => 'Hotglue Manual', 'caption' => 'How the Hotglue freeform page editor works inside Telaris: the canvas, adding images, text, video, and sound, and managing pages. Eight chapters, twenty-eight pages.'],
-            'admin-manual' => ['name' => 'Admin Manual', 'caption' => 'For operators running a Telaris instance: deployment, configuration, federation, key management, backups. Draft pending.'],
+            'admin-manual' => ['name' => 'Admin Manual', 'caption' => 'For the person running a Telaris instance: users and accounts, self-service enrolment, editor access, galaxies and clusters, global settings, federation, and backups. Ten chapters, thirty-two pages.'],
         ],
         'es' => [
             'manifest' => ['name' => 'Manifiesto', 'caption' => 'Declaración de posición. Qué es Telaris, qué rechaza, los seis principios que lo sostienen. Aproximadamente cinco páginas.'],
             'editor-quick-start' => ['name' => 'Inicio rápido para editoras', 'caption' => 'Cinco pasos hasta tu primer agujero de gusano. Para editoras que quieren el camino más corto posible. Seis páginas.'],
-            'editor-manual' => ['name' => 'Manual del editor', 'caption' => 'Referencia completa para editoras que crean galaxias, agujeros de gusano, palabras clave, portales, recorridos y vistas de visitante. Quince capítulos, setenta y dos páginas.'],
+            'editor-manual' => ['name' => 'Manual del editor', 'caption' => 'Referencia completa para editoras que crean galaxias, agujeros de gusano, palabras clave, portales, recorridos y vistas de visitante. Quince capítulos, ochenta páginas.'],
             'hotglue-manual' => ['name' => 'Manual de Hotglue', 'caption' => 'Cómo funciona el editor de páginas de formato libre Hotglue dentro de Telaris: el lienzo, cómo agregar imágenes, texto, video y sonido, y la gestión de páginas. Ocho capítulos, veintiocho páginas.'],
-            'admin-manual' => ['name' => 'Manual de administración', 'caption' => 'Para quienes operan una instancia de Telaris: despliegue, configuración, federación, gestión de claves, copias de seguridad. Borrador pendiente.'],
+            'admin-manual' => ['name' => 'Manual de administración', 'caption' => 'Para quien opera una instancia de Telaris: cuentas, auto-registro, acceso de edición, galaxias y cúmulos, ajustes globales, federación y copias de seguridad. Diez capítulos, treinta y dos páginas.'],
         ],
         'pt' => [
             'manifest' => ['name' => 'Manifesto', 'caption' => 'Declaração de posição. O que Telaris é, o que recusa, os seis princípios que o sustentam. Aproximadamente cinco páginas.'],
             'editor-quick-start' => ['name' => 'Início rápido para editoras', 'caption' => 'Cinco passos até seu primeiro buraco de minhoca. Para editoras que querem o caminho mais curto possível. Seis páginas.'],
-            'editor-manual' => ['name' => 'Manual do editor', 'caption' => 'Referência completa para editoras que criam galáxias, buracos de minhoca, palavras-chave, portais, percursos e vistas de visitante. Quinze capítulos, setenta e duas páginas.'],
+            'editor-manual' => ['name' => 'Manual do editor', 'caption' => 'Referência completa para editoras que criam galáxias, buracos de minhoca, palavras-chave, portais, percursos e vistas de visitante. Quinze capítulos, oitenta páginas.'],
             'hotglue-manual' => ['name' => 'Manual de Hotglue', 'caption' => 'Como funciona o editor de páginas de formato livre Hotglue dentro do Telaris: a tela, como adicionar imagens, texto, vídeo e som, e a gestão de páginas. Oito capítulos, vinte e oito páginas.'],
-            'admin-manual' => ['name' => 'Manual de administração', 'caption' => 'Para quem opera uma instância de Telaris: implantação, configuração, federação, gestão de chaves, backups. Rascunho pendente.'],
+            'admin-manual' => ['name' => 'Manual de administração', 'caption' => 'Para quem opera uma instância de Telaris: contas, auto-inscrição, acesso de edição, galáxias e aglomerados, configurações globais, federação e backups. Dez capítulos, trinta e duas páginas.'],
         ],
         'fr' => [
             'manifest' => ['name' => 'Manifeste', 'caption' => "Déclaration de position. Ce que Telaris est, ce qu'il refuse, les six principes qui le tiennent ensemble. Environ cinq pages."],
             'editor-quick-start' => ['name' => "Démarrage rapide d'édition", 'caption' => "Cinq étapes jusqu'au premier trou de ver. Pour les comptes d'édition qui veulent le chemin le plus court possible. Six pages."],
-            'editor-manual' => ['name' => "Manuel d'édition", 'caption' => 'Référence complète pour qui crée galaxies, trous de ver, mots-clés, portails, visites et vues de visite. Quinze chapitres, soixante-douze pages.'],
+            'editor-manual' => ['name' => "Manuel d'édition", 'caption' => 'Référence complète pour qui crée galaxies, trous de ver, mots-clés, portails, visites et vues de visite. Quinze chapitres, quatre-vingts pages.'],
             'hotglue-manual' => ['name' => 'Manuel Hotglue', 'caption' => "Comment fonctionne l'éditeur de pages en forme libre Hotglue dans Telaris : le canevas, l'ajout d'images, de texte, de vidéo et de son, et la gestion des pages. Huit chapitres, vingt-huit pages."],
-            'admin-manual' => ['name' => "Manuel d'administration", 'caption' => "Pour qui exploite une instance Telaris : déploiement, configuration, fédération, gestion des clés, sauvegardes. Brouillon à venir."],
+            'admin-manual' => ['name' => "Manuel d'administration", 'caption' => "Pour qui exploite une instance Telaris : comptes, inscription autonome, accès d'édition, galaxies et amas, paramètres globaux, fédération et sauvegardes. Dix chapitres, trente-deux pages."],
         ],
     ];
     $rows = $i18n[$locale] ?? $i18n['en'];

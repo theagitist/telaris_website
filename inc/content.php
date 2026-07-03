@@ -234,6 +234,9 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'wormhole-templates',
+        'full-screen-media',
+        'editor-basic-view',
         'media-extras',
         'mobile-views',
         'editor-switch',
@@ -262,6 +265,21 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'wormhole-templates' => [
+                'date' => 'July 2026',
+                'title' => 'Reusable templates for wormholes',
+                'body' => 'You can now save a wormhole as a template that keeps its name, keywords, description, and freeform media, then start new wormholes already filled in from it. Templates are private to the editor who makes them, and each editor manages their own from a new tab in the editor.',
+            ],
+            'full-screen-media' => [
+                'date' => 'July 2026',
+                'title' => 'Open a wormhole\'s media page full screen',
+                'body' => 'When a wormhole holds a freeform media page, its window now offers a button to open that page full screen in a new browser tab, giving it the whole screen to read on its own. The page shown inside the wormhole still works just as before.',
+            ],
+            'editor-basic-view' => [
+                'date' => 'July 2026',
+                'title' => 'A simpler view for editing a wormhole',
+                'body' => 'The window for editing a wormhole can now switch between a Basic view, with just the name, keywords, description, and freeform media, and the full Advanced view that has every field. Basic keeps the everyday task uncluttered, and the rest of the settings stay one click away.',
+            ],
             'media-extras' => [
                 'date' => 'June 2026',
                 'title' => 'Richer freeform media pages',
@@ -389,6 +407,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'wormhole-templates' => [
+                'date' => 'Julio de 2026',
+                'title' => 'Plantillas reutilizables para agujeros de gusano',
+                'body' => 'Ahora puedes guardar un agujero de gusano como plantilla que conserva su nombre, sus palabras clave, su descripción y su página libre, y luego crear agujeros de gusano nuevos ya rellenados a partir de ella. Las plantillas son privadas de quien las crea, y cada editora gestiona las suyas desde una nueva pestaña en el editor.',
+            ],
+            'full-screen-media' => [
+                'date' => 'Julio de 2026',
+                'title' => 'Abre a pantalla completa la página de contenido de un agujero de gusano',
+                'body' => 'Cuando un agujero de gusano tiene una página libre, su ventana ahora ofrece un botón para abrir esa página a pantalla completa en una pestaña nueva del navegador, dándole toda la pantalla para leerla por sí sola. La página que se muestra dentro del agujero de gusano sigue funcionando igual que antes.',
+            ],
+            'editor-basic-view' => [
+                'date' => 'Julio de 2026',
+                'title' => 'Una vista más simple para editar un agujero de gusano',
+                'body' => 'La ventana para editar un agujero de gusano ahora puede alternar entre una vista Básica, solo con el nombre, las palabras clave, la descripción y la página libre, y la vista Avanzada completa que tiene todos los campos. La vista Básica mantiene despejada la tarea de siempre, y el resto de los ajustes quedan a un clic.',
+            ],
             'media-extras' => [
                 'date' => 'Junio de 2026',
                 'title' => 'Páginas libres más ricas',
@@ -516,6 +549,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'wormhole-templates' => [
+                'date' => 'Julho de 2026',
+                'title' => 'Modelos reutilizáveis para buracos de minhoca',
+                'body' => 'Agora você pode salvar um buraco de minhoca como um modelo que mantém o nome, as palavras-chave, a descrição e a página livre, e depois criar buracos de minhoca novos já preenchidos a partir dele. Os modelos são privados de quem os cria, e cada editora gerencia os seus a partir de uma nova aba no editor.',
+            ],
+            'full-screen-media' => [
+                'date' => 'Julho de 2026',
+                'title' => 'Abra em tela cheia a página de conteúdo de um buraco de minhoca',
+                'body' => 'Quando um buraco de minhoca tem uma página livre, sua janela agora oferece um botão para abrir essa página em tela cheia em uma nova aba do navegador, dando a ela a tela inteira para ser lida sozinha. A página mostrada dentro do buraco de minhoca continua funcionando como antes.',
+            ],
+            'editor-basic-view' => [
+                'date' => 'Julho de 2026',
+                'title' => 'Uma vista mais simples para editar um buraco de minhoca',
+                'body' => 'A janela para editar um buraco de minhoca agora pode alternar entre uma vista Básica, só com o nome, as palavras-chave, a descrição e a página livre, e a vista Avançada completa que tem todos os campos. A Básica mantém a tarefa do dia a dia sem excesso, e o restante dos ajustes fica a um clique.',
+            ],
             'media-extras' => [
                 'date' => 'Junho de 2026',
                 'title' => 'Páginas livres mais ricas',
@@ -643,6 +691,21 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'wormhole-templates' => [
+                'date' => 'Juillet 2026',
+                'title' => 'Des modèles réutilisables pour les trous de ver',
+                'body' => "Vous pouvez désormais enregistrer un trou de ver comme un modèle qui garde son nom, ses mots-clés, sa description et sa page libre, puis créer de nouveaux trous de ver déjà remplis à partir de lui. Les modèles restent privés à la personne qui les crée, et chaque compte d'édition gère les siens depuis un nouvel onglet dans l'éditeur.",
+            ],
+            'full-screen-media' => [
+                'date' => 'Juillet 2026',
+                'title' => "Ouvrir en plein écran la page de contenu d'un trou de ver",
+                'body' => "Quand un trou de ver contient une page libre, sa fenêtre propose maintenant un bouton pour ouvrir cette page en plein écran dans un nouvel onglet du navigateur, lui laissant tout l'écran pour être lue seule. La page affichée à l'intérieur du trou de ver fonctionne toujours comme avant.",
+            ],
+            'editor-basic-view' => [
+                'date' => 'Juillet 2026',
+                'title' => 'Une vue plus simple pour modifier un trou de ver',
+                'body' => "La fenêtre pour modifier un trou de ver peut désormais basculer entre une vue Simple, avec seulement le nom, les mots-clés, la description et la page libre, et la vue Avancée complète qui contient tous les champs. La vue Simple garde la tâche courante épurée, et le reste des réglages reste à un clic.",
+            ],
             'media-extras' => [
                 'date' => 'Juin 2026',
                 'title' => 'Des pages libres plus riches',

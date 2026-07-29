@@ -234,6 +234,7 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'rhizome-theme',
         'wormhole-templates',
         'full-screen-media',
         'editor-basic-view',
@@ -265,6 +266,11 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'rhizome-theme' => [
+                'date' => 'July 2026',
+                'title' => 'Rhizome, a light theme for a galaxy',
+                'body' => 'A galaxy can now be shown in Rhizome, a light theme that sets its web of wormholes on a pale grid instead of the usual dark space. Every connection is drawn at once, and the wormholes rest as small grey dots until you move over one: the wormhole under your cursor and its neighbours light up in colour while the rest stay quiet. A first tap draws those neighbours close, and a second opens the wormhole. Each editor can choose it for a galaxy alongside the other themes.',
+            ],
             'wormhole-templates' => [
                 'date' => 'July 2026',
                 'title' => 'Reusable templates for wormholes',
@@ -407,6 +413,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'rhizome-theme' => [
+                'date' => 'Julio de 2026',
+                'title' => 'Rhizome, un tema claro para una galaxia',
+                'body' => 'Una galaxia ahora puede mostrarse en Rhizome, un tema claro que coloca su red de agujeros de gusano sobre una cuadrícula pálida en lugar del espacio oscuro habitual. Todas las conexiones se dibujan a la vez, y los agujeros de gusano descansan como pequeños puntos grises hasta que pasas por encima de uno: el agujero de gusano bajo el cursor y sus vecinos se encienden en color mientras el resto permanece en calma. Un primer toque acerca esos vecinos, y un segundo abre el agujero de gusano. Cada editora puede elegirlo para una galaxia junto a los demás temas.',
+            ],
             'wormhole-templates' => [
                 'date' => 'Julio de 2026',
                 'title' => 'Plantillas reutilizables para agujeros de gusano',
@@ -549,6 +560,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'rhizome-theme' => [
+                'date' => 'Julho de 2026',
+                'title' => 'Rhizome, um tema claro para uma galáxia',
+                'body' => 'Uma galáxia agora pode ser exibida em Rhizome, um tema claro que coloca sua rede de buracos de minhoca sobre uma grade pálida em vez do espaço escuro habitual. Todas as conexões são desenhadas de uma vez, e os buracos de minhoca descansam como pequenos pontos cinza até você passar sobre um: o buraco de minhoca sob o cursor e seus vizinhos se acendem em cor enquanto o restante permanece em calma. Um primeiro toque aproxima esses vizinhos, e um segundo abre o buraco de minhoca. Cada editora pode escolhê-lo para uma galáxia junto aos demais temas.',
+            ],
             'wormhole-templates' => [
                 'date' => 'Julho de 2026',
                 'title' => 'Modelos reutilizáveis para buracos de minhoca',
@@ -691,6 +707,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'rhizome-theme' => [
+                'date' => 'Juillet 2026',
+                'title' => 'Rhizome, un thème clair pour une galaxie',
+                'body' => "Une galaxie peut désormais être présentée en Rhizome, un thème clair qui pose sa toile de trous de ver sur une grille pâle plutôt que dans l'espace sombre habituel. Toutes les connexions sont tracées d'un coup, et les trous de ver reposent comme de petits points gris jusqu'à ce que vous passiez sur l'un d'eux : le trou de ver sous le curseur et ses voisins s'allument en couleur tandis que le reste demeure au calme. Une première touche rapproche ces voisins, et une seconde ouvre le trou de ver. Chaque compte d'édition peut le choisir pour une galaxie aux côtés des autres thèmes.",
+            ],
             'wormhole-templates' => [
                 'date' => 'Juillet 2026',
                 'title' => 'Des modèles réutilisables pour les trous de ver',

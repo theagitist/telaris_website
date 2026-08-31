@@ -234,6 +234,7 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'fractal-themes',
         'sound-themes',
         'rhizome-theme',
         'wormhole-templates',
@@ -267,6 +268,11 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'fractal-themes' => [
+                'date' => 'August 2026',
+                'title' => 'Fractal backgrounds for a galaxy',
+                'body' => 'A galaxy can now use one of two new visual themes whose background is a self-similar African fractal pattern instead of a plain grid. Cornrow draws a weave of nested, turning squares, after the scaling geometry of cornrow braiding; Adire draws a lattice of nested square holes, after Yoruba indigo resist cloth. Both are cited to Ron Eglash\'s African Fractals (1999) in a small credit in the scene, and each editor can choose either one for a galaxy alongside the other themes.',
+            ],
             'sound-themes' => [
                 'date' => 'August 2026',
                 'title' => 'A sound theme for each galaxy',
@@ -419,6 +425,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'fractal-themes' => [
+                'date' => 'Agosto de 2026',
+                'title' => 'Fondos fractales para una galaxia',
+                'body' => 'Una galaxia ahora puede usar uno de dos temas visuales nuevos cuyo fondo es un patrón fractal africano autosemejante en lugar de una cuadrícula lisa. Cornrow dibuja un tejido de cuadrados anidados que giran, según la geometría de escala del trenzado cornrow; Adire dibuja una celosía de huecos cuadrados anidados, según la tela de reserva índigo yoruba. Ambos citan African Fractals (1999) de Ron Eglash, con un pequeño crédito en la escena, y cada editora puede elegir cualquiera de los dos para una galaxia junto a los demás temas.',
+            ],
             'sound-themes' => [
                 'date' => 'Agosto de 2026',
                 'title' => 'Un tema de sonido para cada galaxia',
@@ -571,6 +582,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'fractal-themes' => [
+                'date' => 'Agosto de 2026',
+                'title' => 'Fundos fractais para uma galáxia',
+                'body' => 'Uma galáxia agora pode usar um de dois novos temas visuais cujo fundo é um padrão fractal africano autossemelhante em vez de uma grade lisa. Cornrow desenha uma trama de quadrados aninhados que giram, segundo a geometria de escala das tranças cornrow; Adire desenha uma treliça de vazios quadrados aninhados, segundo o tecido de reserva índigo iorubá. Ambos citam African Fractals (1999) de Ron Eglash, com um pequeno crédito na cena, e cada editora pode escolher qualquer um deles para uma galáxia junto aos outros temas.',
+            ],
             'sound-themes' => [
                 'date' => 'Agosto de 2026',
                 'title' => 'Um tema de som para cada galáxia',
@@ -723,6 +739,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'fractal-themes' => [
+                'date' => 'Août 2026',
+                'title' => 'Des fonds fractals pour une galaxie',
+                'body' => "Une galaxie peut désormais utiliser l'un de deux nouveaux thèmes visuels dont le fond est un motif fractal africain auto-similaire au lieu d'une simple grille. Cornrow trace un tissage de carrés imbriqués qui tournent, d'après la géométrie d'échelle du tressage cornrow ; Adire trace un treillis de creux carrés imbriqués, d'après le tissu de réserve indigo yoruba. Les deux citent African Fractals (1999) de Ron Eglash, avec un petit crédit dans la scène, et chaque compte d'édition peut choisir l'un ou l'autre pour une galaxie, aux côtés des autres thèmes.",
+            ],
             'sound-themes' => [
                 'date' => 'Août 2026',
                 'title' => 'Un thème sonore pour chaque galaxie',

@@ -234,6 +234,7 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'sound-themes',
         'rhizome-theme',
         'wormhole-templates',
         'full-screen-media',
@@ -266,6 +267,11 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'sound-themes' => [
+                'date' => 'August 2026',
+                'title' => 'A sound theme for each galaxy',
+                'body' => 'Each galaxy can now carry its own sound theme, chosen separately from its visual theme in the galaxy settings. The Default theme keeps the calm ambient tone Telaris has always had; a new Rhizome sound theme is glitchier and higher pitched, with airy noise that drifts over time and faint bings and pings that come and go on their own. Moving over a wormhole now plays a short beep as well. You can turn all sound on or off from the scene.',
+            ],
             'rhizome-theme' => [
                 'date' => 'July 2026',
                 'title' => 'Rhizome, a light theme for a galaxy',
@@ -413,6 +419,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'sound-themes' => [
+                'date' => 'Agosto de 2026',
+                'title' => 'Un tema de sonido para cada galaxia',
+                'body' => 'Cada galaxia ahora puede tener su propio tema de sonido, que se elige aparte de su tema visual en los ajustes de la galaxia. El tema predeterminado conserva el tono ambiental tranquilo de siempre; un nuevo tema de sonido Rhizome es más agudo y con fallos, con un ruido aireado que va cambiando con el tiempo y leves bings y pings que aparecen y desaparecen solos. Pasar por encima de un agujero de gusano ahora suena con un breve pitido. Puedes activar o desactivar todo el sonido desde la escena.',
+            ],
             'rhizome-theme' => [
                 'date' => 'Julio de 2026',
                 'title' => 'Rhizome, un tema claro para una galaxia',
@@ -560,6 +571,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'sound-themes' => [
+                'date' => 'Agosto de 2026',
+                'title' => 'Um tema de som para cada galáxia',
+                'body' => 'Cada galáxia agora pode ter o seu próprio tema de som, escolhido à parte do seu tema visual nas configurações da galáxia. O tema padrão mantém o tom ambiente calmo de sempre; um novo tema de som Rhizome é mais agudo e com falhas, com um ruído arejado que muda ao longo do tempo e leves bings e pings que surgem e somem sozinhos. Passar sobre um buraco de minhoca agora toca um breve bipe. Você pode ligar ou desligar todo o som a partir da cena.',
+            ],
             'rhizome-theme' => [
                 'date' => 'Julho de 2026',
                 'title' => 'Rhizome, um tema claro para uma galáxia',
@@ -707,6 +723,11 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'sound-themes' => [
+                'date' => 'Août 2026',
+                'title' => 'Un thème sonore pour chaque galaxie',
+                'body' => "Chaque galaxie peut désormais avoir son propre thème sonore, choisi séparément de son thème visuel dans les réglages de la galaxie. Le thème par défaut garde la tonalité ambiante et calme habituelle ; un nouveau thème sonore Rhizome est plus aigu et plus glitché, avec un souffle aérien qui évolue au fil du temps et de légers bings et pings qui vont et viennent d'eux-mêmes. Survoler un trou de ver joue maintenant un bref bip. Vous pouvez activer ou couper tout le son depuis la scène.",
+            ],
             'rhizome-theme' => [
                 'date' => 'Juillet 2026',
                 'title' => 'Rhizome, un thème clair pour une galaxie',

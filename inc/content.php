@@ -283,12 +283,12 @@ function pluriverse_changelog(string $locale): array {
                 'body' => "The wormholes in a galaxy are now arranged as a branching, self-similar tree that grows out of their shared keywords, instead of floating in a loose cloud. The threads of meaning are easier to follow, and it is the same organic shape across every theme. This changes only how the scene is laid out: a galaxy is still a rhizome, with no folders or parents underneath, and the arrangement is worked out fresh each time the scene loads.",
             ],
             'vine-theme' => [
-                'date' => 'October 2026',
+                'date' => 'September 2026',
                 'title' => "Vine, an organic theme for a galaxy",
                 'body' => "A galaxy can now be shown in Vine, a theme that draws its connections as warm, sap-coloured vines winding across a deep night-blue field, with the wormholes as small glowing points. It leans into the branching tree layout, so a galaxy reads like something grown rather than mapped. Each editor can choose it for a galaxy alongside the other themes.",
             ],
             'galaxy-shape' => [
-                'date' => 'October 2026',
+                'date' => 'September 2026',
                 'title' => "See the shape of a galaxy",
                 'body' => "Two new ways to read a galaxy's structure arrived. Editors and operators can open a Galaxy shape panel that measures how a galaxy's wormholes connect and describes it in plain language, with a few charts for those who want them. And in any galaxy, a Density map button tints the wormholes by how tightly their neighbours cluster, from cool where the web is sparse to warm where it is dense, so busy and quiet regions stand out at a glance.",
             ],
@@ -460,12 +460,12 @@ function pluriverse_changelog(string $locale): array {
                 'body' => "Los agujeros de gusano de una galaxia ahora se organizan como un árbol ramificado y autosimilar que crece a partir de sus palabras clave compartidas, en lugar de flotar en una nube suelta. Los hilos de sentido se siguen con más facilidad, y es la misma forma orgánica en todos los temas. Esto solo cambia cómo se dispone la escena: una galaxia sigue siendo un rizoma, sin carpetas ni jerarquías debajo, y la disposición se calcula de nuevo cada vez que se abre la escena.",
             ],
             'vine-theme' => [
-                'date' => 'Octubre de 2026',
+                'date' => 'Septiembre de 2026',
                 'title' => "Enredadera, un tema orgánico para una galaxia",
                 'body' => "Una galaxia ahora puede mostrarse con Enredadera, un tema que dibuja sus conexiones como enredaderas cálidas, del color de la savia, que serpentean sobre un fondo azul noche profundo, con los agujeros de gusano como pequeños puntos luminosos. Se apoya en la disposición de árbol ramificado, de modo que una galaxia se ve como algo cultivado y no trazado. Cada persona editora puede elegirlo para una galaxia junto a los demás temas.",
             ],
             'galaxy-shape' => [
-                'date' => 'Octubre de 2026',
+                'date' => 'Septiembre de 2026',
                 'title' => "Ver la forma de una galaxia",
                 'body' => "Llegaron dos maneras nuevas de leer la estructura de una galaxia. Quienes editan y operan pueden abrir un panel de Forma de la galaxia que mide cómo se conectan sus agujeros de gusano y lo describe en lenguaje claro, con algunos gráficos para quien los quiera. Y en cualquier galaxia, un botón de Mapa de densidad tiñe los agujeros de gusano según qué tan juntos se agrupan sus vecinos, de frío donde la red es escasa a cálido donde es densa, para que las zonas activas y las tranquilas se distingan de un vistazo.",
             ],
@@ -637,12 +637,12 @@ function pluriverse_changelog(string $locale): array {
                 'body' => "Os buracos de minhoca de uma galáxia agora se organizam como uma árvore ramificada e autossimilar que cresce a partir de suas palavras-chave compartilhadas, em vez de flutuar em uma nuvem solta. Os fios de sentido ficam mais fáceis de seguir, e é a mesma forma orgânica em todos os temas. Isso muda apenas como a cena é disposta: uma galáxia continua sendo um rizoma, sem pastas nem hierarquias por baixo, e a disposição é recalculada cada vez que a cena abre.",
             ],
             'vine-theme' => [
-                'date' => 'Outubro de 2026',
+                'date' => 'Setembro de 2026',
                 'title' => "Trepadeira, um tema orgânico para uma galáxia",
                 'body' => "Uma galáxia agora pode ser exibida com Trepadeira, um tema que desenha suas conexões como trepadeiras quentes, da cor da seiva, que serpenteiam sobre um fundo azul-noite profundo, com os buracos de minhoca como pequenos pontos luminosos. Ele se apoia na disposição em árvore ramificada, de modo que uma galáxia parece algo cultivado e não mapeado. Cada pessoa que edita pode escolhê-lo para uma galáxia junto aos demais temas.",
             ],
             'galaxy-shape' => [
-                'date' => 'Outubro de 2026',
+                'date' => 'Setembro de 2026',
                 'title' => "Ver a forma de uma galáxia",
                 'body' => "Chegaram duas maneiras novas de ler a estrutura de uma galáxia. Quem edita e administra pode abrir um painel de Forma da galáxia que mede como seus buracos de minhoca se conectam e descreve isso em linguagem clara, com alguns gráficos para quem quiser. E em qualquer galáxia, um botão de Mapa de densidade colore os buracos de minhoca conforme o quão juntos seus vizinhos se agrupam, do frio onde a rede é esparsa ao quente onde é densa, para que as regiões movimentadas e as calmas se destaquem num relance.",
             ],
@@ -814,12 +814,12 @@ function pluriverse_changelog(string $locale): array {
                 'body' => "Les trous de ver d'une galaxie sont maintenant disposés comme un arbre ramifié et autosimilaire qui pousse à partir de leurs mots-clés partagés, au lieu de flotter dans un nuage lâche. Les fils de sens se suivent plus facilement, et c'est la même forme organique dans tous les thèmes. Cela ne change que la disposition de la scène: une galaxie reste un rhizome, sans dossiers ni hiérarchie en dessous, et la disposition est recalculée à chaque ouverture de la scène.",
             ],
             'vine-theme' => [
-                'date' => 'Octobre 2026',
+                'date' => 'Septembre 2026',
                 'title' => "Liane, un thème organique pour une galaxie",
                 'body' => "Une galaxie peut maintenant s'afficher en Liane, un thème qui dessine ses connexions comme des lianes chaudes, couleur de sève, qui serpentent sur un fond bleu nuit profond, avec les trous de ver comme de petits points lumineux. Il s'appuie sur la disposition en arbre ramifié, si bien qu'une galaxie se lit comme une chose cultivée plutôt que cartographiée. Chaque personne qui édite peut le choisir pour une galaxie parmi les autres thèmes.",
             ],
             'galaxy-shape' => [
-                'date' => 'Octobre 2026',
+                'date' => 'Septembre 2026',
                 'title' => "Voir la forme d'une galaxie",
                 'body' => "Deux nouvelles façons de lire la structure d'une galaxie sont arrivées. Les personnes qui éditent et administrent peuvent ouvrir un panneau Forme de la galaxie qui mesure comment ses trous de ver se connectent et le décrit en langage clair, avec quelques graphiques pour qui le souhaite. Et dans n'importe quelle galaxie, un bouton Carte de densité teinte les trous de ver selon la densité de regroupement de leurs voisins, du froid là où la toile est clairsemée au chaud là où elle est dense, afin que les zones animées et calmes ressortent d'un coup d'oeil.",
             ],

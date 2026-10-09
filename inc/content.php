@@ -234,6 +234,10 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'backstage-chat',
+        'tree-layout',
+        'vine-theme',
+        'galaxy-shape',
         'fractal-themes',
         'sound-themes',
         'rhizome-theme',
@@ -268,6 +272,26 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'backstage-chat' => [
+                'date' => 'October 2026',
+                'title' => "A private chat for the people who run an installation",
+                'body' => "The people who tend an installation, its editors and its administrators, now have a private chat built into Telaris. Everyone signed in shares one common room, and anyone can also start a direct message with another person or gather a few people into a named group. You can send images, video, and voice messages, and a link to a media file shows a preview you can play or download. It is only for signed-in editors and administrators; visitors never see it. Administrators can remove a message, and any message can be reported to every administrator, who can then set a temporary or permanent block.",
+            ],
+            'tree-layout' => [
+                'date' => 'October 2026',
+                'title' => "Every galaxy now branches like a tree",
+                'body' => "The wormholes in a galaxy are now arranged as a branching, self-similar tree that grows out of their shared keywords, instead of floating in a loose cloud. The threads of meaning are easier to follow, and it is the same organic shape across every theme. This changes only how the scene is laid out: a galaxy is still a rhizome, with no folders or parents underneath, and the arrangement is worked out fresh each time the scene loads.",
+            ],
+            'vine-theme' => [
+                'date' => 'October 2026',
+                'title' => "Vine, an organic theme for a galaxy",
+                'body' => "A galaxy can now be shown in Vine, a theme that draws its connections as warm, sap-coloured vines winding across a deep night-blue field, with the wormholes as small glowing points. It leans into the branching tree layout, so a galaxy reads like something grown rather than mapped. Each editor can choose it for a galaxy alongside the other themes.",
+            ],
+            'galaxy-shape' => [
+                'date' => 'October 2026',
+                'title' => "See the shape of a galaxy",
+                'body' => "Two new ways to read a galaxy's structure arrived. Editors and operators can open a Galaxy shape panel that measures how a galaxy's wormholes connect and describes it in plain language, with a few charts for those who want them. And in any galaxy, a Density map button tints the wormholes by how tightly their neighbours cluster, from cool where the web is sparse to warm where it is dense, so busy and quiet regions stand out at a glance.",
+            ],
             'fractal-themes' => [
                 'date' => 'August 2026',
                 'title' => 'Fractal backgrounds for a galaxy',
@@ -425,6 +449,26 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'backstage-chat' => [
+                'date' => 'Octubre de 2026',
+                'title' => "Un chat privado para quienes gestionan una instalación",
+                'body' => "Quienes cuidan una instalación, su equipo de edición y de administración, ahora tienen un chat privado dentro de Telaris. Todas las personas con sesión iniciada comparten una sala común, y cualquiera puede además iniciar un mensaje directo con otra persona o reunir a algunas en un grupo con nombre. Puedes enviar imágenes, video y mensajes de voz, y un enlace a un archivo de medios muestra una vista previa que puedes reproducir o descargar. Es solo para editores y administradores con sesión iniciada; quienes visitan nunca lo ven. La administración puede eliminar un mensaje, y cualquier mensaje puede reportarse a toda la administración, que luego puede aplicar un bloqueo temporal o permanente.",
+            ],
+            'tree-layout' => [
+                'date' => 'Octubre de 2026',
+                'title' => "Ahora cada galaxia se ramifica como un árbol",
+                'body' => "Los agujeros de gusano de una galaxia ahora se organizan como un árbol ramificado y autosimilar que crece a partir de sus palabras clave compartidas, en lugar de flotar en una nube suelta. Los hilos de sentido se siguen con más facilidad, y es la misma forma orgánica en todos los temas. Esto solo cambia cómo se dispone la escena: una galaxia sigue siendo un rizoma, sin carpetas ni jerarquías debajo, y la disposición se calcula de nuevo cada vez que se abre la escena.",
+            ],
+            'vine-theme' => [
+                'date' => 'Octubre de 2026',
+                'title' => "Enredadera, un tema orgánico para una galaxia",
+                'body' => "Una galaxia ahora puede mostrarse con Enredadera, un tema que dibuja sus conexiones como enredaderas cálidas, del color de la savia, que serpentean sobre un fondo azul noche profundo, con los agujeros de gusano como pequeños puntos luminosos. Se apoya en la disposición de árbol ramificado, de modo que una galaxia se ve como algo cultivado y no trazado. Cada persona editora puede elegirlo para una galaxia junto a los demás temas.",
+            ],
+            'galaxy-shape' => [
+                'date' => 'Octubre de 2026',
+                'title' => "Ver la forma de una galaxia",
+                'body' => "Llegaron dos maneras nuevas de leer la estructura de una galaxia. Quienes editan y operan pueden abrir un panel de Forma de la galaxia que mide cómo se conectan sus agujeros de gusano y lo describe en lenguaje claro, con algunos gráficos para quien los quiera. Y en cualquier galaxia, un botón de Mapa de densidad tiñe los agujeros de gusano según qué tan juntos se agrupan sus vecinos, de frío donde la red es escasa a cálido donde es densa, para que las zonas activas y las tranquilas se distingan de un vistazo.",
+            ],
             'fractal-themes' => [
                 'date' => 'Agosto de 2026',
                 'title' => 'Fondos fractales para una galaxia',
@@ -582,6 +626,26 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'backstage-chat' => [
+                'date' => 'Outubro de 2026',
+                'title' => "Um chat privado para quem administra uma instalação",
+                'body' => "Quem cuida de uma instalação, sua equipe de edição e de administração, agora tem um chat privado dentro do Telaris. Todas as pessoas com sessão iniciada compartilham uma sala comum, e qualquer uma pode também iniciar uma mensagem direta com outra pessoa ou reunir algumas em um grupo com nome. Você pode enviar imagens, vídeo e mensagens de voz, e um link para um arquivo de mídia mostra uma prévia que você pode reproduzir ou baixar. É apenas para editores e administradores com sessão iniciada; quem visita nunca vê. A administração pode remover uma mensagem, e qualquer mensagem pode ser denunciada a toda a administração, que então pode aplicar um bloqueio temporário ou permanente.",
+            ],
+            'tree-layout' => [
+                'date' => 'Outubro de 2026',
+                'title' => "Agora cada galáxia se ramifica como uma árvore",
+                'body' => "Os buracos de minhoca de uma galáxia agora se organizam como uma árvore ramificada e autossimilar que cresce a partir de suas palavras-chave compartilhadas, em vez de flutuar em uma nuvem solta. Os fios de sentido ficam mais fáceis de seguir, e é a mesma forma orgânica em todos os temas. Isso muda apenas como a cena é disposta: uma galáxia continua sendo um rizoma, sem pastas nem hierarquias por baixo, e a disposição é recalculada cada vez que a cena abre.",
+            ],
+            'vine-theme' => [
+                'date' => 'Outubro de 2026',
+                'title' => "Trepadeira, um tema orgânico para uma galáxia",
+                'body' => "Uma galáxia agora pode ser exibida com Trepadeira, um tema que desenha suas conexões como trepadeiras quentes, da cor da seiva, que serpenteiam sobre um fundo azul-noite profundo, com os buracos de minhoca como pequenos pontos luminosos. Ele se apoia na disposição em árvore ramificada, de modo que uma galáxia parece algo cultivado e não mapeado. Cada pessoa que edita pode escolhê-lo para uma galáxia junto aos demais temas.",
+            ],
+            'galaxy-shape' => [
+                'date' => 'Outubro de 2026',
+                'title' => "Ver a forma de uma galáxia",
+                'body' => "Chegaram duas maneiras novas de ler a estrutura de uma galáxia. Quem edita e administra pode abrir um painel de Forma da galáxia que mede como seus buracos de minhoca se conectam e descreve isso em linguagem clara, com alguns gráficos para quem quiser. E em qualquer galáxia, um botão de Mapa de densidade colore os buracos de minhoca conforme o quão juntos seus vizinhos se agrupam, do frio onde a rede é esparsa ao quente onde é densa, para que as regiões movimentadas e as calmas se destaquem num relance.",
+            ],
             'fractal-themes' => [
                 'date' => 'Agosto de 2026',
                 'title' => 'Fundos fractais para uma galáxia',
@@ -739,6 +803,26 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'backstage-chat' => [
+                'date' => 'Octobre 2026',
+                'title' => "Un chat privé pour les personnes qui gèrent une installation",
+                'body' => "Les personnes qui prennent soin d'une installation, son équipe d'édition et d'administration, disposent maintenant d'un chat privé intégré à Telaris. Toutes les personnes connectées partagent un salon commun, et chacune peut aussi ouvrir un message direct avec une autre personne ou réunir quelques personnes dans un groupe nommé. Vous pouvez envoyer des images, des vidéos et des messages vocaux, et un lien vers un fichier média affiche un aperçu que vous pouvez lire ou télécharger. C'est réservé aux éditeurs et administrateurs connectés; les visiteurs ne le voient jamais. L'administration peut supprimer un message, et tout message peut être signalé à toute l'administration, qui peut alors appliquer un blocage temporaire ou permanent.",
+            ],
+            'tree-layout' => [
+                'date' => 'Octobre 2026',
+                'title' => "Chaque galaxie se ramifie désormais comme un arbre",
+                'body' => "Les trous de ver d'une galaxie sont maintenant disposés comme un arbre ramifié et autosimilaire qui pousse à partir de leurs mots-clés partagés, au lieu de flotter dans un nuage lâche. Les fils de sens se suivent plus facilement, et c'est la même forme organique dans tous les thèmes. Cela ne change que la disposition de la scène: une galaxie reste un rhizome, sans dossiers ni hiérarchie en dessous, et la disposition est recalculée à chaque ouverture de la scène.",
+            ],
+            'vine-theme' => [
+                'date' => 'Octobre 2026',
+                'title' => "Liane, un thème organique pour une galaxie",
+                'body' => "Une galaxie peut maintenant s'afficher en Liane, un thème qui dessine ses connexions comme des lianes chaudes, couleur de sève, qui serpentent sur un fond bleu nuit profond, avec les trous de ver comme de petits points lumineux. Il s'appuie sur la disposition en arbre ramifié, si bien qu'une galaxie se lit comme une chose cultivée plutôt que cartographiée. Chaque personne qui édite peut le choisir pour une galaxie parmi les autres thèmes.",
+            ],
+            'galaxy-shape' => [
+                'date' => 'Octobre 2026',
+                'title' => "Voir la forme d'une galaxie",
+                'body' => "Deux nouvelles façons de lire la structure d'une galaxie sont arrivées. Les personnes qui éditent et administrent peuvent ouvrir un panneau Forme de la galaxie qui mesure comment ses trous de ver se connectent et le décrit en langage clair, avec quelques graphiques pour qui le souhaite. Et dans n'importe quelle galaxie, un bouton Carte de densité teinte les trous de ver selon la densité de regroupement de leurs voisins, du froid là où la toile est clairsemée au chaud là où elle est dense, afin que les zones animées et calmes ressortent d'un coup d'oeil.",
+            ],
             'fractal-themes' => [
                 'date' => 'Août 2026',
                 'title' => 'Des fonds fractals pour une galaxie',

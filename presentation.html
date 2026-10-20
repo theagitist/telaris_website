@@ -862,27 +862,27 @@
                 <h2 id="s6-title">What it looks like.</h2>
                 <div class="shot-3up">
                     <figure class="shot">
-                        <img src="/assets/presentation/galaxy.jpg" alt="A Telaris galaxy: image-wormholes floating in 3D space above a grid, with pastel keyword chips along the bottom.">
-                        <figcaption>A galaxy of wormholes, with its keywords</figcaption>
+                        <img src="/assets/presentation/magines-galaxy.jpg" alt="The MAGINES galaxy: over a hundred wormholes on a deep blue field, joined by glowing keyword threads.">
+                        <figcaption>A galaxy, woven by its keywords</figcaption>
                     </figure>
                     <figure class="shot">
-                        <img src="/assets/presentation/space.jpg" alt="The Telaris hub: portals to other galaxies spread across a receding 3D grid.">
-                        <figcaption>The hub: portals to every galaxy</figcaption>
+                        <img src="/assets/presentation/magines-cosmic.jpg" alt="A Telaris galaxy in the cosmic theme: star-shaped wormholes scattered across a black starfield.">
+                        <figcaption>The same engine, a cosmic field</figcaption>
                     </figure>
                     <figure class="shot">
-                        <img src="/assets/presentation/cluster.jpg" alt="A Telaris cluster: dozens of image-wormholes from several galaxies gathered into one dense 3D field.">
-                        <figcaption>A cluster: many galaxies as one field</figcaption>
+                        <img src="/assets/presentation/magines-rhizome.jpg" alt="A Telaris galaxy in the light Rhizome theme: small grey nodes joined by a dense web of lines over a pale grid.">
+                        <figcaption>Rhizome: every connection drawn</figcaption>
                     </figure>
                 </div>
-                <p class="muted" style="margin-top: 1.25rem;">Every tile is a wormhole. You fly through galaxies; where they share keywords, they gather into clusters.</p>
+                <p class="muted" style="margin-top: 1.25rem;">Every point is a wormhole; every line is a shared keyword. Each galaxy chooses its own field.</p>
             </div>
             <aside class="speaker-notes" data-for="6">
                 <h4>Inside the cosmos &middot; ~35s</h4>
                 <ul>
-                    <li>Stop talking and let them look. This is a real Telaris instance (the grsj306 course demo), not a mockup.</li>
-                    <li>Left: a single galaxy. Each tile is a wormhole, here showing its image; the pastel words along the bottom are the keywords that link it to everything else.</li>
-                    <li>Middle: the hub, a galaxy made only of portals, one doorway per world. The grid gives the sense of moving through a space rather than scrolling a page.</li>
-                    <li>Right: a cluster. Several galaxies that share keywords, pulled into one dense field; nobody arranged it, the density is the shared vocabulary. The weave is emergent.</li>
+                    <li>Stop talking and let them look. This is a real, live Telaris archive (MAGINES, at magines.net), not a mockup.</li>
+                    <li>Left: the MAGINES galaxy itself, over a hundred wormholes. The bright threads are shared keywords; nobody drew them, they come from how the editors described their material.</li>
+                    <li>Middle: another galaxy on the same instance in the cosmic theme. Same engine, a different field: the form follows the content.</li>
+                    <li>Right: the Rhizome theme, light, with every connection drawn. The density is the shared vocabulary made visible. The weave is emergent.</li>
                     <li>Invite them to open it themselves later, or scan the QR at the end for the Pluriverse.</li>
                 </ul>
             </aside>
@@ -1046,6 +1046,7 @@
                     <li>What it is: the coordination layer at telaris.ca. Discovery, identity, trust. That is all; it holds no content.</li>
                     <li>Why we made it: federation needs somewhere to meet, but the moment the meeting point holds the content or sets the rules, you are back to a platform. So it is the smallest coordinator that works.</li>
                     <li>How federation works: an instance publishes a galaxy to chosen peers, those peers subscribe and pull a read-only mirror, and either side can revoke. The proof of "not a master": shut it down and every instance still has its own archive and everything shared with it.</li>
+                    <li>Be honest about scale: it is early. The network is small today, and the request form is how it grows. The architecture is ready for many peers; the peers are still arriving.</li>
                     <li>The name is the politics: Pluriverse, after Escobar and Mignolo, chosen over "registry" or "hub" to refuse the single-platform pattern.</li>
                 </ul>
             </aside>
@@ -1057,19 +1058,19 @@
                 <header class="slide-chapter"><span class="mark" data-mark="2"></span><span class="chapter-title">Beyond v1</span></header>
                 <h2 id="s13-title">Telaris as a framework anyone can run.</h2>
                 <div class="columns-3">
-                    <div class="col"><h3>Self-hosting</h3><p>The instance ships as a public container image. Standing up a sovereign archive is a pull away.</p></div>
-                    <div class="col"><h3>Requestable instances</h3><p>A planned form to ask for an instance, provisioned and federated on creation, so a community need not be technical to hold one.</p></div>
+                    <div class="col"><h3>Self-hosting</h3><p>The instance ships as a public container image. Standing up a sovereign archive is a pull away. The hosted tier runs on the same image, one container per instance.</p></div>
+                    <div class="col"><h3>Requestable instances</h3><p>Live at telaris.ca: ask for an instance, it is reviewed, then provisioned on its own subdomain and federated if you choose. A community need not be technical to hold one.</p></div>
                     <div class="col"><h3>The open weave</h3><p>Any community can run a peer. The Pluriverse coordinates the network; it never owns it.</p></div>
                 </div>
-                <p class="muted" style="margin-top: 1.25rem; font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;">2026 onward &middot; prototype &rarr; federation &rarr; many sovereign peers</p>
+                <p class="muted" style="margin-top: 1.25rem; font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;">2026 &middot; prototype &rarr; federation &rarr; requestable instances &middot; next: many sovereign peers</p>
             </div>
             <aside class="speaker-notes" data-for="13">
                 <h4>Beyond v1 &middot; ~45s</h4>
                 <ul>
                     <li>The lasting form of the project is the framework, not version one of any single archive. The goal is many sovereign peers, not one big site.</li>
-                    <li><strong>Self-hosting</strong> already exists: the instance is published as a public, multi-architecture container image. A technical operator can stand one up today.</li>
-                    <li><strong>Requestable instances</strong> is the next step and is roadmap, not shipped: a form where a community asks for an instance, which is then provisioned and auto-federated. The aim is to remove the technical barrier to sovereignty.</li>
-                    <li><strong>The open weave</strong> is the principle that holds it together: anyone can run a peer, and the Pluriverse only ever coordinates. Be candid that the provisioning and request flow is designed but not yet built.</li>
+                    <li><strong>Self-hosting</strong> already exists: the instance is published as a public, multi-architecture container image. A technical operator can stand one up today. The hosted instances run on that same image, one container each, so the framework is already running the platform itself.</li>
+                    <li><strong>Requestable instances</strong> is shipped: the form is live at telaris.ca/request-instance. A community confirms its email, a person reviews the request, and the instance is provisioned on its own subdomain, federated if they ticked the box. The aim is to remove the technical barrier to sovereignty.</li>
+                    <li><strong>The open weave</strong> is the principle that holds it together: anyone can run a peer, and the Pluriverse only ever coordinates. Be candid that the network is still small: the machinery is built, the many peers are what comes next.</li>
                 </ul>
             </aside>
         </section>
@@ -1128,7 +1129,7 @@
     </main>
 
     <footer class="deck-hint faded" role="contentinfo">
-        <kbd>&larr;</kbd> <kbd>&rarr;</kbd> navigate &middot; <kbd>1</kbd>&ndash;<kbd>9</kbd> jump &middot; <kbd>O</kbd> overview &middot; <kbd>S</kbd> notes &middot; <kbd>W</kbd> presenter &middot; <kbd>F</kbd> fullscreen &middot; <kbd>P</kbd> print
+        <kbd>&larr;</kbd> <kbd>&rarr;</kbd> navigate &middot; type a number to jump &middot; <kbd>O</kbd> overview &middot; <kbd>S</kbd> notes &middot; <kbd>W</kbd> presenter &middot; <kbd>F</kbd> fullscreen &middot; <kbd>P</kbd> print
     </footer>
 
     <aside class="overview" id="overview" aria-label="All slides" aria-hidden="true">

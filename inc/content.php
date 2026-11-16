@@ -234,6 +234,8 @@ function pluriverse_docs(string $locale): array {
 function pluriverse_changelog(string $locale): array {
     // Newest first.
     $order = [
+        'drawn-maps',
+        'freeform-pages',
         'backstage-chat',
         'tree-layout',
         'vine-theme',
@@ -272,6 +274,16 @@ function pluriverse_changelog(string $locale): array {
     ];
     $i18n = [
         'en' => [
+            'drawn-maps' => [
+                'date' => 'November 2026',
+                'title' => "Draw the map of a galaxy by hand",
+                'body' => "Editors can now draw the map of a galaxy themselves. In the new Map editor they place each wormhole where it belongs, draw paths from one wormhole to the next, and record named routes. A path can run one way or both ways. Visitors see the same arrangement in 2D and in 3D, with light flowing along one-way paths toward where they lead, and each wormhole's card lists the places it leads to, so the way through a galaxy can be followed step by step. Once a galaxy has drawn paths, they replace the automatic keyword lines.",
+            ],
+            'freeform-pages' => [
+                'date' => 'November 2026',
+                'title' => "Richer freeform pages",
+                'body' => "Freeform pages inside a wormhole gained new tools: objects can be rotated and given rounded corners, text can use a wider set of fonts and its own padding, and a page can play a video as its background. Pages now fit a phone screen without losing their arrangement, linked objects stay visible and clickable, and a background image keeps in step with the objects drawn over it. Pages that embed each other, endlessly, now load a few levels at a time, with a button to go deeper.",
+            ],
             'backstage-chat' => [
                 'date' => 'October 2026',
                 'title' => "A private chat for the people who run an installation",
@@ -449,6 +461,16 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'es' => [
+            'drawn-maps' => [
+                'date' => 'Noviembre de 2026',
+                'title' => "Dibujar a mano el mapa de una galaxia",
+                'body' => "Quienes editan ahora pueden dibujar el mapa de una galaxia. En el nuevo Editor de mapa ubican cada agujero de gusano donde corresponde, trazan caminos de uno a otro y graban rutas con nombre. Un camino puede ir en un solo sentido o en ambos. Quienes visitan ven la misma disposición en 2D y en 3D, con luz que fluye por los caminos de un solo sentido hacia su destino, y la ficha de cada agujero de gusano muestra a dónde lleva, así se puede recorrer la galaxia paso a paso. Cuando una galaxia tiene caminos trazados, estos reemplazan las líneas automáticas de palabras clave.",
+            ],
+            'freeform-pages' => [
+                'date' => 'Noviembre de 2026',
+                'title' => "Páginas de formato libre más ricas",
+                'body' => "Las páginas de formato libre dentro de un agujero de gusano tienen nuevas herramientas: los objetos se pueden rotar y redondear en las esquinas, el texto admite más tipografías y su propio margen interior, y una página puede usar un video como fondo. Las páginas ahora se ajustan a la pantalla del teléfono sin perder su disposición, los objetos con enlace siguen visibles y se pueden pulsar, y la imagen de fondo acompaña a los objetos dibujados encima. Las páginas que se incrustan unas en otras, sin fin, ahora cargan unos pocos niveles a la vez, con un botón para ir más hondo.",
+            ],
             'backstage-chat' => [
                 'date' => 'Octubre de 2026',
                 'title' => "Un chat privado para quienes gestionan una instalación",
@@ -626,6 +648,16 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'pt' => [
+            'drawn-maps' => [
+                'date' => 'Novembro de 2026',
+                'title' => "Desenhar à mão o mapa de uma galáxia",
+                'body' => "Quem edita agora pode desenhar o mapa de uma galáxia. No novo Editor de mapa, posiciona cada buraco de minhoca onde ele deve ficar, traça caminhos de um a outro e grava rotas com nome. Um caminho pode ser de mão única ou de mão dupla. Quem visita vê a mesma disposição em 2D e em 3D, com luz fluindo pelos caminhos de mão única em direção ao destino, e o cartão de cada buraco de minhoca mostra para onde ele leva, assim é possível percorrer a galáxia passo a passo. Quando uma galáxia tem caminhos traçados, eles substituem as linhas automáticas de palavras-chave.",
+            ],
+            'freeform-pages' => [
+                'date' => 'Novembro de 2026',
+                'title' => "Páginas de formato livre mais ricas",
+                'body' => "As páginas de formato livre dentro de um buraco de minhoca ganharam novas ferramentas: os objetos podem ser girados e ter cantos arredondados, o texto aceita mais fontes e seu próprio espaçamento interno, e uma página pode usar um vídeo como fundo. As páginas agora se ajustam à tela do celular sem perder a disposição, os objetos com link continuam visíveis e clicáveis, e a imagem de fundo acompanha os objetos desenhados por cima. Páginas que se incorporam umas nas outras, sem fim, agora carregam alguns níveis de cada vez, com um botão para ir mais fundo.",
+            ],
             'backstage-chat' => [
                 'date' => 'Outubro de 2026',
                 'title' => "Um chat privado para quem administra uma instalação",
@@ -803,6 +835,16 @@ function pluriverse_changelog(string $locale): array {
             ],
         ],
         'fr' => [
+            'drawn-maps' => [
+                'date' => 'Novembre 2026',
+                'title' => "Dessiner à la main la carte d'une galaxie",
+                'body' => "Les personnes qui éditent peuvent maintenant dessiner elles-mêmes la carte d'une galaxie. Dans le nouvel Éditeur de carte, elles placent chaque trou de ver là où il doit être, tracent des chemins de l'un à l'autre et enregistrent des parcours nommés. Un chemin peut aller dans un seul sens ou dans les deux. Qui visite voit la même disposition en 2D et en 3D, avec une lumière qui coule le long des chemins à sens unique vers leur destination, et la fiche de chaque trou de ver indique où il mène, pour suivre la galaxie pas à pas. Dès qu'une galaxie a des chemins tracés, ils remplacent les lignes automatiques de mots-clés.",
+            ],
+            'freeform-pages' => [
+                'date' => 'Novembre 2026',
+                'title' => "Des pages en forme libre plus riches",
+                'body' => "Les pages en forme libre d'un trou de ver ont de nouveaux outils : les objets peuvent pivoter et avoir des coins arrondis, le texte accepte plus de polices et sa propre marge intérieure, et une page peut avoir une vidéo en arrière-plan. Les pages s'adaptent maintenant à l'écran du téléphone sans perdre leur disposition, les objets avec lien restent visibles et cliquables, et l'image de fond suit les objets dessinés par-dessus. Les pages qui s'intègrent les unes dans les autres, sans fin, se chargent maintenant quelques niveaux à la fois, avec un bouton pour aller plus loin.",
+            ],
             'backstage-chat' => [
                 'date' => 'Octobre 2026',
                 'title' => "Un chat privé pour les personnes qui gèrent une installation",
